@@ -11,12 +11,14 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 - [ ] As a player, I can reset my password.
 
 ## Starting a game
-- [ ] As a host, I can create a new game and configure turn timer (15/30/45/60s),
+- [x] As a host, I can create a new game and configure turn timer (15/30/45/60s),
       minimum word length (3/4/5 letters), and language.
-- [ ] As a host, I get a shareable invite link for the game lobby.
-- [ ] As a player, I can join a game via invite link.
-- [ ] As a player, I see who's in the lobby before the game starts, and the host can
-      start the game once ready.
+- [x] As a host, I get a shareable invite link for the game lobby.
+- [x] As a player, I can join a game via invite link.
+- [~] As a player, I see who's in the lobby before the game starts, and the host can
+      start the game once ready. Seeing the lobby live is done; the host's "Start
+      game" button is present but not yet wired to anything (lands with the
+      gameplay slice).
 
 ## Core gameplay
 - [ ] As the current player, I can turn over one tile from the bank on my turn.

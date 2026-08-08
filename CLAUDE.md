@@ -23,7 +23,7 @@ packages/protocol/ Shared TS types: commands, events, WS message shapes
 packages/redis/  Lua scripts + typed Redis client wrapper
 infrastructure/  docker-compose.yml for local dev (Node + Redis + Postgres)
 design-system/   Claude Design export (tokens, components, screen prototypes)
-docs/            decisions.md, user-stories.md
+docs/            decisions.md, user-stories.md, redis-schema.md
 ```
 
 Node/TS chosen over reviving the old Akka codebase — see "Why not Akka/Pekko" below.
@@ -32,7 +32,10 @@ Node/TS chosen over reviving the old Akka codebase — see "Why not Akka/Pekko" 
 
 - **Redis holds current game state** (pool, players, scores, turn index, deadline,
   seq number). All mutations happen via atomic Lua (`EVAL`) scripts — this is what
-  guarantees deterministic ordering when two players race on the same word.
+  guarantees deterministic ordering when two players race on the same word. See
+  `docs/redis-schema.md` for the exact key convention and state shape (already
+  in place from the lobby slice; gameplay fills in the fields it left at
+  defaults, not a reshape).
 - **Postgres holds durable history** (events, results) — written *after* Redis
   accepts a move, never on the critical path of resolving a race. Use Neon (or
   Supabase) for free-tier scale-to-zero Postgres, separate from Railway.
@@ -174,6 +177,20 @@ plays instead of on turns. Chosen as a simple technical proxy for "the table
 agrees nothing more can be formed," without an explicit voting/consensus mechanic.
 Swappable later for an explicit "any player can call it" or "all players confirm"
 mechanic without touching anything else.
+
+## Working conventions
+
+- **Check documentation when a user story completes or changes status.**
+  Whenever work moves a story in `docs/user-stories.md` to `[x]` or `[~]`,
+  check as part of that same piece of work whether `README.md` (Status/Stack/
+  Getting started), `docs/decisions.md` (if a real architecture or design
+  tradeoff was made along the way — new sections there follow the existing
+  Decision/Alternatives/Why format), or this file need updating too. Docs
+  that drift silently from what's actually built are worse than no docs.
+- **Commit messages**: a single gitmoji (https://gitmoji.dev/) matching the
+  change's nature, followed by a plain imperative-sentence subject and body.
+  No Conventional Commits-style scope prefixes (`feat:`, `fix:`, `docs:`,
+  etc.) and no ticket/issue numbers.
 
 ## Still open / not yet decided
 

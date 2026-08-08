@@ -277,6 +277,76 @@ path-of-least-resistance call, not a technically-forced one — worth rememberin
 if a future rewrite ever feels tempting, since there's no hidden technical debt
 being resolved by having chosen React specifically.
 
+## Lobby slice: routing and Redis schema
+
+**Decision**: one flat URL per game (`/:gameId`) for its entire lifecycle,
+rather than phase-specific URLs (`/lobby/:id`, `/play/:id`, `/game-over/:id`)
+with redirects between them. The single page reads `GameState.status`
+(`"lobby" | "playing" | "ended"`) from the live snapshot it's already
+subscribed to and renders the matching view — no client-side navigation on a
+phase transition.
+
+**Alternatives considered**: redirecting between phase-specific URLs as
+`status` changes. Rejected — it reintroduces the same navigation-timing race
+already hit and fixed once in this slice (see "Join Game merged into Lobby"
+below): whichever URL gets bookmarked/shared is only correct for one phase,
+so a "redirect if stale" check would be needed on load anyway, which the
+flat-URL approach gets for free by construction.
+
+**Namespace risk accepted**: `/:gameId` shares the URL root with any future
+static pages (Rules, Settings, Stats, Login — all sketched in the design
+system). Mitigated for free rather than engineered around: `makeGameId()`
+already generates uppercase codes, and named routes are lowercase by
+convention, so there's no actual collision as long as that holds.
+
+**Decision**: Join Game merged into Lobby — there's no separate "preview
+before you join" page. An invite link always opens `/:gameId`; a player who
+hasn't joined yet sees the same lobby everyone else does, with a name field
+and "Join game" button in place of "Waiting for the host…". Joining updates
+the page in place over the existing WebSocket; nothing navigates.
+
+**Why**: the two pages were ~80% duplicated (config display, player list,
+join logic) before this change — a sign the split wasn't earning its keep.
+Merging removed a whole state transition (navigate-on-successful-join) and
+the "Joining…" flash it produced, and matches the actual mental model of an
+invite link: you land where you'll actually be playing, not somewhere you
+get redirected away from.
+
+**Decision**: Redis schema is one JSON blob per game
+(`game:{<gameId>}:state`), hash-tagged for future cluster-mode compatibility,
+plus a dedicated `:seq` key (atomic `INCR`) and a `:cmds` set for commandId
+dedup. Full convention and the `GameState` shape in `docs/redis-schema.md`.
+The shape is the *full* eventual game state (`status`, `turnPlayerIndex`,
+`turnDeadline`, `endGameDeadline`, `bankCount`, `pool`, `players[].words`/
+`.score`) from the start, not a lobby-only shape — the lobby slice just
+leaves gameplay fields at empty defaults, so later slices fill them in
+without a reshape or migration.
+
+**Known limitation, accepted for this slice**: join/leave is a read-modify-
+write (`GET` state, compute in JS, `SET` state back), not compare-and-swap —
+two genuinely concurrent joins on the same game could race. Consistent with
+this repo's standing rule of not reaching for Lua until a real race exists
+(see "Word resolution implementation split" above); the fix, if it's ever
+needed, is the same Node-resolves/Lua-reverifies pattern already planned for
+word resolution.
+
+**Decision**: broadcasting a lobby event (`PlayerJoined`/`PlayerLeft`) to
+every socket watching a game goes through Redis Pub/Sub rather than an
+in-process-only room map, even though there's only ever been one server
+process so far. This is what keeps "any node can handle any game's command"
+(the core architecture decision at the top of this file) true once there's
+more than one Node process — a node that isn't holding the socket in
+question still needs a way to reach it.
+
+**Decision**: a player's WebSocket disconnecting doesn't immediately remove
+them from the lobby — it schedules removal 3 seconds out, cancelled if the
+same `gameId`+`playerId` reconnects first (sent as `?player=` on the socket
+URL). Needed because each page opens its own socket: navigating within the
+app (New Game → Lobby, or a Lobby reload) closes one connection and opens
+another for the *same* player moments later, which a naive "remove on
+disconnect" mistook for that player actually leaving — including, in
+testing, the host getting bounced from their own just-created lobby.
+
 ## Explicitly still open
 
 - **Backend HTTP framework** for the handful of non-gameplay REST routes (auth,

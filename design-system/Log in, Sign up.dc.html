@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/semantic.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/radius.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/shadows.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/styles.css">
+  <script src="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/_ds_bundle.js"></script>
+  <style>
+    body { margin: 0; background: var(--paper); }
+    * { box-sizing: border-box; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accent-dark); }
+  </style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--paper);font-family:var(--font-body);display:flex;flex-direction:column">
+
+  <header style="padding:16px 24px;border-bottom:1px solid var(--border);background:var(--surface-card)">
+    <a href="Home.dc.html"><x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Wordmark" size="md" hint-size="140px,24px"></x-import></a>
+  </header>
+
+  <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:40px 20px">
+    <div style="width:100%;max-width:380px">
+      <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Card" hint-size="380px,480px">
+        <sc-if value="{{ isAuthMode }}" hint-placeholder-val="{{ true }}">
+          <button onClick="{{ signInWithGoogle }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:12px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);cursor:pointer;font-family:var(--font-body);font-weight:600;font-size:var(--text-base);color:var(--ink);margin-bottom:18px">
+            <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.13-.85 2.09-1.81 2.73v2.26h2.92c1.7-1.57 2.69-3.88 2.69-6.63z"></path><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.81.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.71H.9v2.33C2.38 15.98 5.44 18 9 18z"></path><path fill="#FBBC05" d="M3.97 10.71c-.18-.54-.28-1.11-.28-1.71s.1-1.17.28-1.71V4.96H.9C.33 6.09 0 7.51 0 9s.33 2.91.9 4.04l3.07-2.33z"></path><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0 5.44 0 2.38 2.02.9 4.96l3.07 2.33C4.68 5.16 6.66 3.58 9 3.58z"></path></svg>
+            Continue with Google
+          </button>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+            <div style="flex:1;height:1px;background:var(--border)"></div>
+            <span style="font-family:var(--font-body);font-size:var(--text-sm);color:var(--text-muted)">or</span>
+            <div style="flex:1;height:1px;background:var(--border)"></div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ isReset }}">
+          <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-lg);color:var(--ink);margin-bottom:6px">Reset your password</div>
+          <sc-if value="{{ resetSent }}">
+            <div style="font-family:var(--font-body);font-size:var(--text-sm);color:var(--text-secondary);margin-bottom:12px">If an account exists for {{ email }}, we've sent a reset link.</div>
+            <a href="{{ resetLinkHref }}" style="display:block;font-size:var(--text-sm);color:var(--text-muted);margin-bottom:20px">Open reset link (demo)</a>
+            <a href="#" onClick="{{ showLogin }}" style="font-size:var(--text-sm);font-weight:600">Back to log in</a>
+          </sc-if>
+          <sc-if value="{{ resetNotSent }}" hint-placeholder-val="{{ true }}">
+            <div style="font-family:var(--font-body);font-size:var(--text-sm);color:var(--text-secondary);margin-bottom:20px">Enter your email and we'll send you a link to reset it.</div>
+            <form onSubmit="{{ submitReset }}" style="display:flex;flex-direction:column;gap:14px">
+              <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Input" label="Email" placeholder="you@email.com" value="{{ email }}" onChange="{{ onEmailChange }}" error="{{ formError }}" hint-size="100%,64px"></x-import>
+              <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Button" type="submit" size="lg" hint-size="100%,48px">Send reset link</x-import>
+              <a href="#" onClick="{{ showLogin }}" style="font-size:var(--text-sm);font-weight:600;text-align:center">Back to log in</a>
+            </form>
+          </sc-if>
+        </sc-if>
+
+        <sc-if value="{{ isAuthMode }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;border-bottom:1px solid var(--border);margin-bottom:20px">
+            <button onClick="{{ showLogin }}" style="{{ loginTabStyle }}">Log in</button>
+            <button onClick="{{ showSignup }}" style="{{ signupTabStyle }}">Sign up</button>
+          </div>
+
+          <form onSubmit="{{ submit }}" style="display:flex;flex-direction:column;gap:14px">
+            <sc-if value="{{ isSignup }}">
+              <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Input" label="Name" placeholder="Your name" value="{{ name }}" onChange="{{ onNameChange }}" hint-size="100%,64px"></x-import>
+            </sc-if>
+            <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Input" label="Email" placeholder="you@email.com" value="{{ email }}" onChange="{{ onEmailChange }}" hint-size="100%,64px"></x-import>
+            <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Input" label="Password" placeholder="••••••••" value="{{ password }}" onChange="{{ onPasswordChange }}" error="{{ formError }}" hint-size="100%,64px"></x-import>
+            <sc-if value="{{ isLogin }}">
+              <a href="#" onClick="{{ showReset }}" style="font-size:var(--text-sm);font-weight:600;margin-top:-6px">Forgot password?</a>
+            </sc-if>
+            <div style="margin-top:6px">
+              <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Button" type="submit" size="lg" hint-size="100%,48px">{{ submitLabel }}</x-import>
+            </div>
+          </form>
+        </sc-if>
+      </x-import>
+    </div>
+  </div>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { mode: 'login', name: '', email: '', password: '', formError: '', resetSent: false };
+
+  showLogin = (e) => { if (e) e.preventDefault(); this.setState({ mode: 'login', formError: '', resetSent: false }); };
+  showSignup = () => this.setState({ mode: 'signup', formError: '' });
+  showReset = (e) => { e.preventDefault(); this.setState({ mode: 'reset', formError: '', resetSent: false }); };
+  onNameChange = (e) => this.setState({ name: e.target.value });
+  onEmailChange = (e) => this.setState({ email: e.target.value });
+  onPasswordChange = (e) => this.setState({ password: e.target.value });
+
+  submitReset = (e) => {
+    e.preventDefault();
+    if (!this.state.email.trim()) { this.setState({ formError: 'Required' }); return; }
+    this.setState({ resetSent: true, formError: '' });
+  };
+
+  getRedirect() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('redirect') || 'Home.dc.html';
+  }
+
+  signInWithGoogle = () => {
+    localStorage.setItem('anagrabble_user', JSON.stringify({ name: 'Alex Rivera', email: 'alex.rivera@gmail.com' }));
+    window.location.href = this.getRedirect();
+  };
+
+  submit = (e) => {
+    e.preventDefault();
+    const { mode, name, email, password } = this.state;
+    if (!email.trim() || !password.trim()) { this.setState({ formError: 'Required' }); return; }
+    if (mode === 'signup' && !name.trim()) { this.setState({ formError: 'Required' }); return; }
+    const displayName = mode === 'signup' ? name.trim() : (email.split('@')[0] || 'Player');
+    localStorage.setItem('anagrabble_user', JSON.stringify({ name: displayName, email: email.trim() }));
+    window.location.href = this.getRedirect();
+  };
+
+  renderVals() {
+    const { mode, name, email, password, formError, resetSent } = this.state;
+    const isLogin = mode === 'login';
+    const tabBase = { flex: 1, border: 'none', background: 'none', padding: '10px 0', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 'var(--text-base)', cursor: 'pointer' };
+    return {
+      name, email, password, formError,
+      isLogin, isSignup: mode === 'signup', isReset: mode === 'reset', isAuthMode: mode === 'login' || mode === 'signup',
+      resetSent, resetNotSent: !resetSent, resetLinkHref: 'Reset Password.dc.html?email=' + encodeURIComponent(email),
+      submitLabel: isLogin ? 'Log in' : 'Create account',
+      showLogin: this.showLogin, showSignup: this.showSignup, showReset: this.showReset, submitReset: this.submitReset,
+      onNameChange: this.onNameChange, onEmailChange: this.onEmailChange, onPasswordChange: this.onPasswordChange,
+      submit: this.submit, signInWithGoogle: this.signInWithGoogle,
+      loginTabStyle: { ...tabBase, color: isLogin ? 'var(--ink)' : 'var(--text-muted)', borderBottom: isLogin ? '2px solid var(--accent)' : '2px solid transparent' },
+      signupTabStyle: { ...tabBase, color: !isLogin ? 'var(--ink)' : 'var(--text-muted)', borderBottom: !isLogin ? '2px solid var(--accent)' : '2px solid transparent' },
+    };
+  }
+}
+
+</script>
+</body>
+</html>

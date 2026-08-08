@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/semantic.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/radius.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/shadows.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/styles.css">
+  <script src="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/_ds_bundle.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body { margin: 0; background: var(--paper); }
+    * { box-sizing: border-box; }
+  </style>
+</helmet>
+
+<div style="display:flex;flex-direction:column;height:100dvh;font-family:var(--font-body);background:var(--paper)">
+
+  <header style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);background:var(--surface-card)">
+    <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Wordmark" size="md" hint-size="140px,24px"></x-import>
+    <div style="display:flex;align-items:center;gap:18px;font-family:var(--font-body);font-size:var(--text-sm);color:var(--text-secondary)">
+      <span>{{ bankCount }} tiles left</span>
+      <button onClick="{{ openMenu }}" aria-label="Menu" style="background:none;border:none;padding:0;cursor:pointer;display:{{ menuButtonDisplay }};align-items:center">
+        <i data-lucide="menu" style="width:20px;height:20px;color:var(--text-muted)"></i>
+      </button>
+      <button onClick="{{ openSettingsModal }}" aria-label="Settings" style="background:none;border:none;padding:0;cursor:pointer;display:{{ settingsIconDisplay }};align-items:center">
+        <i data-lucide="settings" style="width:18px;height:18px;color:var(--text-muted)"></i>
+      </button>
+    </div>
+  </header>
+
+  <div style="display:{{ deskGridDisplay }};grid-template-columns:280px 1fr;flex:1;min-height:0">
+
+    <aside style="display:{{ railDisplay }};flex-direction:column;gap:24px;padding:20px;border-right:1px solid var(--border);background:var(--surface-card);overflow-y:auto">
+      <div style="display:flex;flex-direction:column;gap:var(--space-2)">
+        <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-sm);letter-spacing:var(--tracking-wider);color:var(--text-muted);text-transform:uppercase;margin-bottom:var(--space-2)">Players</div>
+        <sc-for list="{{ players }}" as="p" hint-placeholder-count="3">
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+            <span style="width:12px;height:12px;border-radius:2px;background:{{ p.color }};flex-shrink:0"></span>
+            <span style="flex:1;font-family:var(--font-body);font-weight:600;font-size:var(--text-base);color:var(--ink)">{{ p.name }}</span>
+            <span style="font-family:var(--font-display);font-weight:700;font-size:var(--text-base);color:var(--gold)">{{ p.score }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div>
+        <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-sm);letter-spacing:var(--tracking-wider);color:var(--text-muted);text-transform:uppercase;margin-bottom:var(--space-2)">Invite</div>
+        <div style="display:flex;gap:6px;align-items:center;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface-sunken)">
+          <span style="flex:1;font-family:var(--font-display);font-size:var(--text-xs);color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ shareLink }}</span>
+          <button onClick="{{ copyLink }}" aria-label="Copy link" style="background:none;border:none;padding:0;cursor:pointer;display:flex;flex-shrink:0">
+            <i data-lucide="{{ copyIconName }}" style="width:16px;height:16px;color:var(--text-muted)"></i>
+          </button>
+        </div>
+      </div>
+      <div>
+        <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-sm);letter-spacing:var(--tracking-wider);color:var(--text-muted);text-transform:uppercase;margin-bottom:var(--space-2)">History</div>
+        <div style="display:flex;flex-direction:column;gap:10px;max-height:280px;overflow-y:auto">
+          <sc-if value="{{ hasHistory }}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{ history }}" as="h" hint-placeholder-count="2">
+              <div style="display:flex;align-items:flex-start;gap:8px">
+                <span style="width:9px;height:9px;border-radius:2px;background:{{ h.color }};flex-shrink:0;margin-top:4px"></span>
+                <span style="font-family:var(--font-body);font-size:var(--text-sm);color:var(--ink);line-height:var(--leading-snug)">{{ h.text }}</span>
+              </div>
+            </sc-for>
+          </sc-if>
+          <sc-if value="{{ hasNoHistory }}">
+            <span style="color:var(--text-muted);font-size:var(--text-sm);font-family:var(--font-body)">No words played yet.</span>
+          </sc-if>
+        </div>
+      </div>
+    </aside>
+
+    <main style="display:flex;flex-direction:column;min-height:0;flex:1;min-width:0">
+      <div style="display:flex;flex-direction:column;gap:24px;padding:24px 28px;max-width:760px;margin:0 auto;width:100%;flex:1;overflow-y:auto;position:relative">
+
+        <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:var(--space-2)">
+            <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-sm);letter-spacing:var(--tracking-wider);color:var(--text-muted);text-transform:uppercase">Upturned tiles</div>
+            <button onClick="{{ turnTileHandler }}" disabled="{{ turnDisabled }}" style="{{ turnButtonStyle }}">
+              <span style="{{ turnProgressStyle }}"></span>
+              <span style="position:relative">{{ turnButtonLabel }}</span>
+              <sc-if value="{{ canTurn }}"><span style="position:relative;font-family:var(--font-display);font-weight:700">{{ timer }}s</span></sc-if>
+            </button>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;min-height:60px;padding:var(--space-4);background:var(--surface-sunken);border-radius:var(--radius-lg)">
+            <sc-if value="{{ poolEmpty }}">
+              <span style="color:var(--text-muted);font-family:var(--font-body);font-size:var(--text-sm);align-self:center">No tiles turned yet.</span>
+            </sc-if>
+            <sc-for list="{{ pool }}" as="letter" hint-placeholder-count="5">
+              <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.LetterTile" letter="{{ letter }}" hint-size="44px,44px"></x-import>
+            </sc-for>
+          </div>
+        </div>
+
+        <div>
+          <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-sm);letter-spacing:var(--tracking-wider);color:var(--text-muted);text-transform:uppercase;margin-bottom:10px">Everyone else's words</div>
+          <div style="background:var(--surface-sunken);border-radius:var(--radius-md);padding:12px;display:flex;flex-wrap:wrap;gap:6px">
+            <sc-if value="{{ hasOthersWords }}" hint-placeholder-val="{{ true }}">
+              <sc-for list="{{ othersWords }}" as="w" hint-placeholder-count="2">
+                <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.WordTag" word="{{ w.word }}" color="{{ w.color }}" shape="rounded" indicator="dot" hint-size="auto,26px"></x-import>
+              </sc-for>
+            </sc-if>
+            <sc-if value="{{ hasNoOthersWords }}">
+              <span style="color:var(--text-muted);font-size:var(--text-sm)">No words yet</span>
+            </sc-if>
+          </div>
+        </div>
+
+        <div>
+          <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-sm);letter-spacing:var(--tracking-wider);color:var(--text-muted);text-transform:uppercase;margin-bottom:10px">Your words</div>
+          <div style="background:var(--surface-sunken);border-radius:var(--radius-md);padding:12px;display:flex;flex-wrap:wrap;gap:6px">
+            <sc-if value="{{ hasMyWords }}" hint-placeholder-val="{{ true }}">
+              <sc-for list="{{ myWords }}" as="w" hint-placeholder-count="1">
+                <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.WordTag" word="{{ w.word }}" color="{{ w.color }}" shape="rounded" indicator="dot" hint-size="auto,26px"></x-import>
+              </sc-for>
+            </sc-if>
+            <sc-if value="{{ hasNoMyWords }}">
+              <span style="color:var(--text-muted);font-size:var(--text-sm)">No words yet</span>
+            </sc-if>
+          </div>
+        </div>
+
+      </div>
+
+      <sc-if value="{{ hasMessage }}">
+        <div style="position:relative">
+          <div style="position:absolute;left:0;right:0;bottom:8px;display:flex;justify-content:center;z-index:90;pointer-events:none">
+            <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Toast" tone="{{ messageTone }}" hint-size="auto,44px">{{ messageText }}</x-import>
+          </div>
+        </div>
+      </sc-if>
+
+      <div style="{{ wordBarDockStyle }}">
+        <div style="display:flex;gap:var(--space-3);align-items:flex-end;flex-wrap:wrap;max-width:760px;margin:0 auto;width:100%">
+          <div style="flex:1 1 200px;min-width:0">
+            <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Input" placeholder="Type a word…" size="lg" value="{{ value }}" onChange="{{ onValueChange }}" hint-size="100%,48px"></x-import>
+          </div>
+          <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Button" size="lg" onClick="{{ submitWord }}" hint-size="120px,48px">Play word</x-import>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <sc-if value="{{ settingsModalOpen }}">
+    <div onClick="{{ closeSettingsModal }}" style="position:fixed;inset:0;background:rgba(27,27,24,0.4);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px">
+      <div onClick="{{ stopClickProp }}" style="background:var(--surface-card);border-radius:var(--radius-lg);max-width:420px;width:100%;max-height:80vh;overflow-y:auto">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border)">
+          <span style="font-family:var(--font-display);font-weight:700;font-size:var(--text-lg);color:var(--ink)">Settings</span>
+          <button onClick="{{ closeSettingsModal }}" aria-label="Close" style="background:none;border:none;padding:0;cursor:pointer;display:flex">
+            <i data-lucide="x" style="width:20px;height:20px;color:var(--text-muted)"></i>
+          </button>
+        </div>
+        <div style="padding:20px;display:flex;flex-direction:column;gap:16px">
+          <div>
+            <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-sm);letter-spacing:var(--tracking-wider);color:var(--text-muted);text-transform:uppercase;margin-bottom:4px">Invite</div>
+            <div style="display:flex;gap:6px;align-items:center;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface-sunken)">
+              <span style="flex:1;font-family:var(--font-display);font-size:var(--text-xs);color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ shareLink }}</span>
+              <button onClick="{{ copyLink }}" aria-label="Copy link" style="background:none;border:none;padding:0;cursor:pointer;display:flex;flex-shrink:0">
+                <i data-lucide="{{ copyIconName }}" style="width:16px;height:16px;color:var(--text-muted)"></i>
+              </button>
+            </div>
+          </div>
+          <div>
+            <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-sm);letter-spacing:var(--tracking-wider);color:var(--text-muted);text-transform:uppercase;margin-bottom:4px">Game settings</div>
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+              <span style="flex:1;font-family:var(--font-body);font-size:var(--text-base);color:var(--ink)">Language</span>
+              <span style="font-family:var(--font-display);font-weight:700;font-size:var(--text-base);color:var(--ink)">English</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+              <span style="flex:1;font-family:var(--font-body);font-size:var(--text-base);color:var(--ink)">Minimum word length</span>
+              <span style="font-family:var(--font-display);font-weight:700;font-size:var(--text-base);color:var(--ink)">3 letters</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 0">
+              <span style="flex:1;font-family:var(--font-body);font-size:var(--text-base);color:var(--ink)">Turn timer</span>
+              <span style="font-family:var(--font-display);font-weight:700;font-size:var(--text-base);color:var(--ink)">30s</span>
+            </div>
+          </div>
+          <div>
+            <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-sm);letter-spacing:var(--tracking-wider);color:var(--text-muted);text-transform:uppercase;margin-bottom:4px">Your settings</div>
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+              <span style="flex:1;font-family:var(--font-body);font-size:var(--text-base);color:var(--ink)">Interface language</span>
+              <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Select" value="{{ interfaceLanguage }}" onChange="{{ onInterfaceLanguageChange }}" options="{{ interfaceLanguageOptions }}" hint-size="140px,36px"></x-import>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 0">
+              <span style="flex:1;font-family:var(--font-body);font-size:var(--text-base);color:var(--ink)">Sound effects</span>
+              <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Switch" checked="{{ soundOn }}" onChange="{{ toggleSound }}" hint-size="40px,22px"></x-import>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ mobileMenuOpen }}">
+    <div onClick="{{ closeMenu }}" style="position:fixed;inset:0;background:var(--surface-card);z-index:100;display:flex;flex-direction:column">
+      <div style="display:flex;flex-direction:column;height:100%" onClick="{{ stopClickProp }}">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);background:var(--surface-card)">
+          <span style="font-family:var(--font-display);font-weight:700;font-size:var(--text-lg);color:var(--ink)">Menu</span>
+          <button onClick="{{ closeMenu }}" aria-label="Close" style="background:none;border:none;padding:0;cursor:pointer;display:flex">
+            <i data-lucide="x" style="width:20px;height:20px;color:var(--text-muted)"></i>
+          </button>
+        </div>
+        <div style="padding:20px;display:flex;flex-direction:column;gap:16px;overflow-y:auto">
+          <div>
+            <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-sm);letter-spacing:var(--tracking-wider);color:var(--text-muted);text-transform:uppercase;margin-bottom:4px">Players</div>
+            <div style="display:flex;align-items:center;gap:10px;padding-bottom:8px">
+              <span style="width:12px;flex-shrink:0"></span>
+              <span style="flex:1"></span>
+              <span style="width:44px;text-align:right;font-family:var(--font-body);font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:var(--tracking-wide)">Words</span>
+              <span style="width:44px;text-align:right;font-family:var(--font-body);font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:var(--tracking-wide)">Score</span>
+            </div>
+            <sc-for list="{{ players }}" as="p" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+                <span style="width:12px;height:12px;border-radius:2px;background:{{ p.color }};flex-shrink:0"></span>
+                <span style="flex:1;font-family:var(--font-body);font-weight:600;font-size:var(--text-base);color:var(--ink)">{{ p.name }}</span>
+                <span style="width:44px;text-align:right;font-family:var(--font-display);font-weight:700;font-size:var(--text-base);color:var(--ink)">{{ p.wordCount }}</span>
+                <span style="width:44px;text-align:right;font-family:var(--font-display);font-weight:700;font-size:var(--text-base);color:var(--gold)">{{ p.score }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div>
+            <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-sm);letter-spacing:var(--tracking-wider);color:var(--text-muted);text-transform:uppercase;margin-bottom:4px">Invite</div>
+            <div style="display:flex;gap:6px;align-items:center;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface-sunken)">
+              <span style="flex:1;font-family:var(--font-display);font-size:var(--text-xs);color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ shareLink }}</span>
+              <button onClick="{{ copyLink }}" aria-label="Copy link" style="background:none;border:none;padding:0;cursor:pointer;display:flex;flex-shrink:0">
+                <i data-lucide="{{ copyIconName }}" style="width:16px;height:16px;color:var(--text-muted)"></i>
+              </button>
+            </div>
+          </div>
+          <div>
+            <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-sm);letter-spacing:var(--tracking-wider);color:var(--text-muted);text-transform:uppercase;margin-bottom:4px">Game settings</div>
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+              <span style="flex:1;font-family:var(--font-body);font-size:var(--text-base);color:var(--ink)">Language</span>
+              <span style="font-family:var(--font-display);font-weight:700;font-size:var(--text-base);color:var(--ink)">English</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+              <span style="flex:1;font-family:var(--font-body);font-size:var(--text-base);color:var(--ink)">Minimum word length</span>
+              <span style="font-family:var(--font-display);font-weight:700;font-size:var(--text-base);color:var(--ink)">3 letters</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 0">
+              <span style="flex:1;font-family:var(--font-body);font-size:var(--text-base);color:var(--ink)">Turn timer</span>
+              <span style="font-family:var(--font-display);font-weight:700;font-size:var(--text-base);color:var(--ink)">30s</span>
+            </div>
+          </div>
+          <div>
+            <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-sm);letter-spacing:var(--tracking-wider);color:var(--text-muted);text-transform:uppercase;margin-bottom:4px">Your settings</div>
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+              <span style="flex:1;font-family:var(--font-body);font-size:var(--text-base);color:var(--ink)">Interface language</span>
+              <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Select" value="{{ interfaceLanguage }}" onChange="{{ onInterfaceLanguageChange }}" options="{{ interfaceLanguageOptions }}" hint-size="140px,36px"></x-import>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+              <span style="flex:1;font-family:var(--font-body);font-size:var(--text-base);color:var(--ink)">Sound effects</span>
+              <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Switch" checked="{{ soundOn }}" onChange="{{ toggleSound }}" hint-size="40px,22px"></x-import>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 0">
+              <span style="flex:1;font-family:var(--font-body);font-size:var(--text-base);color:var(--ink)">Haptic feedback</span>
+              <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Switch" checked="{{ hapticsOn }}" onChange="{{ toggleHaptics }}" hint-size="40px,22px"></x-import>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const VALID_WORDS = new Set(['CAT','CATS','TAR','TARS','TARP','TARPS','CAR','CARS','ARC','ARCS','STAR','STARS','START','STARTS','RAT','RATS','ART','ARTS','SCAT','SCATS','CAST','CASTS','CART','CARTS','TRAP','TRAPS','PART','PARTS','SPAR','SPART','RATS','TSAR']);
+const BAG = 'AAAAAAAAABBCCDDDDEEEEEEEEEEEEFFGGGHHIIIIIIIIIJKLLLLMMNNNNNNOOOOOOOORRRRRRSSSSTTTTTTUUUUVVWWXYYZ'.split('');
+
+function letterCounts(str) { const m = {}; for (const c of str) m[c] = (m[c] || 0) + 1; return m; }
+function canForm(word, available) {
+  const need = letterCounts(word), have = letterCounts(available);
+  return Object.keys(need).every(k => (have[k] || 0) >= need[k]);
+}
+
+class Component extends DCLogic {
+  state = {
+    pool: ['C', 'A', 'S', 'T', 'R'],
+    bankCount: 84,
+    players: [
+      { name: 'You', words: ['CAT'], score: 3, color: 'var(--player-1)' },
+      { name: 'Sam', words: [], score: 0, color: 'var(--player-2)' },
+      { name: 'Jo', words: ['TAR'], score: 3, color: 'var(--player-3)' },
+      { name: 'Lee', words: ['ARC'], score: 3, color: 'var(--player-4)' },
+    ],
+    turn: 0,
+    timer: 30,
+    value: '',
+    message: null,
+    history: [],
+    soundOn: true,
+    mobileMenuOpen: false,
+    isMobile: typeof window !== 'undefined' && window.innerWidth < 840,
+    copied: false,
+    interfaceLanguage: 'English', haptics: true,
+    settingsModalOpen: false,
+  };
+  ME = 0;
+  msgTimer = null;
+
+  componentDidMount() {
+    const params = new URLSearchParams(window.location.search);
+    this.gameId = params.get('game') || 'DEMO';
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem('anagrabble_settings') || '{}'); } catch (e) {}
+    this.setState({ interfaceLanguage: saved.interfaceLanguage ?? 'English', haptics: saved.haptics ?? true, soundOn: saved.sound ?? true });
+    this.tickInterval = setInterval(() => {
+      this.setState(s => {
+        if (s.timer <= 1) { this.turnTile(); return { timer: 30 }; }
+        return { timer: s.timer - 1 };
+      });
+    }, 1000);
+    this.onResize = () => this.setState({ isMobile: window.innerWidth < 840 });
+    window.addEventListener('resize', this.onResize);
+    this.renderIcons();
+  }
+  componentDidUpdate() { this.renderIcons(); }
+  componentWillUnmount() {
+    clearInterval(this.tickInterval);
+    clearTimeout(this.msgTimer);
+    window.removeEventListener('resize', this.onResize);
+  }
+  renderIcons() { if (window.lucide) window.lucide.createIcons(); }
+
+  showMessage(msg) {
+    this.setState({ message: msg });
+    clearTimeout(this.msgTimer);
+    this.msgTimer = setTimeout(() => this.setState({ message: null }), 2200);
+  }
+
+  turnTile = () => {
+    const { bankCount, players } = this.state;
+    if (bankCount <= 0) return;
+    const letter = BAG[Math.floor(Math.random() * BAG.length)];
+    this.setState(s => ({
+      pool: [...s.pool, letter],
+      bankCount: s.bankCount - 1,
+      turn: (s.turn + 1) % s.players.length,
+      timer: 30,
+    }));
+  };
+
+  onValueChange = (e) => this.setState({ value: e.target.value });
+
+  submitWord = () => {
+    const { players, turn, pool } = this.state;
+    const word = this.state.value.trim().toUpperCase();
+    if (!word) return;
+    if (!VALID_WORDS.has(word)) { this.showMessage({ tone: 'error', text: 'Not a word we know.' }); return; }
+    if (players.some(p => p.words.includes(word))) { this.showMessage({ tone: 'error', text: 'That word is already taken.' }); return; }
+
+    const poolStr = pool.join('');
+    const stealFrom = players.findIndex(p => p.words.some(w => word.includes(w) && word !== w && canForm(word, poolStr + w)));
+    let sourceWord = null;
+    if (stealFrom !== -1) sourceWord = players[stealFrom].words.find(w => word.includes(w) && canForm(word, poolStr + w));
+    const availableLetters = sourceWord ? poolStr + sourceWord : poolStr;
+    if (!canForm(word, availableLetters)) { this.showMessage({ tone: 'error', text: "Those letters aren't on the board." }); return; }
+
+    let poolRemaining = letterCounts(poolStr);
+    for (const c of word) { if (poolRemaining[c] > 0) poolRemaining[c]--; }
+    const newPool = [];
+    const seen = { ...poolRemaining };
+    for (const l of pool) { if (seen[l] > 0) { newPool.push(l); seen[l]--; } }
+
+    const actor = players[turn];
+    const newPlayers = players.map((p, i) => {
+      if (i === stealFrom) return { ...p, words: p.words.filter(w => w !== sourceWord), score: p.score - sourceWord.length };
+      return p;
+    }).map((p, i) => i === turn ? { ...p, words: [...p.words, word], score: p.score + word.length } : p);
+
+    const histText = sourceWord
+      ? `${actor.name} stole ${sourceWord} from ${players[stealFrom].name} → ${word}`
+      : `${actor.name} played ${word}`;
+    this.setState(s => ({
+      pool: newPool, players: newPlayers, value: '',
+      history: [{ id: Date.now(), color: actor.color, text: histText }, ...s.history],
+    }));
+    this.showMessage({ tone: 'success', text: sourceWord ? `${word} steals ${sourceWord} from ${players[stealFrom].name}.` : `${word} taken.` });
+  };
+
+  openMenu = () => this.setState({ mobileMenuOpen: true });
+  closeMenu = () => this.setState({ mobileMenuOpen: false });
+  openSettingsModal = () => this.setState({ settingsModalOpen: true });
+  closeSettingsModal = () => this.setState({ settingsModalOpen: false });
+  stopClickProp = (e) => e.stopPropagation();
+  toggleSound = (v) => {
+    this.setState({ soundOn: v });
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem('anagrabble_settings') || '{}'); } catch (e) {}
+    localStorage.setItem('anagrabble_settings', JSON.stringify({ ...saved, sound: v }));
+  };
+  toggleHaptics = (v) => {
+    this.setState({ haptics: v });
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem('anagrabble_settings') || '{}'); } catch (e) {}
+    localStorage.setItem('anagrabble_settings', JSON.stringify({ ...saved, haptics: v }));
+  };
+  onInterfaceLanguageChange = (e) => {
+    const v = e.target.value;
+    this.setState({ interfaceLanguage: v });
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem('anagrabble_settings') || '{}'); } catch (e) {}
+    localStorage.setItem('anagrabble_settings', JSON.stringify({ ...saved, interfaceLanguage: v }));
+  };
+  copyLink = () => {
+    const base = window.location.href.replace(/In Game\.dc\.html.*$/, '');
+    navigator.clipboard.writeText(base + 'Join Game.dc.html?game=' + this.gameId).catch(() => {});
+    this.setState({ copied: true });
+    setTimeout(() => this.setState({ copied: false }), 1600);
+  };
+
+  renderVals() {
+    const { pool, bankCount, players, turn, timer, value, message, history, soundOn, mobileMenuOpen, isMobile, copied, interfaceLanguage, haptics, settingsModalOpen } = this.state;
+    const canTurn = turn === this.ME;
+    const urgent = canTurn && timer <= 5;
+    const pct = Math.max(0, Math.min(1, timer / 30));
+    const playersWithTurn = players.map((p, i) => ({ ...p, isTurn: i === turn, wordCount: p.words.length }));
+    const othersWords = players.flatMap((p, i) => i === this.ME ? [] : p.words.map(w => ({ word: w, color: p.color, key: p.name + w })));
+    const myWords = players[this.ME].words.map(w => ({ word: w, color: players[this.ME].color, key: w }));
+
+    return {
+      othersWords, hasOthersWords: othersWords.length > 0, hasNoOthersWords: othersWords.length === 0,
+      myWords, hasMyWords: myWords.length > 0, hasNoMyWords: myWords.length === 0,
+      bankCount, pool, poolEmpty: pool.length === 0,
+      players: playersWithTurn,
+      timer, canTurn,
+      turnDisabled: !canTurn,
+      turnButtonLabel: canTurn ? 'Turn a tile' : `${players[turn].name}'s turn`,
+      turnTileHandler: canTurn ? this.turnTile : undefined,
+      turnButtonStyle: {
+        position: 'relative', overflow: 'hidden', border: 'none', borderRadius: 'var(--radius-md)',
+        background: canTurn ? (urgent ? 'var(--error)' : 'var(--accent)') : 'var(--neutral-500)', color: '#fff',
+        cursor: canTurn ? 'pointer' : 'not-allowed', padding: '8px 14px',
+        fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 'var(--text-sm)',
+        display: 'flex', alignItems: 'center', gap: '8px',
+      },
+      turnProgressStyle: canTurn ? {
+        position: 'absolute', left: 0, top: 0, bottom: 0, width: (pct * 100) + '%',
+        background: 'rgba(255,255,255,0.22)', transition: 'width 1000ms linear',
+      } : { display: 'none' },
+      value, onValueChange: this.onValueChange, submitWord: this.submitWord,
+      hasMessage: !!message, messageTone: message ? message.tone : 'success', messageText: message ? message.text : '',
+      history, hasHistory: history.length > 0, hasNoHistory: history.length === 0,
+      soundOn, toggleSound: this.toggleSound,
+      interfaceLanguage, hapticsOn: haptics, toggleHaptics: this.toggleHaptics,
+      onInterfaceLanguageChange: this.onInterfaceLanguageChange,
+      interfaceLanguageOptions: [{ label: 'English', value: 'English' }, { label: 'Spanish', value: 'Spanish' }, { label: 'French', value: 'French' }],
+      mobileMenuOpen, openMenu: this.openMenu, closeMenu: this.closeMenu, stopClickProp: this.stopClickProp,
+      settingsModalOpen, openSettingsModal: this.openSettingsModal, closeSettingsModal: this.closeSettingsModal,
+      shareLink: window.location.href.replace(/In Game\.dc\.html.*$/, '') + 'Join Game.dc.html?game=' + this.gameId,
+      copyLink: this.copyLink, copyIconName: copied ? 'check' : 'copy',
+      wordBarDockStyle: isMobile ? {
+        position: 'sticky', bottom: 0, padding: '12px 16px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom))',
+        borderTop: '1px solid var(--border)', background: 'var(--surface-card)', boxShadow: '0 -2px 8px rgba(27,27,24,0.05)',
+      } : { padding: '0 28px 24px', width: '100%' },
+      menuButtonDisplay: isMobile ? 'flex' : 'none',
+      settingsIconDisplay: isMobile ? 'none' : 'flex',
+      deskGridDisplay: isMobile ? 'flex' : 'grid',
+      railDisplay: isMobile ? 'none' : 'flex',
+    };
+  }
+}
+</script>
+</body>
+</html>

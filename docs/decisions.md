@@ -256,15 +256,29 @@ protocol types shared without publishing an internal package, and keeps
 
 ---
 
+## Frontend framework: React + Vite
+
+**Decision**: React, added on top of the existing Vite scaffold in `apps/web`.
+
+**Alternatives considered**: Vue (comparable maturity, gentler learning curve),
+Svelte/SvelteKit (less boilerplate, smaller bundles, good fit given the app's
+modest UI surface — a handful of screens plus one real-time game view), no
+framework at all (defensible given how much of the real complexity is
+server-side, not UI-side).
+
+**Why React won**: Vite was already scaffolded with no framework decision baked
+in, so the marginal setup cost of adding React is small. No alternative had a
+technical edge specific to this app — the Claude Design prototype's state model
+(local component state, conditional rendering, list rendering) maps directly onto
+any of the candidates equally well. React was chosen for ecosystem depth and
+being the framework most likely to have the best available tooling/support if
+outside help or Claude Code assistance is needed later. This was a
+path-of-least-resistance call, not a technically-forced one — worth remembering
+if a future rewrite ever feels tempting, since there's no hidden technical debt
+being resolved by having chosen React specifically.
+
 ## Explicitly still open
 
-- **Frontend framework** (`apps/web` is currently plain TypeScript + Vite, no
-  framework). React was the working assumption in early conversation but never
-  actually confirmed. Options discussed: React (path of least resistance, best
-  ecosystem support), Vue, Svelte/SvelteKit (less boilerplate, good fit for this
-  app's modest UI surface), or no framework at all given the app's real
-  complexity is server-side. Scaffold deliberately left this undecided rather
-  than defaulting silently.
 - **Backend HTTP framework** for the handful of non-gameplay REST routes (auth,
   lobby, stats). Current scaffold uses Node's raw `http` module for a single
   `/health` route — sufficient for now. `ws` (raw WebSocket, no `socket.io`) is

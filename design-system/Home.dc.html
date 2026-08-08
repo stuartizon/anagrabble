@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/semantic.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/radius.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/shadows.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/styles.css">
+  <script src="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/_ds_bundle.js"></script>
+  <style>
+    body { margin: 0; background: var(--paper); }
+    * { box-sizing: border-box; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accent-dark); }
+  </style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--paper);font-family:var(--font-body);display:flex;flex-direction:column">
+
+  <header style="display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--border);background:var(--surface-card)">
+    <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Wordmark" size="md" hint-size="140px,24px"></x-import>
+    <sc-if value="{{ isLoggedIn }}" hint-placeholder-val="{{ false }}">
+      <div style="position:relative">
+        <button onClick="{{ toggleMenu }}" aria-label="Account menu" style="width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;font-family:var(--font-display);font-weight:700;font-size:var(--text-sm);display:flex;align-items:center;justify-content:center">{{ userInitial }}</button>
+        <sc-if value="{{ menuOpen }}">
+          <div onClick="{{ stopClickProp }}" style="position:absolute;right:0;top:42px;background:var(--surface-card);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-sm);min-width:160px;z-index:10;overflow:hidden">
+            <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-family:var(--font-body);font-size:var(--text-sm);color:var(--text-secondary)">{{ userName }}</div>
+            <a href="Stats.dc.html" style="display:block;padding:10px 14px;font-family:var(--font-body);font-size:var(--text-sm);color:var(--ink)">Stats</a>
+            <a href="Settings.dc.html" style="display:block;padding:10px 14px;font-family:var(--font-body);font-size:var(--text-sm);color:var(--ink)">Settings</a>
+            <button onClick="{{ logOut }}" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-family:var(--font-body);font-size:var(--text-sm);color:var(--ink)">Log out</button>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+    <sc-if value="{{ isLoggedOut }}">
+      <a href="Log in, Sign up.dc.html" style="font-size:var(--text-sm);font-weight:600">Log in</a>
+    </sc-if>
+  </header>
+
+  <section style="position:relative;min-height:460px;overflow:hidden">
+    <img src="assets/lifestyle-playing.png" alt="" style="{{ heroImageStyle }}">
+    <div style="position:absolute;inset:0 auto 0 0;width:{{ heroPanelWidth }};background:var(--paper);z-index:1"></div>
+    <div style="position:relative;z-index:2;min-height:460px;display:flex;align-items:center;padding:0 24px;width:{{ heroPanelWidth }};box-sizing:border-box">
+      <div>
+        <h1 style="font-family:var(--font-display);font-weight:700;font-size:clamp(32px,6vw,56px);line-height:var(--leading-tight);color:var(--ink);margin:0 0 18px">
+          Turn a letter. Take a word.
+        </h1>
+        <p style="font-family:var(--font-body);font-size:var(--text-lg);color:var(--text-secondary);margin:0 0 32px;line-height:var(--leading-normal)">
+          Spot a word, and it's yours — until someone else steals it. CAT becomes CAST. Add another letter, and you can steal it right back.
+        </p>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <a href="{{ createHref }}"><x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Button" size="lg" hint-size="auto,48px">Create a game</x-import></a>
+        </div>
+        <p style="font-family:var(--font-body);font-size:var(--text-sm);color:var(--text-muted);margin-top:20px">Got a link from a friend? Open it to join their game.</p>
+      </div>
+    </div>
+  </section>
+
+
+  <section style="padding:60px 24px 90px;background:var(--surface-card);flex:1">
+    <h2 style="text-align:center;font-family:var(--font-display);font-weight:700;font-size:var(--text-2xl);color:var(--ink);margin:0 0 40px">How it works</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;max-width:920px;margin:0 auto">
+      <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Card" hint-size="auto,180px">
+        <div style="display:flex;gap:6px;margin-bottom:16px">
+          <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.LetterTile" letter="C" size="sm" hint-size="32px,32px"></x-import>
+        </div>
+        <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-lg);color:var(--ink);margin-bottom:8px">1. Turn a tile</div>
+        <div style="font-family:var(--font-body);font-size:var(--text-base);color:var(--text-secondary);line-height:var(--leading-normal)">On your turn, flip one letter from the bank face-up. Everyone can see it.</div>
+      </x-import>
+      <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Card" hint-size="auto,180px">
+        <div style="display:flex;gap:6px;margin-bottom:16px">
+          <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.LetterTile" letter="C" size="sm" hint-size="32px,32px"></x-import>
+          <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.LetterTile" letter="A" size="sm" hint-size="32px,32px"></x-import>
+          <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.LetterTile" letter="T" size="sm" hint-size="32px,32px"></x-import>
+        </div>
+        <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-lg);color:var(--ink);margin-bottom:8px">2. Play a word</div>
+        <div style="font-family:var(--font-body);font-size:var(--text-base);color:var(--text-secondary);line-height:var(--leading-normal)">Spot a word in the upturned tiles? Type it. If it's real and the letters are there, it's yours.</div>
+      </x-import>
+      <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Card" hint-size="auto,180px">
+        <div style="display:flex;gap:6px;margin-bottom:16px">
+          <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.LetterTile" letter="C" size="sm" hint-size="32px,32px"></x-import>
+          <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.LetterTile" letter="A" size="sm" hint-size="32px,32px"></x-import>
+          <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.LetterTile" letter="S" size="sm" hint-size="32px,32px"></x-import>
+          <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.LetterTile" letter="T" size="sm" hint-size="32px,32px"></x-import>
+        </div>
+        <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-lg);color:var(--ink);margin-bottom:8px">3. Steal a word</div>
+        <div style="font-family:var(--font-body);font-size:var(--text-base);color:var(--text-secondary);line-height:var(--leading-normal)">Add letters to steal someone else's word. CAT + S = CAST, and it moves to your word list.</div>
+      </x-import>
+    </div>
+    <div style="text-align:center;margin-top:32px">
+      <a href="Rules.dc.html" style="font-size:var(--text-sm);font-weight:600">Read the full rules →</a>
+    </div>
+  </section>
+
+  <footer style="padding:28px 24px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);font-family:var(--font-body);font-size:var(--text-sm);color:var(--text-muted);background:var(--paper)">
+    <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Wordmark" size="sm" hint-size="110px,20px"></x-import>
+    <span>&copy; 2026 Anagrabble</span>
+  </footer>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{}">
+class Component extends DCLogic {
+  state = { user: null, isMobile: typeof window !== 'undefined' && window.innerWidth < 760, menuOpen: false };
+  componentDidMount() {
+    try { this.setState({ user: JSON.parse(localStorage.getItem('anagrabble_user') || 'null') }); } catch (e) {}
+    this.onResize = () => this.setState({ isMobile: window.innerWidth < 760 });
+    window.addEventListener('resize', this.onResize);
+    this.onDocClick = () => this.setState({ menuOpen: false });
+    document.addEventListener('click', this.onDocClick);
+  }
+  componentWillUnmount() { window.removeEventListener('resize', this.onResize); document.removeEventListener('click', this.onDocClick); }
+  toggleMenu = (e) => { e.stopPropagation(); this.setState(s => ({ menuOpen: !s.menuOpen })); };
+  stopClickProp = (e) => e.stopPropagation();
+  logOut = (e) => { e.preventDefault(); localStorage.removeItem('anagrabble_user'); this.setState({ user: null, menuOpen: false }); };
+  renderVals() {
+    const { user, isMobile, menuOpen } = this.state;
+    return {
+      isLoggedIn: !!user, isLoggedOut: !user,
+      userName: user ? user.name : '',
+      userInitial: user ? user.name.charAt(0).toUpperCase() : '',
+      menuOpen, toggleMenu: this.toggleMenu, stopClickProp: this.stopClickProp,
+      logOut: this.logOut,
+      createHref: user ? 'New Game.dc.html' : 'Log in, Sign up.dc.html?redirect=' + encodeURIComponent('New Game.dc.html'),
+      heroPanelWidth: isMobile ? '100%' : 'min(600px,92vw)',
+      heroImageStyle: isMobile
+        ? { display: 'none' }
+        : { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0 },
+    };
+  }
+}
+
+</script>
+</body>
+</html>

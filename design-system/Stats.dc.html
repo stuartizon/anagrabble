@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/semantic.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/radius.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/shadows.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/styles.css">
+  <script src="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/_ds_bundle.js"></script>
+  <style>
+    body { margin: 0; background: var(--paper); }
+    * { box-sizing: border-box; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accent-dark); }
+  </style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--paper);font-family:var(--font-body);display:flex;flex-direction:column">
+
+  <header style="display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--border);background:var(--surface-card)">
+    <a href="Home.dc.html"><x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Wordmark" size="md" hint-size="140px,24px"></x-import></a>
+    <sc-if value="{{ isLoggedIn }}">
+      <div style="position:relative">
+        <button onClick="{{ toggleMenu }}" aria-label="Account menu" style="width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;font-family:var(--font-display);font-weight:700;font-size:var(--text-sm);display:flex;align-items:center;justify-content:center">{{ userInitial }}</button>
+        <sc-if value="{{ menuOpen }}">
+          <div onClick="{{ stopClickProp }}" style="position:absolute;right:0;top:42px;background:var(--surface-card);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-sm);min-width:160px;z-index:10;overflow:hidden">
+            <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-family:var(--font-body);font-size:var(--text-sm);color:var(--text-secondary)">{{ userName }}</div>
+            <a href="Stats.dc.html" style="display:block;padding:10px 14px;font-family:var(--font-body);font-size:var(--text-sm);color:var(--ink)">Stats</a>
+            <a href="Settings.dc.html" style="display:block;padding:10px 14px;font-family:var(--font-body);font-size:var(--text-sm);color:var(--ink)">Settings</a>
+            <button onClick="{{ logOut }}" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-family:var(--font-body);font-size:var(--text-sm);color:var(--ink)">Log out</button>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+  </header>
+
+  <div style="flex:1;padding:40px 24px;display:flex;justify-content:center">
+    <div style="width:100%;max-width:720px">
+      <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-2xl);color:var(--ink);margin-bottom:24px">Your stats</div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:32px">
+        <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Card" hint-size="auto,90px">
+          <div style="font-family:var(--font-body);font-size:var(--text-sm);color:var(--text-muted);margin-bottom:6px">Games played</div>
+          <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-2xl);color:var(--ink)">{{ gamesPlayed }}</div>
+        </x-import>
+        <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Card" hint-size="auto,90px">
+          <div style="font-family:var(--font-body);font-size:var(--text-sm);color:var(--text-muted);margin-bottom:6px">Wins</div>
+          <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-2xl);color:var(--ink)">{{ wins }}</div>
+        </x-import>
+        <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Card" hint-size="auto,90px">
+          <div style="font-family:var(--font-body);font-size:var(--text-sm);color:var(--text-muted);margin-bottom:6px">Win rate</div>
+          <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-2xl);color:var(--ink)">{{ winRate }}%</div>
+        </x-import>
+        <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Card" hint-size="auto,90px">
+          <div style="font-family:var(--font-body);font-size:var(--text-sm);color:var(--text-muted);margin-bottom:6px">Average score</div>
+          <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-2xl);color:var(--gold)">{{ avgScore }}</div>
+        </x-import>
+        <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Card" hint-size="auto,90px">
+          <div style="font-family:var(--font-body);font-size:var(--text-sm);color:var(--text-muted);margin-bottom:6px">Highest score</div>
+          <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-2xl);color:var(--gold)">{{ highestScore }}</div>
+        </x-import>
+      </div>
+
+      <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Card" hint-size="auto,110px">
+        <div style="font-family:var(--font-body);font-size:var(--text-sm);color:var(--text-muted);margin-bottom:10px">Longest word</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <sc-for list="{{ longestWordTiles }}" as="l" hint-placeholder-count="8">
+            <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.LetterTile" letter="{{ l }}" hint-size="44px,44px"></x-import>
+          </sc-for>
+        </div>
+      </x-import>
+      <div style="margin-bottom:32px"></div>
+
+      <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Card" hint-size="auto,260px">
+        <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-sm);letter-spacing:var(--tracking-wider);color:var(--text-muted);text-transform:uppercase;margin-bottom:20px">Score, last {{ chartCount }} games</div>
+        <div style="display:flex;align-items:flex-end;gap:10px;height:160px">
+          <sc-for list="{{ chartBars }}" as="b" hint-placeholder-count="8">
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end">
+              <span style="font-family:var(--font-display);font-weight:700;font-size:var(--text-xs);color:var(--ink)">{{ b.score }}</span>
+              <div style="{{ b.barStyle }}"></div>
+              <span style="font-family:var(--font-body);font-size:var(--text-xs);color:var(--text-muted)">#{{ b.index }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </x-import>
+
+      <div style="margin-top:32px;margin-bottom:14px;font-family:var(--font-display);font-weight:700;font-size:var(--text-2xl);color:var(--ink)">Play style</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:20px">
+        <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Card" hint-size="auto,90px">
+          <div style="font-family:var(--font-body);font-size:var(--text-sm);color:var(--text-muted);margin-bottom:6px">Words stolen</div>
+          <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-2xl);color:var(--ink)">{{ wordsStolen }}</div>
+        </x-import>
+        <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Card" hint-size="auto,90px">
+          <div style="font-family:var(--font-body);font-size:var(--text-sm);color:var(--text-muted);margin-bottom:6px">Words lost</div>
+          <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-2xl);color:var(--ink)">{{ wordsLost }}</div>
+        </x-import>
+        <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Card" hint-size="auto,90px">
+          <div style="font-family:var(--font-body);font-size:var(--text-sm);color:var(--text-muted);margin-bottom:6px">Steal ratio</div>
+          <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-2xl);color:var(--accent)">{{ stealRatio }}</div>
+        </x-import>
+        <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Card" hint-size="auto,90px">
+          <div style="font-family:var(--font-body);font-size:var(--text-sm);color:var(--text-muted);margin-bottom:6px">Avg letters per steal</div>
+          <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-2xl);color:var(--ink)">{{ avgLettersPerSteal }}</div>
+        </x-import>
+        <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Card" hint-size="auto,90px">
+          <div style="font-family:var(--font-body);font-size:var(--text-sm);color:var(--text-muted);margin-bottom:6px">Fastest tile-to-word</div>
+          <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-2xl);color:var(--ink)">{{ fastestTileToWord }}</div>
+        </x-import>
+        <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Card" hint-size="auto,90px">
+          <div style="font-family:var(--font-body);font-size:var(--text-sm);color:var(--text-muted);margin-bottom:6px">Most stolen from</div>
+          <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-xl);color:var(--ink)">{{ mostStolenFromLabel }}</div>
+        </x-import>
+      </div>
+
+      <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Card" hint-size="auto,90px">
+        <div style="font-family:var(--font-body);font-size:var(--text-sm);color:var(--text-muted);margin-bottom:10px">Longest word chain</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <sc-for list="{{ longestChain }}" as="w" hint-placeholder-count="4">
+            <span style="display:inline-flex;align-items:center;justify-content:center;padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface-sunken);font-family:var(--font-display);font-weight:600;font-size:var(--text-sm);color:var(--ink)">{{ w.word }}</span>
+            <sc-if value="{{ w.showArrow }}"><span style="color:var(--text-muted);font-family:var(--font-body)">→</span></sc-if>
+          </sc-for>
+        </div>
+      </x-import>
+
+      <div style="margin-top:32px">
+        <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-sm);letter-spacing:var(--tracking-wider);color:var(--text-muted);text-transform:uppercase;margin-bottom:10px">Recent games</div>
+        <div style="border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden;background:var(--surface-card)">
+          <sc-for list="{{ recentGames }}" as="g" hint-placeholder-count="5">
+            <a href="{{ g.href }}" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border)">
+              <span style="flex:1;font-family:var(--font-body);font-size:var(--text-base);color:var(--ink)">{{ g.date }}</span>
+              <span style="font-family:var(--font-body);font-size:var(--text-sm);color:var(--text-muted)">{{ g.placeLabel }}</span>
+              <span style="width:50px;text-align:right;font-family:var(--font-display);font-weight:700;font-size:var(--text-base);color:var(--gold)">{{ g.score }}</span>
+            </a>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const DEMO_GAMES = [
+  { date: 'Aug 8', place: 1, score: 24, longestWord: 'STARTS' },
+  { date: 'Aug 6', place: 2, score: 17, longestWord: 'CARTS' },
+  { date: 'Aug 4', place: 1, score: 29, longestWord: 'FORECAST' },
+  { date: 'Jul 31', place: 3, score: 11, longestWord: 'PART' },
+  { date: 'Jul 28', place: 1, score: 21, longestWord: 'SCATS' },
+  { date: 'Jul 25', place: 2, score: 15, longestWord: 'TRAPS' },
+  { date: 'Jul 21', place: 4, score: 8, longestWord: 'ARC' },
+  { date: 'Jul 18', place: 1, score: 26, longestWord: 'CASTS' },
+];
+
+const PLAY_STYLE = {
+  wordsStolen: 34, wordsLost: 19, avgLettersPerSteal: 2.3, fastestTileToWord: '3.2s',
+  mostStolenFrom: { name: 'Sam', count: 6 },
+  longestChain: ['CAT', 'CAST', 'CASTS', 'FORECASTS'],
+};
+
+class Component extends DCLogic {
+  state = { user: null, menuOpen: false };
+
+  componentDidMount() {
+    try { this.setState({ user: JSON.parse(localStorage.getItem('anagrabble_user') || 'null') }); } catch (e) {}
+    this.onDocClick = () => this.setState({ menuOpen: false });
+    document.addEventListener('click', this.onDocClick);
+  }
+  componentWillUnmount() { document.removeEventListener('click', this.onDocClick); }
+  toggleMenu = (e) => { e.stopPropagation(); this.setState(s => ({ menuOpen: !s.menuOpen })); };
+  stopClickProp = (e) => e.stopPropagation();
+  logOut = (e) => { e.preventDefault(); localStorage.removeItem('anagrabble_user'); this.setState({ user: null }); };
+
+  ordinal(n) { const s = ['th', 'st', 'nd', 'rd']; const v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
+
+  renderVals() {
+    const { user, menuOpen } = this.state;
+    const gamesPlayed = DEMO_GAMES.length;
+    const wins = DEMO_GAMES.filter(g => g.place === 1).length;
+    const winRate = Math.round((wins / gamesPlayed) * 100);
+    const avgScore = Math.round(DEMO_GAMES.reduce((s, g) => s + g.score, 0) / gamesPlayed);
+    const maxScore = Math.max(...DEMO_GAMES.map(g => g.score));
+    const highestScore = maxScore;
+    const longestWord = DEMO_GAMES.reduce((a, b) => b.longestWord.length > a.longestWord.length ? b : a).longestWord;
+    const chartGames = [...DEMO_GAMES].reverse();
+    const chartBars = chartGames.map((g, i) => ({
+      index: i + 1, score: g.score,
+      barStyle: { width: '100%', maxWidth: '28px', borderRadius: '4px 4px 0 0', background: g.place === 1 ? 'var(--accent)' : 'var(--neutral-500)', height: Math.max(6, Math.round((g.score / maxScore) * 130)) + 'px' },
+    }));
+    const recentGames = DEMO_GAMES.map((g, i) => ({ date: g.date, score: g.score, placeLabel: this.ordinal(g.place) + ' place', href: 'Game Over.dc.html?game=' + i }));
+    return {
+      isLoggedIn: !!user, userName: user ? user.name : '', userInitial: user ? user.name.charAt(0).toUpperCase() : '',
+      menuOpen, toggleMenu: this.toggleMenu, stopClickProp: this.stopClickProp, logOut: this.logOut,
+      gamesPlayed, wins, winRate, avgScore, highestScore, longestWord, longestWordTiles: longestWord.split(''),
+      wordsStolen: PLAY_STYLE.wordsStolen, wordsLost: PLAY_STYLE.wordsLost,
+      stealRatio: (PLAY_STYLE.wordsStolen / PLAY_STYLE.wordsLost).toFixed(1),
+      avgLettersPerSteal: PLAY_STYLE.avgLettersPerSteal, fastestTileToWord: PLAY_STYLE.fastestTileToWord,
+      mostStolenFromLabel: `${PLAY_STYLE.mostStolenFrom.name} (${PLAY_STYLE.mostStolenFrom.count}\u00d7)`,
+      longestChain: PLAY_STYLE.longestChain.map((w, i) => ({ word: w, showArrow: i < PLAY_STYLE.longestChain.length - 1 })),
+      chartCount: chartGames.length, chartBars,
+      recentGames,
+    };
+  }
+}
+
+</script>
+</body>
+</html>

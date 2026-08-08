@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/semantic.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/radius.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/shadows.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/styles.css">
+  <script src="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/_ds_bundle.js"></script>
+  <style>
+    body { margin: 0; background: var(--paper); }
+    * { box-sizing: border-box; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accent-dark); }
+  </style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--paper);font-family:var(--font-body);display:flex;flex-direction:column">
+
+  <header style="display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--border);background:var(--surface-card)">
+    <a href="Home.dc.html"><x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Wordmark" size="md" hint-size="140px,24px"></x-import></a>
+    <sc-if value="{{ isLoggedIn }}">
+      <div style="position:relative">
+        <button onClick="{{ toggleMenu }}" aria-label="Account menu" style="width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;font-family:var(--font-display);font-weight:700;font-size:var(--text-sm);display:flex;align-items:center;justify-content:center">{{ userInitial }}</button>
+        <sc-if value="{{ menuOpen }}">
+          <div onClick="{{ stopClickProp }}" style="position:absolute;right:0;top:42px;background:var(--surface-card);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-sm);min-width:160px;z-index:10;overflow:hidden">
+            <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-family:var(--font-body);font-size:var(--text-sm);color:var(--text-secondary)">{{ userName }}</div>
+            <a href="Stats.dc.html" style="display:block;padding:10px 14px;font-family:var(--font-body);font-size:var(--text-sm);color:var(--ink)">Stats</a>
+            <a href="Settings.dc.html" style="display:block;padding:10px 14px;font-family:var(--font-body);font-size:var(--text-sm);color:var(--ink)">Settings</a>
+            <button onClick="{{ logOut }}" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-family:var(--font-body);font-size:var(--text-sm);color:var(--ink)">Log out</button>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+  </header>
+
+  <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:40px 20px">
+    <div style="width:100%;max-width:420px">
+      <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Card" hint-size="420px,420px">
+        <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-xl);color:var(--ink);margin-bottom:4px">Game over.</div>
+        <div style="font-family:var(--font-body);font-size:var(--text-sm);color:var(--text-secondary);margin-bottom:20px">{{ winnerLine }}</div>
+
+        <div style="display:flex;flex-direction:column;margin-bottom:24px">
+          <sc-for list="{{ ranked }}" as="p" hint-placeholder-count="4">
+            <div style="padding:10px 0;border-bottom:1px solid var(--border)">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                <span style="width:22px;font-family:var(--font-display);font-weight:700;font-size:var(--text-sm);color:var(--text-muted)">{{ p.rank }}</span>
+                <span style="width:10px;height:10px;border-radius:2px;background:{{ p.color }};flex-shrink:0"></span>
+                <span style="flex:1;font-family:var(--font-body);font-weight:600;font-size:var(--text-base);color:var(--ink)">{{ p.name }}</span>
+                <span style="font-family:var(--font-display);font-weight:700;font-size:var(--text-base);color:var(--gold)">{{ p.score }}</span>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;padding-left:32px">
+                <sc-for list="{{ p.wordTags }}" as="w" hint-placeholder-count="2">
+                  <span style="display:inline-flex;align-items:center;justify-content:center;padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface-sunken);font-family:var(--font-display);font-weight:600;font-size:var(--text-sm);color:var(--ink)">{{ w.word }}</span>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:flex;gap:10px">
+          <a href="New Game.dc.html" style="flex:1"><x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Button" size="lg" hint-size="100%,48px">New game</x-import></a>
+          <a href="Home.dc.html" style="flex:1"><x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Button" variant="secondary" size="lg" hint-size="100%,48px">Back home</x-import></a>
+        </div>
+      </x-import>
+    </div>
+  </div>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const PLAYER_COLORS = ['var(--player-1)', 'var(--player-2)', 'var(--player-3)', 'var(--player-4)', 'var(--player-5)', 'var(--player-6)'];
+const DEMO_PLAYERS = [
+  { name: 'Sam', words: ['STARE', 'CAST', 'TRAP'] },
+  { name: 'You', words: ['STARTS', 'ARC'] },
+  { name: 'Jo', words: ['TAR', 'PART'] },
+  { name: 'Lee', words: ['CAT'] },
+];
+
+class Component extends DCLogic {
+  state = { user: null, menuOpen: false };
+
+  componentDidMount() {
+    try { this.setState({ user: JSON.parse(localStorage.getItem('anagrabble_user') || 'null') }); } catch (e) {}
+    this.onDocClick = () => this.setState({ menuOpen: false });
+    document.addEventListener('click', this.onDocClick);
+  }
+  componentWillUnmount() { document.removeEventListener('click', this.onDocClick); }
+  toggleMenu = (e) => { e.stopPropagation(); this.setState(s => ({ menuOpen: !s.menuOpen })); };
+  stopClickProp = (e) => e.stopPropagation();
+  logOut = (e) => { e.preventDefault(); localStorage.removeItem('anagrabble_user'); this.setState({ user: null }); };
+
+  renderVals() {
+    const { user, menuOpen } = this.state;
+    const scored = DEMO_PLAYERS.map((p, i) => ({ name: p.name, words: p.words, color: PLAYER_COLORS[i % PLAYER_COLORS.length], score: p.words.reduce((sum, w) => sum + w.length, 0) }));
+    const sorted = [...scored].sort((a, b) => b.score - a.score);
+    const ranked = sorted.map((p, i) => ({ ...p, rank: i + 1, wordTags: p.words.map(w => ({ word: w, color: p.color })) }));
+    return {
+      isLoggedIn: !!user, userName: user ? user.name : '', userInitial: user ? user.name.charAt(0).toUpperCase() : '',
+      menuOpen, toggleMenu: this.toggleMenu, stopClickProp: this.stopClickProp, logOut: this.logOut,
+      ranked,
+      winnerLine: ranked.length ? `${ranked[0].name} wins with ${ranked[0].score}.` : '',
+    };
+  }
+}
+
+</script>
+</body>
+</html>

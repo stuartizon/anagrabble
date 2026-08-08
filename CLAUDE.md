@@ -17,7 +17,7 @@ players race to submit overlapping words.
 
 ```
 apps/server/     Node.js + TypeScript — stateless WebSocket/HTTP gateway
-apps/web/        Frontend — fed by the Claude Design export in design-system/
+apps/web/        Frontend — React + Vite, fed by the Claude Design export in design-system/
 packages/game/   Domain logic: word resolution, steal rules, dictionary validation
 packages/protocol/ Shared TS types: commands, events, WS message shapes
 packages/redis/  Lua scripts + typed Redis client wrapper
@@ -150,6 +150,15 @@ engineering. Key constraints worth respecting when building `apps/web`:
   gameplay logic — useful as a reference for exact state shapes and interaction
   patterns, but it is a design prototype, not production code, and does not
   implement the full word-formability rules above (only simple single-word steals).
+- **`design-system/` is historical reference, not a build dependency.** Tokens are
+  copied from `design-system/_ds/tokens/` into `apps/web/src/styles/` once, at
+  implementation time — `apps/web` never imports live from `design-system/` at
+  build time. `--player-7`/`--player-8` aren't used by any current screen but are
+  intentionally reserved for player counts beyond what's built today — keep them.
+  Worth checking whether the IBM Plex Mono/Sans 500 weight and Sans 400 weight
+  (imported via Google Fonts, but only 600/700 actually render anywhere in the
+  current screens) can be trimmed from the font `@import` — real bandwidth
+  savings if genuinely unused, but confirm before dropping.
 
 ## Game-end condition
 

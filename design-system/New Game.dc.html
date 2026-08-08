@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/semantic.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/radius.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/shadows.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/styles.css">
+  <script src="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/_ds_bundle.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body { margin: 0; background: var(--paper); }
+    * { box-sizing: border-box; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accent-dark); }
+  </style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--paper);font-family:var(--font-body);display:flex;flex-direction:column">
+
+  <header style="display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--border);background:var(--surface-card)">
+    <a href="Home.dc.html"><x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Wordmark" size="md" hint-size="140px,24px"></x-import></a>
+    <sc-if value="{{ isLoggedIn }}">
+      <div style="position:relative">
+        <button onClick="{{ toggleMenu }}" aria-label="Account menu" style="width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;font-family:var(--font-display);font-weight:700;font-size:var(--text-sm);display:flex;align-items:center;justify-content:center">{{ userInitial }}</button>
+        <sc-if value="{{ menuOpen }}">
+          <div onClick="{{ stopClickProp }}" style="position:absolute;right:0;top:42px;background:var(--surface-card);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-sm);min-width:160px;z-index:10;overflow:hidden">
+            <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-family:var(--font-body);font-size:var(--text-sm);color:var(--text-secondary)">{{ userName }}</div>
+            <a href="Stats.dc.html" style="display:block;padding:10px 14px;font-family:var(--font-body);font-size:var(--text-sm);color:var(--ink)">Stats</a>
+            <a href="Settings.dc.html" style="display:block;padding:10px 14px;font-family:var(--font-body);font-size:var(--text-sm);color:var(--ink)">Settings</a>
+            <button onClick="{{ logOut }}" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-family:var(--font-body);font-size:var(--text-sm);color:var(--ink)">Log out</button>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+  </header>
+
+  <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:40px 20px">
+    <div style="width:100%;max-width:420px">
+
+      <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Card" hint-size="420px,440px">
+        <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-xl);color:var(--ink);margin-bottom:4px">New game</div>
+        <div style="font-family:var(--font-body);font-size:var(--text-sm);color:var(--text-secondary);margin-bottom:20px">Set the rules, then share the link with your players.</div>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Select" label="Turn timer" value="{{ turnTimer }}" onChange="{{ onTurnTimerChange }}" options="{{ turnTimerOptions }}" hint-size="100%,64px"></x-import>
+          <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Select" label="Minimum word length" value="{{ minWordLength }}" onChange="{{ onMinWordLengthChange }}" options="{{ minWordLengthOptions }}" hint-size="100%,64px"></x-import>
+          <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Select" label="Language" value="{{ language }}" onChange="{{ onLanguageChange }}" options="{{ languageOptions }}" hint-size="100%,64px"></x-import>
+          <a href="#" onClick="{{ openRulesModal }}" style="font-size:var(--text-sm);margin-top:-8px">Rules</a>
+        </div>
+        <div style="margin-top:24px">
+          <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Button" size="lg" onClick="{{ createGame }}" hint-size="100%,48px">Create game</x-import>
+        </div>
+      </x-import>
+
+    </div>
+  </div>
+
+  <sc-if value="{{ rulesModalOpen }}">
+    <div onClick="{{ closeRulesModal }}" style="{{ rulesModalOverlayStyle }}">
+      <div onClick="{{ stopClickProp }}" style="{{ rulesModalPanelStyle }}">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface-card)">
+          <span style="font-family:var(--font-display);font-weight:700;font-size:var(--text-lg);color:var(--ink)">Rules</span>
+          <button onClick="{{ closeRulesModal }}" aria-label="Close" style="background:none;border:none;padding:0;cursor:pointer;display:flex">
+            <i data-lucide="x" style="width:20px;height:20px;color:var(--text-muted)"></i>
+          </button>
+        </div>
+        <div style="padding:20px">
+          <dc-import name="RulesContent" hint-size="100%,900px"></dc-import>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+function makeGameId() {
+  return Math.random().toString(36).slice(2, 7).toUpperCase();
+}
+
+class Component extends DCLogic {
+  state = {
+    turnTimer: '30', minWordLength: '3', language: 'English',
+    menuOpen: false, rulesModalOpen: false, isMobile: typeof window !== 'undefined' && window.innerWidth < 640,
+  };
+
+  componentDidMount() {
+    let user = null;
+    try { user = JSON.parse(localStorage.getItem('anagrabble_user') || 'null'); } catch (e) {}
+    if (!user) { window.location.href = 'Log in, Sign up.dc.html?redirect=' + encodeURIComponent('New Game.dc.html'); return; }
+    this.user = user;
+    this.setState({});
+    this.onDocClick = () => this.setState({ menuOpen: false });
+    document.addEventListener('click', this.onDocClick);
+    this.onResize = () => this.setState({ isMobile: window.innerWidth < 640 });
+    window.addEventListener('resize', this.onResize);
+    this.renderIcons();
+  }
+  componentDidUpdate() { this.renderIcons(); }
+  componentWillUnmount() { document.removeEventListener('click', this.onDocClick); window.removeEventListener('resize', this.onResize); }
+  renderIcons() { if (window.lucide) window.lucide.createIcons(); }
+  toggleMenu = (e) => { e.stopPropagation(); this.setState(s => ({ menuOpen: !s.menuOpen })); };
+  stopClickProp = (e) => e.stopPropagation();
+  openRulesModal = (e) => { e.preventDefault(); this.setState({ rulesModalOpen: true }); };
+  closeRulesModal = () => this.setState({ rulesModalOpen: false });
+  logOut = (e) => { e.preventDefault(); localStorage.removeItem('anagrabble_user'); window.location.href = 'Home.dc.html'; };
+
+  onTurnTimerChange = (e) => this.setState({ turnTimer: e.target.value });
+  onMinWordLengthChange = (e) => this.setState({ minWordLength: e.target.value });
+  onLanguageChange = (e) => this.setState({ language: e.target.value });
+
+  createGame = () => {
+    const id = makeGameId();
+    const { turnTimer, minWordLength, language } = this.state;
+    let games = {};
+    try { games = JSON.parse(localStorage.getItem('anagrabble_games') || '{}'); } catch (e) {}
+    games[id] = {
+      hostName: this.user.name, turnTimer, minWordLength, language,
+      players: [{ name: this.user.name }],
+    };
+    localStorage.setItem('anagrabble_games', JSON.stringify(games));
+    window.location.href = 'Lobby.dc.html?game=' + id;
+  };
+
+  renderVals() {
+    const { turnTimer, minWordLength, language, menuOpen, rulesModalOpen, isMobile } = this.state;
+    return {
+      turnTimer, minWordLength, language,
+      isLoggedIn: !!this.user, userName: this.user ? this.user.name : '', userInitial: this.user ? this.user.name.charAt(0).toUpperCase() : '',
+      menuOpen, toggleMenu: this.toggleMenu, stopClickProp: this.stopClickProp, logOut: this.logOut,
+      rulesModalOpen, openRulesModal: this.openRulesModal, closeRulesModal: this.closeRulesModal,
+      rulesModalOverlayStyle: isMobile
+        ? { position: 'fixed', inset: 0, background: 'var(--surface-card)', zIndex: 100 }
+        : { position: 'fixed', inset: 0, background: 'rgba(27,27,24,0.4)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' },
+      rulesModalPanelStyle: isMobile
+        ? { background: 'var(--surface-card)', width: '100%', height: '100%', overflowY: 'auto' }
+        : { background: 'var(--surface-card)', borderRadius: 'var(--radius-lg)', maxWidth: '600px', width: '100%', maxHeight: '80vh', overflowY: 'auto' },
+      turnTimerOptions: [{ label: '15 seconds', value: '15' }, { label: '30 seconds', value: '30' }, { label: '45 seconds', value: '45' }, { label: '60 seconds', value: '60' }],
+      minWordLengthOptions: [{ label: '3 letters', value: '3' }, { label: '4 letters', value: '4' }, { label: '5 letters', value: '5' }],
+      languageOptions: [{ label: 'English', value: 'English' }, { label: 'Spanish', value: 'Spanish' }, { label: 'French', value: 'French' }],
+      onTurnTimerChange: this.onTurnTimerChange, onMinWordLengthChange: this.onMinWordLengthChange, onLanguageChange: this.onLanguageChange,
+      createGame: this.createGame,
+    };
+  }
+}
+
+</script>
+</body>
+</html>

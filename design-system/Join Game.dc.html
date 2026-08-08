@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/semantic.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/radius.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/shadows.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/styles.css">
+  <script src="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/_ds_bundle.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body { margin: 0; background: var(--paper); }
+    * { box-sizing: border-box; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accent-dark); }
+  </style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--paper);font-family:var(--font-body);display:flex;flex-direction:column">
+
+  <header style="display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--border);background:var(--surface-card)">
+    <a href="Home.dc.html"><x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Wordmark" size="md" hint-size="140px,24px"></x-import></a>
+    <sc-if value="{{ isLoggedIn }}">
+      <div style="position:relative">
+        <button onClick="{{ toggleMenu }}" aria-label="Account menu" style="width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;font-family:var(--font-display);font-weight:700;font-size:var(--text-sm);display:flex;align-items:center;justify-content:center">{{ userInitial }}</button>
+        <sc-if value="{{ menuOpen }}">
+          <div onClick="{{ stopClickProp }}" style="position:absolute;right:0;top:42px;background:var(--surface-card);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-sm);min-width:160px;z-index:10;overflow:hidden">
+            <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-family:var(--font-body);font-size:var(--text-sm);color:var(--text-secondary)">{{ userName }}</div>
+            <a href="Stats.dc.html" style="display:block;padding:10px 14px;font-family:var(--font-body);font-size:var(--text-sm);color:var(--ink)">Stats</a>
+            <a href="Settings.dc.html" style="display:block;padding:10px 14px;font-family:var(--font-body);font-size:var(--text-sm);color:var(--ink)">Settings</a>
+            <button onClick="{{ logOut }}" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-family:var(--font-body);font-size:var(--text-sm);color:var(--ink)">Log out</button>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+    <sc-if value="{{ isLoggedOut }}">
+      <a href="Log in, Sign up.dc.html" style="font-size:var(--text-sm);font-weight:600">Log in</a>
+    </sc-if>
+  </header>
+
+  <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:40px 20px">
+    <div style="width:100%;max-width:420px">
+
+      <sc-if value="{{ notFound }}">
+        <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Card" hint-size="420px,220px">
+          <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-xl);color:var(--ink);margin-bottom:8px">Game not found</div>
+          <div style="font-family:var(--font-body);font-size:var(--text-base);color:var(--text-secondary);margin-bottom:20px">This link may have expired, or the game already ended.</div>
+          <a href="Home.dc.html"><x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Button" hint-size="auto,44px">Back home</x-import></a>
+        </x-import>
+      </sc-if>
+
+      <sc-if value="{{ found }}" hint-placeholder-val="{{ true }}">
+        <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Card" hint-size="420px,480px">
+          <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-xl);color:var(--ink);margin-bottom:20px">{{ hostName }}'s game</div>
+
+          <div style="display:flex;flex-direction:column;gap:0;margin-bottom:20px;border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--surface-sunken)">
+              <span style="font-size:var(--text-sm);color:var(--text-secondary)">Language</span>
+              <span style="font-family:var(--font-display);font-weight:700;font-size:var(--text-sm);color:var(--ink)">{{ language }}</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--surface-sunken)">
+              <span style="font-size:var(--text-sm);color:var(--text-secondary)">Minimum word length</span>
+              <span style="font-family:var(--font-display);font-weight:700;font-size:var(--text-sm);color:var(--ink)">{{ minWordLength }} letters</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface-sunken)">
+              <span style="font-size:var(--text-sm);color:var(--text-secondary)">Turn timer</span>
+              <span style="font-family:var(--font-display);font-weight:700;font-size:var(--text-sm);color:var(--ink)">{{ turnTimer }}s</span>
+            </div>
+          </div>
+          <div style="margin:-10px 0 20px">
+            <a href="#" onClick="{{ openRulesModal }}" style="font-size:var(--text-sm)">Rules</a>
+          </div>
+
+          <div style="margin-bottom:20px">
+            <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-sm);letter-spacing:var(--tracking-wider);color:var(--text-muted);text-transform:uppercase;margin-bottom:10px">{{ playerCountLabel }}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px">
+              <sc-for list="{{ players }}" as="p" hint-placeholder-count="1">
+                <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.PlayerChip" name="{{ p.name }}" score="{{ p.score }}" color="{{ p.color }}" hint-size="auto,32px"></x-import>
+              </sc-for>
+            </div>
+          </div>
+
+          <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Button" size="lg" onClick="{{ joinGame }}" hint-size="100%,48px">{{ joinLabel }}</x-import>
+        </x-import>
+      </sc-if>
+
+    </div>
+  </div>
+
+  <sc-if value="{{ rulesModalOpen }}">
+    <div onClick="{{ closeRulesModal }}" style="{{ rulesModalOverlayStyle }}">
+      <div onClick="{{ stopClickProp }}" style="{{ rulesModalPanelStyle }}">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface-card)">
+          <span style="font-family:var(--font-display);font-weight:700;font-size:var(--text-lg);color:var(--ink)">Rules</span>
+          <button onClick="{{ closeRulesModal }}" aria-label="Close" style="background:none;border:none;padding:0;cursor:pointer;display:flex">
+            <i data-lucide="x" style="width:20px;height:20px;color:var(--text-muted)"></i>
+          </button>
+        </div>
+        <div style="padding:20px">
+          <dc-import name="RulesContent" hint-size="100%,900px"></dc-import>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const PLAYER_COLORS = ['var(--player-1)', 'var(--player-2)', 'var(--player-3)', 'var(--player-4)', 'var(--player-5)', 'var(--player-6)'];
+
+class Component extends DCLogic {
+  state = { game: null, gameId: null, loaded: false, menuOpen: false, rulesModalOpen: false, isMobile: typeof window !== 'undefined' && window.innerWidth < 640 };
+
+  componentDidMount() {
+    const params = new URLSearchParams(window.location.search);
+    const gameId = params.get('game') || 'DEMO-JOIN';
+    let games = {};
+    try { games = JSON.parse(localStorage.getItem('anagrabble_games') || '{}'); } catch (e) {}
+    if (!params.get('game') && !games['DEMO-JOIN']) {
+      games['DEMO-JOIN'] = { hostName: 'Priya', turnTimer: '30', minWordLength: '3', language: 'English', players: [{ name: 'Priya' }, { name: 'Sam' }] };
+      localStorage.setItem('anagrabble_games', JSON.stringify(games));
+    }
+    let user = null;
+    try { user = JSON.parse(localStorage.getItem('anagrabble_user') || 'null'); } catch (e) {}
+    this.user = user;
+    this.setState({ gameId, game: gameId ? games[gameId] : null, loaded: true });
+    this.onDocClick = () => this.setState({ menuOpen: false });
+    document.addEventListener('click', this.onDocClick);
+    this.onResize = () => this.setState({ isMobile: window.innerWidth < 640 });
+    window.addEventListener('resize', this.onResize);
+    this.renderIcons();
+  }
+  componentDidUpdate() { this.renderIcons(); }
+  componentWillUnmount() { document.removeEventListener('click', this.onDocClick); window.removeEventListener('resize', this.onResize); }
+  renderIcons() { if (window.lucide) window.lucide.createIcons(); }
+  toggleMenu = (e) => { e.stopPropagation(); this.setState(s => ({ menuOpen: !s.menuOpen })); };
+  stopClickProp = (e) => e.stopPropagation();
+  openRulesModal = (e) => { e.preventDefault(); this.setState({ rulesModalOpen: true }); };
+  closeRulesModal = () => this.setState({ rulesModalOpen: false });
+  logOut = (e) => { e.preventDefault(); localStorage.removeItem('anagrabble_user'); window.location.href = 'Home.dc.html'; };
+
+  joinGame = () => {
+    const { gameId, game } = this.state;
+    if (!game) return;
+    if (!this.user) {
+      const redirect = 'Join Game.dc.html?game=' + gameId;
+      window.location.href = 'Log in, Sign up.dc.html?redirect=' + encodeURIComponent(redirect);
+      return;
+    }
+    let games = {};
+    try { games = JSON.parse(localStorage.getItem('anagrabble_games') || '{}'); } catch (e) {}
+    const g = games[gameId] || game;
+    if (!g.players.some(p => p.name === this.user.name)) {
+      g.players = [...g.players, { name: this.user.name }];
+      games[gameId] = g;
+      localStorage.setItem('anagrabble_games', JSON.stringify(games));
+    }
+    window.location.href = 'Lobby.dc.html?game=' + gameId;
+  };
+
+  renderVals() {
+    const { game, loaded, menuOpen, rulesModalOpen, isMobile } = this.state;
+    const accountVals = {
+      isLoggedIn: !!this.user, isLoggedOut: !this.user, userName: this.user ? this.user.name : '', userInitial: this.user ? this.user.name.charAt(0).toUpperCase() : '', menuOpen, toggleMenu: this.toggleMenu, stopClickProp: this.stopClickProp, logOut: this.logOut,
+      rulesModalOpen, openRulesModal: this.openRulesModal, closeRulesModal: this.closeRulesModal,
+      rulesModalOverlayStyle: isMobile
+        ? { position: 'fixed', inset: 0, background: 'var(--surface-card)', zIndex: 100 }
+        : { position: 'fixed', inset: 0, background: 'rgba(27,27,24,0.4)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' },
+      rulesModalPanelStyle: isMobile
+        ? { background: 'var(--surface-card)', width: '100%', height: '100%', overflowY: 'auto' }
+        : { background: 'var(--surface-card)', borderRadius: 'var(--radius-lg)', maxWidth: '600px', width: '100%', maxHeight: '80vh', overflowY: 'auto' },
+    };
+    if (!loaded) return { found: true, notFound: false, players: [], ...accountVals };
+    if (!game) return { found: false, notFound: true, players: [], ...accountVals };
+    const players = game.players.map((p, i) => ({ name: p.name, score: 0, color: PLAYER_COLORS[i % PLAYER_COLORS.length] }));
+    return {
+      found: true, notFound: false,
+      hostName: game.hostName, language: game.language, minWordLength: game.minWordLength, turnTimer: game.turnTimer,
+      players, playerCountLabel: players.length === 1 ? '1 player at the table' : players.length + ' players at the table',
+      joinLabel: this.user ? 'Join game' : 'Sign in and join',
+      joinGame: this.joinGame,
+      ...accountVals,
+    };
+  }
+}
+
+</script>
+</body>
+</html>

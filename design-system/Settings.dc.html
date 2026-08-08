@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/semantic.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/radius.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/tokens/shadows.css">
+  <link rel="stylesheet" href="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/styles.css">
+  <script src="_ds/anagrabble-design-system-57868138-ffc0-4189-b22f-9ab59d0b1b0d/_ds_bundle.js"></script>
+  <style>
+    body { margin: 0; background: var(--paper); }
+    * { box-sizing: border-box; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accent-dark); }
+  </style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--paper);font-family:var(--font-body);display:flex;flex-direction:column">
+
+  <header style="display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--border);background:var(--surface-card)">
+    <a href="Home.dc.html"><x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Wordmark" size="md" hint-size="140px,24px"></x-import></a>
+    <div style="position:relative">
+      <button onClick="{{ toggleMenu }}" aria-label="Account menu" style="width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;font-family:var(--font-display);font-weight:700;font-size:var(--text-sm);display:flex;align-items:center;justify-content:center">{{ userInitial }}</button>
+      <sc-if value="{{ menuOpen }}">
+        <div onClick="{{ stopClickProp }}" style="position:absolute;right:0;top:42px;background:var(--surface-card);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-sm);min-width:160px;z-index:10;overflow:hidden">
+          <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-family:var(--font-body);font-size:var(--text-sm);color:var(--text-secondary)">{{ userName }}</div>
+          <a href="Stats.dc.html" style="display:block;padding:10px 14px;font-family:var(--font-body);font-size:var(--text-sm);color:var(--ink)">Stats</a>
+          <a href="Settings.dc.html" style="display:block;padding:10px 14px;font-family:var(--font-body);font-size:var(--text-sm);color:var(--ink)">Settings</a>
+          <button onClick="{{ logOut }}" style="width:100%;text-align:left;padding:10px 14px;background:none;border:none;cursor:pointer;font-family:var(--font-body);font-size:var(--text-sm);color:var(--ink)">Log out</button>
+        </div>
+      </sc-if>
+    </div>
+  </header>
+
+  <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:40px 20px">
+    <div style="width:100%;max-width:420px">
+      <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Card" hint-size="420px,480px">
+        <div style="font-family:var(--font-display);font-weight:700;font-size:var(--text-xl);color:var(--ink);margin-bottom:20px">Settings</div>
+        <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:24px;padding-bottom:24px;border-bottom:1px solid var(--border)">
+          <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Input" label="Name" value="{{ name }}" onChange="{{ onNameChange }}" hint-size="100%,64px"></x-import>
+          <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Input" label="Email" value="{{ email }}" onChange="{{ onEmailChange }}" hint-size="100%,64px"></x-import>
+          <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Input" label="Password" placeholder="••••••••" value="{{ password }}" onChange="{{ onPasswordChange }}" hint-size="100%,64px"></x-import>
+          <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Button" onClick="{{ saveProfile }}" hint-size="auto,44px">{{ profileSaveLabel }}</x-import>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Select" label="Interface language" value="{{ interfaceLanguage }}" onChange="{{ onInterfaceLanguageChange }}" options="{{ interfaceLanguageOptions }}" hint-size="100%,64px"></x-import>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+            <span style="font-family:var(--font-body);font-size:var(--text-base);color:var(--ink)">Sound effects</span>
+            <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Switch" checked="{{ soundOn }}" onChange="{{ toggleSound }}" hint-size="40px,22px"></x-import>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+            <span style="font-family:var(--font-body);font-size:var(--text-base);color:var(--ink)">Haptic feedback <span style="color:var(--text-muted);font-size:var(--text-sm)">(mobile only)</span></span>
+            <x-import component-from-global-scope="AnagrabbleDesignSystem_578681.Switch" checked="{{ hapticsOn }}" onChange="{{ toggleHaptics }}" hint-size="40px,22px"></x-import>
+          </div>
+        </div>
+      </x-import>
+    </div>
+  </div>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const DEFAULTS = { sound: true, interfaceLanguage: 'English', haptics: true };
+
+class Component extends DCLogic {
+  state = { menuOpen: false, ...DEFAULTS, name: '', email: '', password: '', profileSaveLabel: 'Save profile' };
+
+  componentDidMount() {
+    let user = null;
+    try { user = JSON.parse(localStorage.getItem('anagrabble_user') || 'null'); } catch (e) {}
+    if (!user) { window.location.href = 'Log in, Sign up.dc.html?redirect=' + encodeURIComponent('Settings.dc.html'); return; }
+    this.user = user;
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem('anagrabble_settings') || '{}'); } catch (e) {}
+    this.setState({
+      sound: saved.sound ?? DEFAULTS.sound, interfaceLanguage: saved.interfaceLanguage ?? DEFAULTS.interfaceLanguage, haptics: saved.haptics ?? DEFAULTS.haptics,
+      name: user.name || '', email: user.email || '', password: '',
+    });
+    this.onDocClick = () => this.setState({ menuOpen: false });
+    document.addEventListener('click', this.onDocClick);
+  }
+  componentWillUnmount() { document.removeEventListener('click', this.onDocClick); }
+  toggleMenu = (e) => { e.stopPropagation(); this.setState(s => ({ menuOpen: !s.menuOpen })); };
+  stopClickProp = (e) => e.stopPropagation();
+  logOut = (e) => { e.preventDefault(); localStorage.removeItem('anagrabble_user'); window.location.href = 'Home.dc.html'; };
+
+  onNameChange = (e) => this.setState({ name: e.target.value });
+  onEmailChange = (e) => this.setState({ email: e.target.value });
+  onPasswordChange = (e) => this.setState({ password: e.target.value });
+  saveProfile = () => {
+    const { name, email } = this.state;
+    this.user = { ...this.user, name: name.trim() || this.user.name, email: email.trim() };
+    localStorage.setItem('anagrabble_user', JSON.stringify(this.user));
+    this.setState({ profileSaveLabel: 'Saved' });
+    setTimeout(() => this.setState({ profileSaveLabel: 'Save profile' }), 1600);
+  };
+
+  persist(patch) {
+    this.setState(patch);
+    const next = { sound: this.state.sound, interfaceLanguage: this.state.interfaceLanguage, haptics: this.state.haptics, ...patch };
+    localStorage.setItem('anagrabble_settings', JSON.stringify(next));
+  }
+  toggleSound = (v) => this.persist({ sound: v });
+  toggleHaptics = (v) => this.persist({ haptics: v });
+  onInterfaceLanguageChange = (e) => this.persist({ interfaceLanguage: e.target.value });
+
+  renderVals() {
+    const { menuOpen, sound, interfaceLanguage, haptics, name, email, password, profileSaveLabel } = this.state;
+    return {
+      menuOpen, toggleMenu: this.toggleMenu, stopClickProp: this.stopClickProp, logOut: this.logOut,
+      userName: this.user ? this.user.name : '', userInitial: this.user ? this.user.name.charAt(0).toUpperCase() : '',
+      name, email, password, onNameChange: this.onNameChange, onEmailChange: this.onEmailChange, onPasswordChange: this.onPasswordChange,
+      saveProfile: this.saveProfile, profileSaveLabel,
+      soundOn: sound, toggleSound: this.toggleSound,
+      hapticsOn: haptics, toggleHaptics: this.toggleHaptics,
+      interfaceLanguage, onInterfaceLanguageChange: this.onInterfaceLanguageChange,
+      interfaceLanguageOptions: [{ label: 'English', value: 'English' }, { label: 'Spanish', value: 'Spanish' }, { label: 'French', value: 'French' }],
+    };
+  }
+}
+
+</script>
+</body>
+</html>

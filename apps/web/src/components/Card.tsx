@@ -1,23 +1,16 @@
 // Ported from design-system/_ds/.../components/core/Card.jsx
 
 import type { ReactNode } from "react";
+import styles from "./Card.module.css";
 
 interface CardProps {
   children: ReactNode;
   padding?: string;
 }
 
-export function Card({ children, padding = "var(--space-5)" }: CardProps) {
+export function Card({ children, padding }: CardProps) {
   return (
-    <div
-      style={{
-        background: "var(--surface-card)",
-        border: "1px solid var(--border)",
-        borderRadius: "var(--radius-lg)",
-        boxShadow: "var(--shadow-sm)",
-        padding,
-      }}
-    >
+    <div className={styles.card} style={padding !== undefined ? { padding } : undefined}>
       {children}
     </div>
   );

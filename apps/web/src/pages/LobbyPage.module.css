@@ -1,0 +1,152 @@
+.title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-xl);
+  color: var(--ink);
+  margin-bottom: 12px;
+}
+
+/* declared after .title so it wins the margin-bottom tiebreak (equal
+   specificity, later source order) when applied alongside .title */
+.notFoundTitleOverride {
+  margin-bottom: 8px;
+}
+
+.notFoundBody {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+.subtitle {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.shareLinkRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  margin-bottom: 20px;
+}
+
+.shareLinkText {
+  flex: 1;
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.copyButton {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  flex-shrink: 0;
+}
+
+.configList {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.configRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--surface-sunken);
+  border-bottom: 1px solid var(--border);
+}
+
+/* declared after .configRow so it wins the border-bottom tiebreak */
+.configRowLastOverride {
+  border-bottom: none;
+}
+
+.configLabel {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.configValue {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+
+.playerSection {
+  margin-bottom: 24px;
+}
+
+.playerSectionLabel {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-wider);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.playerList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.playerRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 2px 6px;
+}
+
+.playerDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.playerName {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+
+.startHint {
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin-top: 10px;
+}
+
+.nameFieldWrap {
+  margin-bottom: 16px;
+}
+
+.waitingText {
+  text-align: center;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  padding: 12px 0;
+}

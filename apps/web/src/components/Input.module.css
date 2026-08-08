@@ -1,0 +1,51 @@
+.label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--font-body);
+}
+
+.labelText {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.input {
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  outline: none;
+  color: var(--ink);
+  background: var(--surface);
+  transition:
+    border-color 120ms ease-out,
+    box-shadow 120ms ease-out;
+}
+
+.input:focus {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-focus);
+}
+
+.lg {
+  font-size: var(--text-lg);
+  padding: 12px 14px;
+}
+
+/* declared after .input:focus so it wins the border-color tiebreak (equal
+   specificity, later source order) when both error and focus apply */
+.error {
+  border-color: var(--error);
+}
+
+.error:focus {
+  border-color: var(--error);
+}
+
+.errorText {
+  font-size: var(--text-xs);
+  color: var(--error);
+}

@@ -6,9 +6,11 @@ import { Card } from "../components/Card";
 import { Select } from "../components/Select";
 import { Input } from "../components/Input";
 import { Button } from "../components/Button";
+import { PageShell, CenteredContent, NarrowColumn } from "../components/Layout";
 import { useGameSocket } from "../useGameSocket";
 import { getPlayerIdentity, setPlayerName } from "../playerIdentity";
 import { makeCommandId, makeGameId } from "../gameId";
+import styles from "./NewGamePage.module.css";
 
 // Matches design-system/New Game.dc.html layout/copy. The dc.html prototype
 // gates this page behind a login redirect; auth is out of scope here, so
@@ -74,33 +76,14 @@ export function NewGamePage() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+    <PageShell>
       <Header />
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 20px" }}>
-        <div style={{ width: "100%", maxWidth: 420 }}>
+      <CenteredContent>
+        <NarrowColumn>
           <Card>
-            <div
-              style={{
-                fontFamily: "var(--font-display)",
-                fontWeight: 700,
-                fontSize: "var(--text-xl)",
-                color: "var(--ink)",
-                marginBottom: 4,
-              }}
-            >
-              New game
-            </div>
-            <div
-              style={{
-                fontFamily: "var(--font-body)",
-                fontSize: "var(--text-sm)",
-                color: "var(--text-secondary)",
-                marginBottom: 20,
-              }}
-            >
-              Set the rules, then share the link with your players.
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div className={styles.title}>New game</div>
+            <div className={styles.subtitle}>Set the rules, then share the link with your players.</div>
+            <div className={styles.fieldStack}>
               <Select label="Language" value={language} onChange={(e) => setLanguage(e.target.value)} options={LANGUAGE_OPTIONS} />
               <Select
                 label="Minimum word length"
@@ -111,8 +94,8 @@ export function NewGamePage() {
               <Select label="Turn timer" value={turnTimer} onChange={(e) => setTurnTimer(e.target.value)} options={TURN_TIMER_OPTIONS} />
               <Input label="Your name" value={playerName} onChange={(e) => setPlayerNameField(e.target.value)} placeholder="Your name" />
             </div>
-            {error && <div style={{ marginTop: 12, fontSize: "var(--text-sm)", color: "var(--error)" }}>{error.message}</div>}
-            <div style={{ marginTop: 24 }}>
+            {error && <div className={styles.errorText}>{error.message}</div>}
+            <div className={styles.buttonRow}>
               <Button
                 size="lg"
                 onClick={createGame}
@@ -123,8 +106,8 @@ export function NewGamePage() {
               </Button>
             </div>
           </Card>
-        </div>
-      </div>
-    </div>
+        </NarrowColumn>
+      </CenteredContent>
+    </PageShell>
   );
 }

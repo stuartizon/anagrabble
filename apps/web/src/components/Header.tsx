@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import styles from "./Header.module.css";
 import { Wordmark } from "./Wordmark";
 
 // No account menu — auth is explicitly out of scope for this slice (see
@@ -6,16 +7,7 @@ import { Wordmark } from "./Wordmark";
 // local stub (see playerIdentity.ts), not a logged-in account.
 export function Header() {
   return (
-    <header
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "16px 24px",
-        borderBottom: "1px solid var(--border)",
-        background: "var(--surface-card)",
-      }}
-    >
+    <header className={styles.header}>
       <Link to="/">
         <Wordmark size="md" />
       </Link>

@@ -1,0 +1,30 @@
+.title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-xl);
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+
+.subtitle {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+.fieldStack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.errorText {
+  margin-top: 12px;
+  font-size: var(--text-sm);
+  color: var(--error);
+}
+
+.buttonRow {
+  margin-top: 24px;
+}

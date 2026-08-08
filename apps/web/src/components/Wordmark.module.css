@@ -1,0 +1,18 @@
+.mark {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: var(--tracking-wide);
+  color: var(--ink);
+}
+
+.sm {
+  font-size: 16px;
+}
+
+.md {
+  font-size: 22px;
+}
+
+.lg {
+  font-size: 32px;
+}

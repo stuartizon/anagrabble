@@ -6,15 +6,13 @@ RUN corepack enable
 
 WORKDIR /repo
 
-COPY pnpm-workspace.yaml package.json ./
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY apps/server/package.json apps/server/package.json
 COPY packages/game/package.json packages/game/package.json
 COPY packages/protocol/package.json packages/protocol/package.json
 COPY packages/redis/package.json packages/redis/package.json
 
-# --frozen-lockfile=false until a pnpm-lock.yaml is committed; switch to
-# --frozen-lockfile once one exists so the image build fails on drift.
-RUN pnpm install --frozen-lockfile=false
+RUN pnpm install --frozen-lockfile
 
 COPY tsconfig.base.json ./
 COPY apps/server apps/server

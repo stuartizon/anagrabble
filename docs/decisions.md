@@ -347,6 +347,24 @@ another for the *same* player moments later, which a naive "remove on
 disconnect" mistook for that player actually leaving — including, in
 testing, the host getting bounced from their own just-created lobby.
 
+**Known limitation, accepted for now, not for production**: this is a
+reasonable interim pattern (grace-period presence debouncing is standard
+for realtime systems generally), but the implementation is single-process —
+`pendingLeaves` is a plain in-memory `Map` in `apps/server/src/index.ts`. If
+a reconnect lands on a *different* Node process than the one that scheduled
+the removal (multiple server instances, a load balancer), the cancellation
+can't find the timer, and the player gets dropped after 3 seconds anyway.
+Invisible today because there's only ever one server process running; a
+real gap against this file's own "any node can handle any game's command"
+goal once that stops being true. It's also compensating for the root cause
+(one WebSocket per page, tied to the route) rather than fixing it — the
+architecturally cleaner long-term fix is a single persistent connection for
+the whole app session that survives page navigation, which would remove the
+need for this debounce entirely. Short of that: move `pendingLeaves` into
+Redis with a TTL instead of a JS `setTimeout`, so the grace period survives
+a reconnect landing on any node. Revisit before running more than one
+server instance.
+
 ## Explicitly still open
 
 - **Backend HTTP framework** for the handful of non-gameplay REST routes (auth,

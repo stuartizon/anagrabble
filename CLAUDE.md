@@ -199,3 +199,8 @@ mechanic without touching anything else.
   process from a flat file; assumed small enough not to need external storage).
 - Redis HA approach and timing of adopting it (Sentinel template vs. staying
   single-instance) — revisit once usage data exists.
+- Lobby presence tracking (`pendingLeaves` in `apps/server/src/index.ts`) is
+  in-memory and single-process-only — won't survive a reconnect landing on a
+  different Node instance. Fine at one server process; revisit before
+  running more than one. See docs/decisions.md "Lobby slice" section for the
+  fuller reasoning and the two candidate fixes.

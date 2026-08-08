@@ -1,0 +1,17 @@
+:root{
+--text-primary:var(--ink);
+--text-secondary:var(--ink-soft);
+--text-muted:var(--neutral-500);
+--text-on-accent:#FFFFFF;
+--surface-page:var(--paper);
+--surface-card:var(--surface);
+--surface-sunken:var(--neutral-100);
+--surface-accent:var(--accent-light);
+--surface-gold:var(--gold-light);
+--border-default:var(--border);
+--border-strong:var(--border-strong);
+--color-success:var(--accent);
+--color-warning:var(--gold);
+--color-error:var(--error);
+--focus-ring:var(--accent);
+}

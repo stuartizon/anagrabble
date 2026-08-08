@@ -2,11 +2,9 @@
 // See CLAUDE.md "Word formability" and "Word resolution implementation split" —
 // the combinatorial decomposition search lives here in TypeScript, not in Lua.
 
-export interface GameConfig {
-  turnTimerSec: number;
-  minWordLength: number;
-  language: string;
-}
+import type { GameConfig } from "@anagrabble/protocol";
+
+export type { GameConfig };
 
 export const DEFAULT_GAME_CONFIG: GameConfig = {
   turnTimerSec: 30,

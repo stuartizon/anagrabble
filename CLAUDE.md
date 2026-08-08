@@ -1,0 +1,175 @@
+# Anagrabble — CLAUDE.md
+
+This file orients Claude (chat or Claude Code) working on this repo. It captures
+architecture decisions and the reasoning behind them, so we don't relitigate settled
+questions or silently drift from agreed constraints. See `docs/decisions.md` for a
+fuller log; this file is the condensed, load-bearing summary.
+
+## What this is
+
+Anagrabble: a real-time multiplayer word game. Letter tiles are turned over one at a
+time (on a rotating per-player turn timer); any player, at any time, can claim a word
+formable from the revealed tiles and/or steal existing claimed words by extending or
+combining them. Correctness hinges on deterministic "first wins" resolution when two
+players race to submit overlapping words.
+
+## Repo structure (monorepo)
+
+```
+apps/server/     Node.js + TypeScript — stateless WebSocket/HTTP gateway
+apps/web/        Frontend — fed by the Claude Design export in design-system/
+packages/game/   Domain logic: word resolution, steal rules, dictionary validation
+packages/protocol/ Shared TS types: commands, events, WS message shapes
+packages/redis/  Lua scripts + typed Redis client wrapper
+infrastructure/  docker-compose.yml for local dev (Node + Redis + Postgres)
+design-system/   Claude Design export (tokens, components, screen prototypes)
+docs/            decisions.md, user-stories.md
+```
+
+Node/TS chosen over reviving the old Akka codebase — see "Why not Akka/Pekko" below.
+
+## Core architecture: Redis as authoritative live state
+
+- **Redis holds current game state** (pool, players, scores, turn index, deadline,
+  seq number). All mutations happen via atomic Lua (`EVAL`) scripts — this is what
+  guarantees deterministic ordering when two players race on the same word.
+- **Postgres holds durable history** (events, results) — written *after* Redis
+  accepts a move, never on the critical path of resolving a race. Use Neon (or
+  Supabase) for free-tier scale-to-zero Postgres, separate from Railway.
+- **Node servers are stateless.** Any node can handle any game's command — Redis is
+  the single serialization point, not node/actor placement. This is what makes
+  horizontal scaling and node death low-stakes: a dead node loses nothing, because
+  no node ever held authoritative state.
+- Every accepted mutation increments `seq`. Clients use `seq` to detect dropped
+  WebSocket messages and trigger a full state resync rather than silently drifting.
+
+## Why not Akka/Pekko (context, not open for relitigating)
+
+An earlier Akka-based prototype exists (single-node, in-memory `GameManager` actor
+per game, no persistence, no clustering, no command idempotency). Verdict: salvage
+the *domain logic* conceptually (single-writer-per-game mental model, immutable
+state), rewrite the infra layer. Reviving it into something with real failover would
+require Cluster Sharding + Persistence + idempotency + resilient WebSocket fanout —
+essentially a full rewrite with more constraints, not less work than starting fresh
+in Node + Redis.
+
+The general tradeoff, for future reference: Pekko gives cheap in-memory scheduled
+operations (e.g. turn timers) at the cost of needing real persistence/recovery
+machinery to survive a node crash. Redis gives a slightly less elegant single-node
+story but crash-survival falls out almost for free, since no single process is ever
+load-bearing for any piece of state.
+
+## Deployment
+
+- **Backend (Node) + Redis**: Railway. Start with a single Redis container (no HA
+  template) — acceptable risk at current scale (few concurrent games). Revisit the
+  Sentinel/cluster HA templates only once real usage justifies the added complexity.
+- **Postgres**: Neon (free tier, scale-to-zero) rather than Railway's
+  always-metered Postgres — durable history is written infrequently, so this is
+  effectively free for a long time.
+- **Frontend**: Vercel (or Cloudflare Pages) — static/CDN hosting, free tier, kept
+  separate from Railway since there's no reason to serve static assets from a
+  metered compute container.
+- Everything is Dockerized and cloud-agnostic in principle; Railway is a deployment
+  choice, not an architectural dependency. AWS remains the fallback if/when real HA
+  or infra control requirements emerge (see docs/decisions.md for the full
+  Railway-vs-AWS-vs-Fly-vs-self-hosted comparison).
+
+## Game rules — the parts that affect protocol design
+
+- **Tile turning is turn-based**: only the current player (by rotating index) may
+  turn a tile, gated by a per-turn countdown (`turnTimerSec`, configurable 15–60s).
+  This is a *different* concurrency problem than word submission — effectively
+  single-writer by construction, but the deadline must still be server-verified,
+  never trusted to the client.
+- **Word submission/stealing is free-for-all**: any player, any time. This is the
+  actual "first wins" race the whole Redis/atomicity design exists for.
+- **Turn timer enforcement (MVP decision)**: client-triggered only. Any connected
+  client fires `TurnTile` when its local countdown hits zero; the Lua script
+  verifies `now >= turnDeadline` server-side regardless of who called it. No
+  polling sweep / sorted-set reliability layer for MVP — deliberately deferred
+  until real evidence (stalled games) justifies it. Adding it later requires no
+  redesign: both paths converge on the same idempotent `apply_turn_tile` call.
+- **Word formability — the client never specifies HOW a word forms.** The server
+  infers the decomposition:
+  - Pool letters alone → always valid if letters present.
+  - Exactly one existing claimed word + ≥1 pool letter → the classic steal
+    (CAT + S = CAST). A single word reused with *zero* additions is invalid.
+  - Two or more existing claimed words combined (pool letters optional) → valid.
+  - **Priority when multiple decompositions exist**: (1) any decomposition that
+    steals from another player, (2) pool-only, (3) extending your own word(s) only.
+  - **Tiebreak when multiple valid decompositions exist within the same priority
+    tier** (e.g. word stealable from either of two different opponents): prefer
+    stealing from the **highest-scoring player** (mild rubber-banding, decided).
+- **Word resolution implementation split** (do not put full combinatorial search
+  in Lua):
+  1. Node reads current state from Redis (plain read, no lock), runs the full
+     decomposition search in TypeScript (`packages/game`), applies priority +
+     tiebreak, produces a concrete resolved plan: `{ usedWords, usedPoolLetters }`.
+  2. Node submits that resolved plan to a Lua script, which does a cheap atomic
+     *re-verification* (referenced words still owned/present, pool still has those
+     exact letters) and applies the mutation, or returns "stale, retry" if state
+     moved between steps 1 and 2.
+  3. This keeps the hard-to-test combinatorial logic in TypeScript, keeps the Lua
+     script small/auditable, and preserves atomicity for the actual mutation.
+
+## Protocol conventions
+
+- **Command idempotency**: every client command carries a `commandId` (UUID). The
+  Lua layer dedups against a short-lived per-game set so retries/reconnects never
+  double-apply a move.
+- **Sequencing**: every accepted event carries a monotonic `seq` for gap detection
+  and resync.
+- **Schema evolution — expand/contract, enforced on every PR touching
+  `packages/protocol`**:
+  - Changes must be additive-only within a single PR (new optional fields, new
+    event types — never rename/remove/repurpose an existing field).
+  - Genuine breaking changes require two separate rollouts: an "expand" PR
+    (backend tolerates both old and new shapes) deployed first, then a later
+    "contract" PR removing old-shape handling once you're confident all clients
+    have upgraded.
+  - Include a `protocolVersion` field in the WS handshake so the backend can detect
+    a stale client and prompt a refresh rather than silently misbehaving.
+  - Rationale: backend and frontend deploy independently (Railway + Vercel,
+    separate auto-deploy pipelines, no cross-platform ordering guarantee) — a
+    single commit touching both apps will not deploy atomically, so both versions
+    must tolerate briefly talking to each other.
+
+## Design system
+
+Sourced from a Claude Design export (`design-system/`) — not invented by
+engineering. Key constraints worth respecting when building `apps/web`:
+- Typographic wordmark only, no logo asset.
+- IBM Plex Mono (display/headings/numeric: scores, timers, tile letters), IBM Plex
+  Sans (body/UI labels).
+- Palette: warm paper background, near-black ink, one accent green, muted gold for
+  scores, restrained — no gradients.
+- Lucide icon set, single-color, 20px/1.5px stroke.
+- Tone: dry-witty, second person, sentence case, no exclamation points as a crutch.
+- The design export already includes a working (localStorage-mocked) prototype of
+  gameplay logic — useful as a reference for exact state shapes and interaction
+  patterns, but it is a design prototype, not production code, and does not
+  implement the full word-formability rules above (only simple single-word steals).
+
+## Game-end condition
+
+Turning over the last tile is NOT the end condition — words can still be formed/
+stolen after the bank is empty. Real-life play ends by informal player consensus,
+which is too heavyweight to build for MVP.
+
+**MVP default**: once `bankCount == 0`, start an idle countdown (60–90s,
+configurable) stored as game state, reset to full every time a `WordPlayed` event
+is accepted. If it expires with no plays, the game auto-ends. Same
+deadline-in-Redis pattern as the turn timer, just gated on bank-empty and reset on
+plays instead of on turns. Chosen as a simple technical proxy for "the table
+agrees nothing more can be formed," without an explicit voting/consensus mechanic.
+Swappable later for an explicit "any player can call it" or "all players confirm"
+mechanic without touching anything else.
+
+## Still open / not yet decided
+
+- Whether/when to add the turn-timer polling sweep.
+- Dictionary source and update process (currently: loaded in-memory in the Node
+  process from a flat file; assumed small enough not to need external storage).
+- Redis HA approach and timing of adopting it (Sentinel template vs. staying
+  single-instance) — revisit once usage data exists.

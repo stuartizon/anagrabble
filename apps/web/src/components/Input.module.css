@@ -45,6 +45,12 @@
   border-color: var(--error);
 }
 
+.disabled {
+  color: var(--text-secondary);
+  background: var(--surface-sunken);
+  cursor: not-allowed;
+}
+
 .errorText {
   font-size: var(--text-xs);
   color: var(--error);

@@ -9,20 +9,35 @@ interface InputProps {
   label?: string;
   placeholder?: string;
   value: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   error?: string;
   size?: "md" | "lg";
+  disabled?: boolean;
 }
 
-export function Input({ label, placeholder, value, onChange, error, size = "md" }: InputProps) {
+export function Input({
+  label,
+  placeholder,
+  value,
+  onChange,
+  error,
+  size = "md",
+  disabled,
+}: InputProps) {
   return (
     <label className={styles.label}>
       {label && <span className={styles.labelText}>{label}</span>}
       <input
-        className={cx(styles.input, size === "lg" && styles.lg, error && styles.error)}
+        className={cx(
+          styles.input,
+          size === "lg" && styles.lg,
+          error && styles.error,
+          disabled && styles.disabled,
+        )}
         value={value}
         placeholder={placeholder}
         onChange={onChange}
+        disabled={disabled}
       />
       {error && <span className={styles.errorText}>{error}</span>}
     </label>

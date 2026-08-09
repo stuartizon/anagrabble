@@ -28,11 +28,7 @@ const MIN_WORD_LENGTH_OPTIONS = [
   { label: "4 letters", value: "4" },
   { label: "5 letters", value: "5" },
 ];
-const LANGUAGE_OPTIONS = [
-  { label: "English", value: "English" },
-  { label: "Spanish", value: "Spanish" },
-  { label: "French", value: "French" },
-];
+const LANGUAGE = "English";
 
 export function NewGamePage() {
   const navigate = useNavigate();
@@ -40,7 +36,6 @@ export function NewGamePage() {
   const [playerName, setPlayerNameField] = useState(identity.name);
   const [turnTimer, setTurnTimer] = useState("30");
   const [minWordLength, setMinWordLength] = useState("3");
-  const [language, setLanguage] = useState("English");
   const [pendingGameId, setPendingGameId] = useState<string | null>(null);
 
   const { status, lobby, error, send } = useGameSocket();
@@ -62,7 +57,7 @@ export function NewGamePage() {
     const config: GameConfig = {
       turnTimerSec: Number(turnTimer),
       minWordLength: Number(minWordLength),
-      language,
+      language: LANGUAGE,
     };
     setPendingGameId(gameId);
     send({
@@ -86,12 +81,7 @@ export function NewGamePage() {
               Set the rules, then share the link with your players.
             </div>
             <div className={styles.fieldStack}>
-              <Select
-                label="Language"
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-                options={LANGUAGE_OPTIONS}
-              />
+              <Input label="Language" value={LANGUAGE} disabled />
               <Select
                 label="Minimum word length"
                 value={minWordLength}

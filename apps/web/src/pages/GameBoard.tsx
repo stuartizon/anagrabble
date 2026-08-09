@@ -3,6 +3,7 @@ import type { Command, LobbySnapshot, UsedWord } from "@anagrabble/protocol";
 import { Header } from "../components/Header";
 import { Input } from "../components/Input";
 import { Button } from "../components/Button";
+import { InviteLinkRow } from "../components/InviteLinkRow";
 import { makeCommandId } from "../gameId";
 import { assignPlayerColors } from "../playerColors";
 import type { GameSocketError, WordPlayNarration } from "../useGameSocket";
@@ -151,6 +152,8 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
     send({ type: "TurnTile", commandId: makeCommandId(), gameId, playerId });
   };
 
+  const shareLink = `${window.location.origin}/${gameId}`;
+
   const [wordValue, setWordValue] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   // Read inside the wordPlay effect via ref rather than as a dependency —
@@ -223,6 +226,11 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
                 <span className={styles.playerScore}>{p.score}</span>
               </div>
             ))}
+          </div>
+
+          <div>
+            <div className={styles.poolLabel}>Invite</div>
+            <InviteLinkRow link={shareLink} />
           </div>
 
           <div className={styles.historySection}>

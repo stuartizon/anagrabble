@@ -113,6 +113,30 @@ describe("GameBoard", () => {
     expect(screen.getByText("7")).toBeInTheDocument();
   });
 
+  it("shows the invite link in the sidebar, positioned after Players and before History", () => {
+    renderBoard();
+
+    expect(screen.getByText(`${window.location.origin}/ABCDE`)).toBeInTheDocument();
+
+    const sidebarText = document.body.textContent ?? "";
+    const playersIdx = sidebarText.indexOf("Players");
+    const inviteIdx = sidebarText.indexOf("Invite");
+    const historyIdx = sidebarText.indexOf("History");
+    expect(playersIdx).toBeGreaterThanOrEqual(0);
+    expect(playersIdx).toBeLessThan(inviteIdx);
+    expect(inviteIdx).toBeLessThan(historyIdx);
+  });
+
+  it("copies the invite link to the clipboard", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    renderBoard();
+
+    await userEvent.click(screen.getByRole("button", { name: "Copy link" }));
+
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/ABCDE`);
+  });
+
   it("sends SubmitWord with the typed word and clears the input", async () => {
     renderBoard();
 

@@ -185,9 +185,8 @@
    personal, not broadcast narration" for why the history panel accepts the
    same gap on mobile as that source (`railDisplay: isMobile ? 'none' :
    'flex'` there). Generic — not `.historyRail`, since it holds more than
-   history: Players then History today, matching the design's section
-   order; the design's Invite (share-link) section is a separate follow-up
-   piece of work, not bundled here. */
+   history: Players, Invite, then History, matching the design's section
+   order. */
 .sidebar {
   display: none;
   width: 280px;

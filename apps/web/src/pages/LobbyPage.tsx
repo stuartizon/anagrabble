@@ -10,6 +10,7 @@ import { useGameSocket } from "../useGameSocket";
 import { getPlayerIdentity, setPlayerName } from "../playerIdentity";
 import { makeCommandId } from "../gameId";
 import { assignPlayerColors } from "../playerColors";
+import { useCopyLink } from "../useCopyLink";
 import { cx } from "../cx";
 import { GameBoard } from "./GameBoard";
 import styles from "./LobbyPage.module.css";
@@ -25,7 +26,6 @@ export function LobbyPage() {
   const { gameId = "" } = useParams();
   const navigate = useNavigate();
   const identity = useMemo(() => getPlayerIdentity(), []);
-  const [copied, setCopied] = useState(false);
   const [starting, setStarting] = useState(false);
   const [joining, setJoining] = useState(false);
   const [playerName, setPlayerNameField] = useState(identity.name);
@@ -33,12 +33,7 @@ export function LobbyPage() {
   const { status, lobby, error, wordPlay, history, send } = useGameSocket(gameId, identity.id);
 
   const shareLink = `${window.location.origin}/${gameId}`;
-
-  const copyLink = () => {
-    navigator.clipboard.writeText(shareLink).catch(() => {});
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1600);
-  };
+  const { copied, copyLink } = useCopyLink(shareLink);
 
   const joinGame = () => {
     const name = playerName.trim() || identity.name;

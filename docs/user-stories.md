@@ -25,8 +25,10 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 - [x] As the current player, I can turn over one tile from the bank on my turn.
 - [x] As a player, if the current player's turn timer expires, the turn
       auto-advances to the next player (see CLAUDE.md: client-triggered for MVP).
-- [ ] As any player, I can submit a word at any time, formable from pool letters,
-      by stealing an opponent's word (extended or combined), or both.
+- [~] As any player, I can submit a word at any time, formable from pool letters,
+  by stealing an opponent's word (extended or combined), or both. Backend
+  is done end to end (decomposition search, atomic Redis mutation,
+  SubmitWord/WordPlayed wire types) — no frontend UI yet.
 - [ ] As a player, when I submit a word that's a valid steal, I see clearly whose
       word was taken and how (matches the narration style in the design prototype,
       e.g. "Sam stole CAT from You → CAST").

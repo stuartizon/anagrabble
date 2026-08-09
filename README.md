@@ -11,9 +11,11 @@ Lobby slice and tile-turning are done: create a game, share an invite link,
 join it, and see connected players live; the host can start the game, and
 players take turns turning tiles from the bank (auto-advancing if a turn
 timer expires) — all wired end to end through real WebSocket/Redis state (no
-mocked data). Word submission and stealing are not yet implemented — see
-`docs/user-stories.md` for scope. Auth is stubbed (a local player-identity,
-not real accounts).
+mocked data). Word submission and stealing (claim a word from the pool,
+steal/extend an opponent's) is implemented end to end on the backend — the
+decomposition search, the atomic Redis mutation, and the WebSocket command/
+event — but has no frontend UI yet. See `docs/user-stories.md` for scope.
+Auth is stubbed (a local player-identity, not real accounts).
 
 ## Stack
 
@@ -79,11 +81,12 @@ docker compose -f infrastructure/docker-compose.yml up
 pnpm test
 ```
 
-Runs each package's unit/component/integration test suite: Vitest unit tests
-for the tile bag in `packages/game`, real-Redis integration tests for the
-`apply_turn_tile` Lua script in `packages/redis` and for the lobby/game
-modules in `apps/server` (spins up a container via testcontainers — needs
-Docker), and mocked component tests for `apps/web`.
+Runs each package's unit/component/integration test suite: Vitest unit and
+property-based (fast-check) tests for the tile bag and word-decomposition
+search in `packages/game`, real-Redis integration tests for the
+`apply_turn_tile`/`apply_submit_word` Lua scripts in `packages/redis` and for
+the lobby/game modules in `apps/server` (spins up a container via
+testcontainers — needs Docker), and mocked component tests for `apps/web`.
 
 ```bash
 cd apps/web && pnpm test:e2e

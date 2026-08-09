@@ -211,7 +211,9 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
 
   return (
     <div className={styles.page}>
-      <Header />
+      <Header>
+        <span className={styles.bankCount}>{lobby.bankCount} tiles left</span>
+      </Header>
 
       <div className={styles.layout}>
         <aside className={styles.sidebar}>
@@ -258,10 +260,6 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
         <div className={styles.main}>
           <div className={styles.scrollArea}>
             <div className={styles.board}>
-              <div className={styles.topRow}>
-                <div className={styles.bankCount}>{lobby.bankCount} tiles left</div>
-              </div>
-
               <div>
                 <div className={styles.poolLabel}>Upturned tiles</div>
                 <div className={styles.poolTiles}>

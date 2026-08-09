@@ -6,3 +6,9 @@
   border-bottom: 1px solid var(--border);
   background: var(--surface-card);
 }
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}

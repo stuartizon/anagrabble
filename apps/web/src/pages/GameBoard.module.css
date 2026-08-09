@@ -43,11 +43,6 @@
   padding: 24px 20px;
 }
 
-.topRow {
-  display: flex;
-  justify-content: flex-end;
-}
-
 .bankCount {
   font-family: var(--font-body);
   font-size: var(--text-sm);

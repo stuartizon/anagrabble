@@ -14,6 +14,7 @@
     "@anagrabble/protocol": "workspace:*"
   },
   "devDependencies": {
+    "fast-check": "^3.23.1",
     "typescript": "^5.6.3",
     "vitest": "^3.2.7"
   }

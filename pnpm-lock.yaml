@@ -146,13 +146,22 @@ importers:
 
   packages/redis:
     dependencies:
+      '@anagrabble/protocol':
+        specifier: workspace:*
+        version: link:../protocol
       ioredis:
         specifier: ^5.4.1
         version: 5.11.1
     devDependencies:
+      '@testcontainers/redis':
+        specifier: ^12.1.0
+        version: 12.1.0
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
+      vitest:
+        specifier: ^3.2.7
+        version: 3.2.7(@types/node@20.19.43)(jsdom@30.0.1)
 
 packages:
 

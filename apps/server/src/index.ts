@@ -10,10 +10,11 @@ import {
   type LobbySnapshot,
 } from "@anagrabble/protocol";
 import { createGame, joinGame, leaveGame, loadLobbySnapshot } from "./lobby.js";
+import { startGame, turnTile } from "./game.js";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379";
-const LOBBY_CHANNEL = "lobby:events";
+const GAME_CHANNEL = "game:events";
 
 const redis = createRedisClient({ url: REDIS_URL });
 const subscriber = redis.duplicate();
@@ -29,7 +30,7 @@ subscriber.on("error", (err) => console.error("[redis] subscriber error", err));
 // isn't holding the socket in question still needs a way to reach it.
 const rooms = new Map<string, Set<WebSocket>>();
 
-subscriber.subscribe(LOBBY_CHANNEL).catch((err) => console.error("[redis] subscribe failed", err));
+subscriber.subscribe(GAME_CHANNEL).catch((err) => console.error("[redis] subscribe failed", err));
 
 subscriber.on("message", (_channel, message) => {
   const event = JSON.parse(message) as Event;
@@ -100,7 +101,7 @@ function cancelPendingLeave(gameId: string, playerId: string) {
 }
 
 async function publish(event: Event) {
-  await redis.publish(LOBBY_CHANNEL, JSON.stringify(event));
+  await redis.publish(GAME_CHANNEL, JSON.stringify(event));
 }
 
 function send(socket: WebSocket, event: Event) {
@@ -235,6 +236,46 @@ wss.on("connection", (socket, req) => {
           } else {
             send(socket, lobbyStateEvent(result.snapshot));
           }
+          break;
+        }
+        case "StartGame": {
+          const result = await startGame(redis, command);
+          if ("error" in result) {
+            sendError(
+              socket,
+              result.error,
+              `Could not start game ${command.gameId}`,
+              command.gameId,
+              command.commandId,
+            );
+            return;
+          }
+          await publish({
+            type: "GameStarted",
+            seq: result.snapshot.seq,
+            gameId: command.gameId,
+            lobby: result.snapshot,
+          });
+          break;
+        }
+        case "TurnTile": {
+          const result = await turnTile(redis, command);
+          if ("error" in result) {
+            sendError(
+              socket,
+              result.error,
+              `Could not turn a tile for game ${command.gameId}`,
+              command.gameId,
+              command.commandId,
+            );
+            return;
+          }
+          await publish({
+            type: "TileTurned",
+            seq: result.snapshot.seq,
+            gameId: command.gameId,
+            lobby: result.snapshot,
+          });
           break;
         }
         case "Ping":

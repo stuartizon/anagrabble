@@ -132,13 +132,6 @@
   color: var(--ink);
 }
 
-.startHint {
-  text-align: center;
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-  margin-top: 10px;
-}
-
 .nameFieldWrap {
   margin-bottom: 16px;
 }

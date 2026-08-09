@@ -67,7 +67,9 @@ export function useGameSocket(gameId?: string, knownPlayerId?: string) {
       if (
         message.type === "LobbyState" ||
         message.type === "PlayerJoined" ||
-        message.type === "PlayerLeft"
+        message.type === "PlayerLeft" ||
+        message.type === "GameStarted" ||
+        message.type === "TileTurned"
       ) {
         setState((s) => ({ ...s, lobby: message.lobby, error: null }));
       }

@@ -125,6 +125,39 @@ describe("LobbyPage", () => {
       expect(screen.getByText("2 players at the table")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Start game" })).toBeEnabled();
     });
+
+    it("sends StartGame when Start is clicked", async () => {
+      mockSocket({ lobby: lobbySnapshot({ players: [HOST, GUEST] }) });
+      renderAsPlayer("host-1");
+
+      await userEvent.click(screen.getByRole("button", { name: "Start game" }));
+
+      expect(send).toHaveBeenCalledWith({
+        type: "StartGame",
+        commandId: "cmd-1",
+        gameId: "ABCDE",
+        hostId: "host-1",
+      });
+    });
+  });
+
+  describe("once the game has started", () => {
+    it("renders the game board instead of the lobby card", () => {
+      mockSocket({
+        lobby: lobbySnapshot({
+          status: "playing",
+          players: [HOST, GUEST],
+          bankCount: 143,
+          pool: ["A"],
+          turnPlayerIndex: 0,
+          turnDeadline: Date.now() + 30_000,
+        }),
+      });
+      renderAsPlayer("host-1");
+
+      expect(screen.getByText("143 tiles left")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Start game/ })).not.toBeInTheDocument();
+    });
   });
 
   describe("as an unjoined guest", () => {

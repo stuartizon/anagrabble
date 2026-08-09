@@ -5,6 +5,7 @@
 import type { GameConfig } from "@anagrabble/protocol";
 
 export type { GameConfig };
+export { LETTER_DISTRIBUTION, createShuffledBag, shuffle } from "./bag.js";
 
 export const DEFAULT_GAME_CONFIG: GameConfig = {
   turnTimerSec: 30,

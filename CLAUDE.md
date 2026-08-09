@@ -152,21 +152,27 @@ exists — marked below.
   hand-writing every case) — highest bug-risk, easiest-to-test code in the
   repo, prioritize it via TDD (see "Test-driven development" below) when that
   story is picked up.
-- **`packages/redis`** (Lua re-verification/mutation scripts): **deferred** —
-  no Lua scripts exist yet (the lobby slice mutates Redis directly via
-  `MULTI`, not `EVAL`; see `apps/server/src/lobby.ts`). Once the turn-tile/
-  word-submission stories add real Lua scripts, cover them with Vitest against
-  a **real Redis** (`@testcontainers/redis`, same harness as `apps/server`'s
-  integration tests below) — not a mock, since the point is verifying atomic
-  behavior under real `EVAL` semantics. Specifically cover the concurrent-race
-  case: fire two overlapping word claims at the same script back-to-back,
-  assert exactly one wins deterministically.
-- **`apps/server`** (WS/HTTP gateway): **Vitest** integration tests for
-  `lobby.ts` (create/join/leave-game) against a **real Redis** via
-  `@testcontainers/redis` — idempotency dedup, `seq` bumps, and state-machine
-  guards, not mocked, for the same reason as above. Extends to full WS
-  round-trip tests (a real `ws` client against a running server) once there's
-  more than the lobby slice to exercise that way.
+- **`packages/redis`** (Lua re-verification/mutation scripts): **Vitest**
+  against a **real Redis** (`@testcontainers/redis`, same harness as
+  `apps/server`'s integration tests below) — not a mock, since the point is
+  verifying atomic behavior under real `EVAL` semantics. Landed for
+  `apply_turn_tile.lua` (the tile-turning story's Lua script — the lobby
+  slice still mutates Redis directly via `MULTI`, not `EVAL`; see
+  `apps/server/src/lobby.ts`/`game.ts` for which paths use which), including
+  the concurrent-race case: fire two eligible `TurnTile` calls at the same
+  script back-to-back right after a deadline passes, assert exactly one
+  wins deterministically. The word-submission story will add its own
+  script(s) here the same way, covering its own concurrent-race case (two
+  overlapping word claims).
+- **`apps/server`** (WS/HTTP gateway): **Vitest** integration tests against
+  a **real Redis** via `@testcontainers/redis` — idempotency dedup, `seq`
+  bumps, and state-machine guards, not mocked, for the same reason as above.
+  Covers `lobby.ts` (create/join/leave-game) and `game.ts` (start-game/
+  turn-tile command validation and error codes — the Lua script's own
+  atomicity/race coverage lives in `packages/redis` above, this layer just
+  covers the wrapper). Extends to full WS round-trip tests (a real `ws`
+  client against a running server) once there's more than the lobby/gameplay
+  slices to exercise that way.
 - **`packages/protocol`** (schema evolution guarantees): **deferred** — a
   compatibility test (a checked-in fixture of the previous protocol version's
   message shapes must still parse under the current types, and vice versa)

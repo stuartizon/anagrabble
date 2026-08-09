@@ -9,12 +9,16 @@ import type {
 
 // Redis keys — see docs/redis-schema.md for the full convention. Hash-tagged
 // ({<gameId>}) so a future move to clustered Redis keeps all of one game's
-// keys on the same slot, which multi-key Lua scripts require.
-const stateKey = (gameId: string) => `game:{${gameId}}:state`;
-const seqKey = (gameId: string) => `game:{${gameId}}:seq`;
-const cmdsKey = (gameId: string) => `game:{${gameId}}:cmds`;
+// keys on the same slot, which multi-key Lua scripts require. Exported so
+// game.ts (StartGame/TurnTile) can address the same keys.
+export const stateKey = (gameId: string) => `game:{${gameId}}:state`;
+export const seqKey = (gameId: string) => `game:{${gameId}}:seq`;
+export const cmdsKey = (gameId: string) => `game:{${gameId}}:cmds`;
+/** Shuffled draw order for one game's tile bag — never sent to clients (see
+ * packages/game/src/bag.ts and docs/redis-schema.md "Tile bag key"). */
+export const bagKey = (gameId: string) => `game:{${gameId}}:bag`;
 
-const CMDS_TTL_SEC = 3600;
+export const CMDS_TTL_SEC = 3600;
 
 const PLAYER_COLORS = [
   "var(--player-1)",
@@ -56,8 +60,15 @@ export async function loadLobbySnapshot(
 }
 
 /** Marks a commandId as processed for this game, so retries (reconnect,
- * dropped ack) don't double-apply. Returns whether it was already seen. */
-async function markCommandSeen(redis: Redis, gameId: string, commandId: string): Promise<boolean> {
+ * dropped ack) don't double-apply. Returns whether it was already seen.
+ * Exported so game.ts's StartGame (plain read-modify-write, like the rest of
+ * the lobby slice) can reuse the same dedup convention TurnTile's Lua script
+ * implements atomically. */
+export async function markCommandSeen(
+  redis: Redis,
+  gameId: string,
+  commandId: string,
+): Promise<boolean> {
   const added = await redis.sadd(cmdsKey(gameId), commandId);
   await redis.expire(cmdsKey(gameId), CMDS_TTL_SEC);
   return added === 0;
@@ -66,7 +77,7 @@ async function markCommandSeen(redis: Redis, gameId: string, commandId: string):
 /** Bumps the dedicated seq counter (single atomic INCR — safe under
  * concurrency on its own) and returns the new value to embed in the state
  * blob being written. */
-async function nextSeq(redis: Redis, gameId: string): Promise<number> {
+export async function nextSeq(redis: Redis, gameId: string): Promise<number> {
   return redis.incr(seqKey(gameId));
 }
 

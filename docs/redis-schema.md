@@ -13,37 +13,54 @@ required for multi-key Lua scripts (`EVAL`) to work under cluster mode. Only
 the part inside `{...}` is hashed for slot placement; the rest of the key
 name is just for readability.
 
-| Key                     | Type   | Purpose                                           |
-| ----------------------- | ------ | ------------------------------------------------- |
-| `game:{<gameId>}:state` | string | JSON blob, the full `GameState` (shape below)     |
-| `game:{<gameId>}:seq`   | string | Monotonic move counter, bumped via `INCR`         |
-| `game:{<gameId>}:cmds`  | set    | Recently-seen `commandId`s, for idempotency dedup |
+| Key                     | Type   | Purpose                                             |
+| ----------------------- | ------ | --------------------------------------------------- |
+| `game:{<gameId>}:state` | string | JSON blob, the full `GameState` (shape below)       |
+| `game:{<gameId>}:seq`   | string | Monotonic move counter, bumped via `INCR`           |
+| `game:{<gameId>}:cmds`  | set    | Recently-seen `commandId`s, for idempotency dedup   |
+| `game:{<gameId>}:bag`   | list   | Shuffled tile draw order — see "Tile bag key" below |
 
 `game:{<gameId>}:cmds` gets an `EXPIRE` (1 hour) refreshed on every add —
 it's a dedup window, not permanent storage; `commandId`s don't need to be
 remembered forever, just long enough to catch retries/reconnects.
 
+### Tile bag key
+
+`game:{<gameId>}:bag` holds the game's shuffled draw order (one entry per
+tile, `LPOP`ped one at a time by `TurnTile`) — see `packages/game/src/bag.ts`
+for the letter distribution and shuffle, and
+`packages/redis/src/scripts/apply_turn_tile.lua` for the script that pops it.
+It's a separate key rather than a `GameState` field specifically so it's
+never sent to clients: `GameState`/`LobbySnapshot` is the same shape sent
+over the wire, and shipping the full remaining draw order would let a client
+see every future tile before it's revealed. `StartGame` seeds it (`RPUSH`,
+length = the full letter distribution) when the lobby transitions to
+`playing`; it's never written to again after that.
+
 ## State shape (`GameState`, `packages/protocol`)
 
 ```json
 {
-  "status": "lobby",
-  "seq": 0,
+  "status": "playing",
+  "seq": 4,
   "config": { "turnTimerSec": 30, "minWordLength": 3, "language": "English" },
-  "turnPlayerIndex": 0,
-  "turnDeadline": null,
+  "turnPlayerIndex": 1,
+  "turnDeadline": 1750000030000,
   "endGameDeadline": null,
-  "bankCount": 100,
-  "pool": [],
+  "bankCount": 143,
+  "pool": ["C"],
   "players": [{ "id": "p1", "name": "Alex", "words": [], "score": 0, "color": "var(--player-1)" }]
 }
 ```
 
 This is the same shape end to end — the lobby slice doesn't get a
 lobby-only shape, it just leaves the not-yet-relevant fields at their empty
-defaults (`status: "lobby"`, `pool: []`, `bankCount: 0` at creation,
-`turnDeadline: null`, `endGameDeadline: null`). Real gameplay fills these in
-without restructuring anything:
+defaults while `status` is `"lobby"` (`pool: []`, `bankCount: 0` at creation,
+`turnDeadline: null`, `endGameDeadline: null`). `StartGame` fills these in
+(shuffling a full 144-tile bag — `packages/game/src/bag.ts` — into
+`bankCount`, opening `turnDeadline`) without restructuring anything, and
+`TurnTile` (`packages/redis/src/scripts/apply_turn_tile.lua`) keeps them
+moving from there:
 
 - **`status`**: `"lobby" | "playing" | "ended"`.
 - **`seq`**: mirrors the dedicated `:seq` key — see "Two seq values" below.
@@ -100,16 +117,19 @@ subsequent accepted mutation (a join, a leave, and later a turn/word event).
 
 ## Known limitations (deliberate, MVP-scope)
 
-- **Join/leave isn't compare-and-swap.** Writing `state` is a single `SET`
-  (atomic on its own), but the read-modify-write around it (`GET` state,
-  compute the next state in JS, `SET` it back) is not — two genuinely
-  concurrent `JoinGame` calls for the same game could race, and the second
-  `SET` would clobber the first player's addition. CLAUDE.md explicitly
-  accepts this for the lobby slice ("no Lua script needed yet... no real
-  race condition in creating/joining a lobby"). If it ever matters in
-  practice, the fix is the same pattern already planned for word
-  resolution: read in Node, resolve in Node, do a cheap atomic
-  re-verify-and-apply in a small Lua script.
+- **Join/leave/StartGame aren't compare-and-swap.** Writing `state` is a
+  single `SET` (atomic on its own), but the read-modify-write around it
+  (`GET` state, compute the next state in JS, `SET` it back) is not — two
+  genuinely concurrent calls for the same game could race, and the second
+  `SET` would clobber the first. CLAUDE.md explicitly accepts this for the
+  lobby slice ("no Lua script needed yet... no real race condition in
+  creating/joining a lobby"), and `startGame` (`apps/server/src/game.ts`)
+  follows the same reasoning — only the host can trigger it, so there's no
+  genuine concurrent-writer scenario to guard against, unlike `TurnTile`'s
+  "any client can trigger the timeout path" case. If it ever matters in
+  practice, the fix is the same pattern `TurnTile` already uses: read in
+  Node, resolve in Node, do a cheap atomic re-verify-and-apply in a small
+  Lua script (`packages/redis/src/scripts/apply_turn_tile.lua`).
 - **Broadcast fan-out is process-local**, using Redis Pub/Sub to bridge
   across server processes (`apps/server/src/index.ts`) rather than each
   server holding its own separate source of truth — this is what preserves

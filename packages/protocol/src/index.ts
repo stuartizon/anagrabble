@@ -88,6 +88,23 @@ export interface JoinGameCommand extends BaseCommand {
   playerName: string;
 }
 
+/** Host-only, lobby -> playing. See CLAUDE.md "Tile turning is turn-based" —
+ * this is what seeds the shuffled bag and opens the first turn. */
+export interface StartGameCommand extends BaseCommand {
+  type: "StartGame";
+  hostId: string;
+}
+
+/** Sent by whichever client's local turn-timer state warrants it: the
+ * current player turning a tile early, or (per CLAUDE.md "Turn timer
+ * enforcement") any connected client once its local countdown says the
+ * deadline has passed. The server is the source of truth either way — see
+ * packages/redis apply_turn_tile.lua. */
+export interface TurnTileCommand extends BaseCommand {
+  type: "TurnTile";
+  playerId: string;
+}
+
 export interface PlayerJoinedEvent extends BaseEvent {
   type: "PlayerJoined";
   player: PlayerState;
@@ -108,16 +125,42 @@ export interface LobbyStateEvent extends BaseEvent {
   lobby: LobbySnapshot;
 }
 
+export interface GameStartedEvent extends BaseEvent {
+  type: "GameStarted";
+  lobby: LobbySnapshot;
+}
+
+export interface TileTurnedEvent extends BaseEvent {
+  type: "TileTurned";
+  lobby: LobbySnapshot;
+}
+
 export interface ErrorEvent {
   type: "Error";
-  code: "GameNotFound" | "GameIdTaken" | "GameAlreadyStarted" | "InvalidCommand";
+  code:
+    | "GameNotFound"
+    | "GameIdTaken"
+    | "GameAlreadyStarted"
+    | "GameNotStarted"
+    | "NotHost"
+    | "NotEnoughPlayers"
+    | "NotYourTurn"
+    | "InvalidCommand";
   message: string;
   commandId?: string;
   gameId?: string;
 }
 
-export type Command = PingCommand | CreateGameCommand | JoinGameCommand;
-export type Event = PongEvent | PlayerJoinedEvent | PlayerLeftEvent | LobbyStateEvent | ErrorEvent;
+export type Command =
+  PingCommand | CreateGameCommand | JoinGameCommand | StartGameCommand | TurnTileCommand;
+export type Event =
+  | PongEvent
+  | PlayerJoinedEvent
+  | PlayerLeftEvent
+  | LobbyStateEvent
+  | GameStartedEvent
+  | TileTurnedEvent
+  | ErrorEvent;
 
 export interface HandshakeMessage {
   type: "Handshake";

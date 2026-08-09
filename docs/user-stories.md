@@ -17,15 +17,13 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
       minimum word length (3/4/5 letters), and language.
 - [x] As a host, I get a shareable invite link for the game lobby.
 - [x] As a player, I can join a game via invite link.
-- [~] As a player, I see who's in the lobby before the game starts, and the host can
-  start the game once ready. Seeing the lobby live is done; the host's "Start
-  game" button is present but not yet wired to anything (lands with the
-  gameplay slice).
+- [x] As a player, I see who's in the lobby before the game starts, and the host can
+      start the game once ready.
 
 ## Core gameplay
 
-- [ ] As the current player, I can turn over one tile from the bank on my turn.
-- [ ] As a player, if the current player's turn timer expires, the turn
+- [x] As the current player, I can turn over one tile from the bank on my turn.
+- [x] As a player, if the current player's turn timer expires, the turn
       auto-advances to the next player (see CLAUDE.md: client-triggered for MVP).
 - [ ] As any player, I can submit a word at any time, formable from pool letters,
       by stealing an opponent's word (extended or combined), or both.

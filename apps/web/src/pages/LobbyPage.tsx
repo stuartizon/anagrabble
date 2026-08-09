@@ -10,6 +10,7 @@ import { useGameSocket } from "../useGameSocket";
 import { getPlayerIdentity, setPlayerName } from "../playerIdentity";
 import { makeCommandId } from "../gameId";
 import { cx } from "../cx";
+import { GameBoard } from "./GameBoard";
 import styles from "./LobbyPage.module.css";
 
 // Matches design-system/Lobby.dc.html — the live waiting room, and also the
@@ -24,7 +25,7 @@ export function LobbyPage() {
   const navigate = useNavigate();
   const identity = useMemo(() => getPlayerIdentity(), []);
   const [copied, setCopied] = useState(false);
-  const [startClicked, setStartClicked] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [joining, setJoining] = useState(false);
   const [playerName, setPlayerNameField] = useState(identity.name);
 
@@ -48,6 +49,16 @@ export function LobbyPage() {
       gameId,
       playerId: identity.id,
       playerName: name,
+    });
+  };
+
+  const startGame = () => {
+    setStarting(true);
+    send({
+      type: "StartGame",
+      commandId: makeCommandId(),
+      gameId,
+      hostId: identity.id,
     });
   };
 
@@ -76,6 +87,10 @@ export function LobbyPage() {
         <Header />
       </PageShell>
     );
+  }
+
+  if (lobby.status === "playing") {
+    return <GameBoard lobby={lobby} playerId={identity.id} send={send} />;
   }
 
   const isHost = identity.id === lobby.hostId;
@@ -141,21 +156,14 @@ export function LobbyPage() {
             </div>
 
             {isHost && (
-              <>
-                <Button
-                  size="lg"
-                  disabled={!canStart}
-                  onClick={() => setStartClicked(true)}
-                  style={{ width: "100%", justifyContent: "center" }}
-                >
-                  {canStart ? "Start game" : "Waiting for players…"}
-                </Button>
-                {startClicked && (
-                  <div className={styles.startHint}>
-                    Starting the game is coming in the next slice — not wired up yet.
-                  </div>
-                )}
-              </>
+              <Button
+                size="lg"
+                disabled={!canStart || starting}
+                onClick={startGame}
+                style={{ width: "100%", justifyContent: "center" }}
+              >
+                {!canStart ? "Waiting for players…" : starting ? "Starting…" : "Start game"}
+              </Button>
             )}
             {isUnjoinedGuest && (
               <>

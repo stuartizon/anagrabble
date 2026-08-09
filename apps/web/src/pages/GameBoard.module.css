@@ -1,0 +1,123 @@
+.board {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  max-width: 640px;
+  padding: 24px 20px;
+}
+
+.topRow {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.bankCount {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.playersRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.playerChip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface-card);
+}
+
+.playerChipActive {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+
+.playerDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.playerName {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+
+.poolLabel {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-wider);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.poolTiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-height: 60px;
+  padding: 16px;
+  background: var(--surface-sunken);
+  border-radius: var(--radius-lg);
+}
+
+.poolEmpty {
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  align-self: center;
+}
+
+.tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: var(--tile-face);
+  box-shadow: 0 2px 0 var(--tile-shadow);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-lg);
+  color: var(--ink);
+}
+
+.turnSection {
+  display: flex;
+  justify-content: center;
+}
+
+.turnButton {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-base);
+  color: var(--text-on-accent, #fff);
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 12px 24px;
+  cursor: pointer;
+}
+
+.turnButton:hover {
+  background: var(--accent-dark);
+}
+
+.turnHint {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}

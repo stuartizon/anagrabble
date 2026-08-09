@@ -4,6 +4,7 @@ import { Header } from "../components/Header";
 import { Input } from "../components/Input";
 import { Button } from "../components/Button";
 import { InviteLinkRow } from "../components/InviteLinkRow";
+import { TurnTileButton } from "../components/TurnTileButton";
 import { makeCommandId } from "../gameId";
 import { assignPlayerColors } from "../playerColors";
 import type { GameSocketError, WordPlayNarration } from "../useGameSocket";
@@ -261,7 +262,22 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
           <div className={styles.scrollArea}>
             <div className={styles.board}>
               <div>
-                <div className={styles.poolLabel}>Upturned tiles</div>
+                <div className={styles.poolHeader}>
+                  <div className={styles.poolLabel}>Upturned tiles</div>
+                  {lobby.bankCount <= 0 ? (
+                    <span className={styles.turnHint}>No more tiles.</span>
+                  ) : isCurrentPlayer ? (
+                    <TurnTileButton
+                      secondsLeft={secondsLeft}
+                      totalSeconds={lobby.config.turnTimerSec}
+                      onClick={turnTile}
+                    />
+                  ) : (
+                    <span className={styles.turnHint}>
+                      {currentPlayer?.name ?? "Someone"}&rsquo;s turn
+                    </span>
+                  )}
+                </div>
                 <div className={styles.poolTiles}>
                   {lobby.pool.length === 0 && (
                     <span className={styles.poolEmpty}>No tiles turned yet.</span>
@@ -272,20 +288,6 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
                     </span>
                   ))}
                 </div>
-              </div>
-
-              <div className={styles.turnSection}>
-                {lobby.bankCount <= 0 ? (
-                  <div className={styles.turnHint}>The bank is empty.</div>
-                ) : isCurrentPlayer ? (
-                  <button className={styles.turnButton} onClick={turnTile}>
-                    Turn a tile ({secondsLeft}s)
-                  </button>
-                ) : (
-                  <div className={styles.turnHint}>
-                    Waiting on {currentPlayer?.name ?? "…"} ({secondsLeft}s)
-                  </div>
-                )}
               </div>
 
               {others.length > 0 && (

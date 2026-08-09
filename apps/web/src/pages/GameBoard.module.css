@@ -59,6 +59,22 @@
   margin-bottom: 10px;
 }
 
+/* Houses "Upturned tiles" plus the turn control (button, or plain-text
+   hint) on the same line, right-aligned — matches design-system/In
+   Game.dc.html's header row for that section. */
+.poolHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.poolHeader .poolLabel {
+  margin-bottom: 0;
+}
+
 .poolTiles {
   display: flex;
   flex-wrap: wrap;
@@ -91,31 +107,17 @@
   color: var(--ink);
 }
 
-.turnSection {
-  display: flex;
-  justify-content: center;
-}
-
-.turnButton {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: var(--text-base);
-  color: var(--text-on-accent, #fff);
-  background: var(--accent);
-  border: none;
-  border-radius: var(--radius-md);
-  padding: 12px 24px;
-  cursor: pointer;
-}
-
-.turnButton:hover {
-  background: var(--accent-dark);
-}
-
+/* Deliberately plain text, not a disabled-looking button — "Sam's turn" or
+   "No more tiles" isn't something to click, so it shouldn't be styled
+   like something that almost is. Matches TurnTileButton's own padding
+   (same font-size too) so swapping between the button and this text
+   mid-turn doesn't change .poolHeader's height and shove the tile pool
+   and everything below it up the page. */
 .turnHint {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   color: var(--text-muted);
+  padding: 8px 14px;
 }
 
 .wordsList {

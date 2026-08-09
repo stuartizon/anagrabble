@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Menu, X } from "lucide-react";
 import type { Command, LobbySnapshot, UsedWord } from "@anagrabble/protocol";
 import { Header } from "../components/Header";
 import { Input } from "../components/Input";
@@ -12,8 +13,12 @@ import styles from "./GameBoard.module.css";
 
 // Minimal slice of design-system/In Game.dc.html: tile-turning, word
 // submission, enough word-list/narration feedback to make a play feel like
-// it did something, and a running history panel. The settings/menu chrome
-// is a separate story and lands later.
+// it did something, and a running history panel. The settings modal (game
+// config + sound/haptics/language) is a separate, not-yet-built story —
+// design-system/In Game.dc.html's mobile menu also bundles a read-only
+// "Game settings" section and word-count-per-player column into the same
+// panel, both skipped here rather than quietly resolving those un-started
+// stories as a side effect of this one.
 
 interface GameBoardProps {
   lobby: LobbySnapshot;
@@ -119,6 +124,83 @@ function narrateOwnPlay(lobby: LobbySnapshot, play: WordPlayNarration): string {
 
 const MESSAGE_DISMISS_MS = 2500;
 
+/** Players/Invite/History — identical content for the desktop sidebar
+ * (`<aside>`, always mounted, hidden below 840px by CSS) and the mobile
+ * menu overlay (conditionally mounted, only above 840px unreachable).
+ * Rendered as its own function component so each call site gets its own
+ * element tree/keys rather than one JSX value reused in two places.
+ *
+ * History is deliberately NOT part of this — design-system/In
+ * Game.dc.html's mobileMenuOpen panel only ever has Players/Invite/Game
+ * settings/Your settings, no history section, unlike the desktop
+ * `<aside>` which has all three of Players/Invite/History. So the desktop
+ * sidebar renders this plus its own History block; the mobile overlay
+ * renders only this. */
+function PlayersAndInviteSections({
+  lobby,
+  colors,
+  shareLink,
+}: {
+  lobby: LobbySnapshot;
+  colors: Map<string, string>;
+  shareLink: string;
+}) {
+  return (
+    <>
+      <div className={styles.playersSection}>
+        <div className={styles.poolLabel}>Players</div>
+        {lobby.players.map((p) => (
+          <div key={p.id} className={styles.playerRow}>
+            <span className={styles.playerDot} style={{ background: colors.get(p.id) }} />
+            <span className={styles.playerName} data-testid="sidebar-player-name">
+              {p.name}
+            </span>
+            <span className={styles.playerScore}>{p.score}</span>
+          </div>
+        ))}
+      </div>
+
+      <div>
+        <div className={styles.poolLabel}>Invite</div>
+        <InviteLinkRow link={shareLink} />
+      </div>
+    </>
+  );
+}
+
+function HistorySection({
+  lobby,
+  colors,
+  history,
+}: {
+  lobby: LobbySnapshot;
+  colors: Map<string, string>;
+  history: WordPlayNarration[];
+}) {
+  return (
+    <div className={styles.historySection}>
+      <div className={styles.poolLabel}>History</div>
+      <div className={styles.historyList}>
+        {history.length === 0 ? (
+          <span className={styles.wordsEmpty}>No words played yet.</span>
+        ) : (
+          [...history].reverse().map((entry) => (
+            <div key={entry.seq} className={styles.historyEntry}>
+              <span
+                className={styles.historyDot}
+                style={{ background: colors.get(entry.playerId) }}
+              />
+              <span className={styles.historyText}>
+                {describePlay(playerName(lobby, entry.playerId), lobby, entry)}
+              </span>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: GameBoardProps) {
   const colors = assignPlayerColors(lobby.players, playerId);
   const currentPlayer = lobby.players[lobby.turnPlayerIndex];
@@ -155,6 +237,7 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
 
   const shareLink = `${window.location.origin}/${gameId}`;
 
+  const [menuOpen, setMenuOpen] = useState(false);
   const [wordValue, setWordValue] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   // Read inside the wordPlay effect via ref rather than as a dependency —
@@ -214,48 +297,33 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
     <div className={styles.page}>
       <Header>
         <span className={styles.bankCount}>{lobby.bankCount} tiles left</span>
+        <button className={styles.menuButton} aria-label="Menu" onClick={() => setMenuOpen(true)}>
+          <Menu size={20} color="var(--text-muted)" />
+        </button>
       </Header>
+
+      {menuOpen && (
+        <div className={styles.menuOverlay} data-testid="mobile-menu">
+          <div className={styles.menuHeader}>
+            <span className={styles.menuTitle}>Menu</span>
+            <button
+              className={styles.menuCloseButton}
+              aria-label="Close"
+              onClick={() => setMenuOpen(false)}
+            >
+              <X size={20} color="var(--text-muted)" />
+            </button>
+          </div>
+          <div className={styles.menuBody}>
+            <PlayersAndInviteSections lobby={lobby} colors={colors} shareLink={shareLink} />
+          </div>
+        </div>
+      )}
 
       <div className={styles.layout}>
         <aside className={styles.sidebar}>
-          <div className={styles.playersSection}>
-            <div className={styles.poolLabel}>Players</div>
-            {lobby.players.map((p) => (
-              <div key={p.id} className={styles.playerRow}>
-                <span className={styles.playerDot} style={{ background: colors.get(p.id) }} />
-                <span className={styles.playerName} data-testid="sidebar-player-name">
-                  {p.name}
-                </span>
-                <span className={styles.playerScore}>{p.score}</span>
-              </div>
-            ))}
-          </div>
-
-          <div>
-            <div className={styles.poolLabel}>Invite</div>
-            <InviteLinkRow link={shareLink} />
-          </div>
-
-          <div className={styles.historySection}>
-            <div className={styles.poolLabel}>History</div>
-            <div className={styles.historyList}>
-              {history.length === 0 ? (
-                <span className={styles.wordsEmpty}>No words played yet.</span>
-              ) : (
-                [...history].reverse().map((entry) => (
-                  <div key={entry.seq} className={styles.historyEntry}>
-                    <span
-                      className={styles.historyDot}
-                      style={{ background: colors.get(entry.playerId) }}
-                    />
-                    <span className={styles.historyText}>
-                      {describePlay(playerName(lobby, entry.playerId), lobby, entry)}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
+          <PlayersAndInviteSections lobby={lobby} colors={colors} shareLink={shareLink} />
+          <HistorySection lobby={lobby} colors={colors} history={history} />
         </aside>
 
         <div className={styles.main}>

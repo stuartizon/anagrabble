@@ -1,5 +1,5 @@
 import { MemoryRouter } from "react-router-dom";
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LobbySnapshot, PlayerState } from "@anagrabble/protocol";
@@ -327,6 +327,32 @@ describe("GameBoard", () => {
     renderBoard();
 
     expect(screen.getByText("No words played yet.")).toBeInTheDocument();
+  });
+
+  it("opens the mobile menu with players and invite link (no history — not part of the design's mobile menu), and closes via the close button", async () => {
+    renderBoard({
+      lobby: lobbySnapshot({
+        players: [
+          { ...ME, score: 4 },
+          { ...OPPONENT, score: 7 },
+        ],
+      }),
+      history: [{ seq: 2, playerId: "me-1", word: "TAR", usedWords: [] }],
+    });
+
+    expect(screen.queryByTestId("mobile-menu")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Menu" }));
+
+    const menu = within(screen.getByTestId("mobile-menu"));
+    expect(menu.getByText("Players")).toBeInTheDocument();
+    expect(menu.getByText(`${window.location.origin}/ABCDE`)).toBeInTheDocument();
+    expect(menu.queryByText("History")).not.toBeInTheDocument();
+    expect(menu.queryByText("Me played TAR")).not.toBeInTheDocument();
+
+    await userEvent.click(menu.getByRole("button", { name: "Close" }));
+
+    expect(screen.queryByTestId("mobile-menu")).not.toBeInTheDocument();
   });
 
   it("lists history entries newest-first, narrated in the third person for every player", () => {

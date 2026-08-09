@@ -184,8 +184,14 @@ function pickBest(
 export function resolveWordPlay(input: ResolveWordPlayInput): ResolveWordPlayResult {
   const word = input.submittedWord.toLowerCase();
   if (word.length < input.minWordLength) return { ok: false, error: "TooShort" };
-  if (!isWord(word)) return { ok: false, error: "NotAWord" };
 
+  // Letters before dictionary, deliberately: a word that isn't even
+  // formable right now must never distinguish "not a real word" from "a
+  // real word, just not playable yet" — that distinction is exactly what
+  // would let a player use SubmitWord as a free dictionary lookup for words
+  // they're only scouting for later, not actually attempting to play. Only
+  // once the letters are genuinely on the board does knowing "is this real"
+  // become legitimate present-tense feedback rather than a future-peek.
   const targetLetters = letterCounts(word);
   const poolLetters = letterCounts(input.pool);
 
@@ -197,6 +203,8 @@ export function resolveWordPlay(input: ResolveWordPlayInput): ResolveWordPlayRes
     input.claimedWords,
   );
   if (candidates.length === 0) return { ok: false, error: "NoDecomposition" };
+
+  if (!isWord(word)) return { ok: false, error: "NotAWord" };
 
   return { ok: true, plan: pickBest(candidates, input.submitterId, input.scores) };
 }

@@ -29,7 +29,10 @@ describe("resolveWordPlay: input validation", () => {
     expect(result).toEqual({ ok: false, error: "TooShort" });
   });
 
-  it("rejects words not in the dictionary", () => {
+  it("rejects words not in the dictionary when the letters are actually available", () => {
+    // Letters ARE on the board here — telling the player "not a word" is
+    // legitimate present-tense feedback about a play they could physically
+    // attempt right now, not a peek at future possibilities.
     const result = resolveWordPlay({
       submittedWord: "zzzzx",
       submitterId: "p1",
@@ -39,6 +42,23 @@ describe("resolveWordPlay: input validation", () => {
       minWordLength,
     });
     expect(result).toEqual({ ok: false, error: "NotAWord" });
+  });
+
+  it("never reveals dictionary membership for a word that isn't even formable yet", () => {
+    // Same non-word, but this time the letters aren't on the board either.
+    // Must come back as NoDecomposition, not NotAWord — otherwise SubmitWord
+    // becomes a free dictionary lookup for words a player is only scouting
+    // for later, not actually trying to play (see docs/decisions.md "Letters
+    // checked before dictionary").
+    const result = resolveWordPlay({
+      submittedWord: "zzzzx",
+      submitterId: "p1",
+      pool: ["z"],
+      claimedWords: [],
+      scores: {},
+      minWordLength,
+    });
+    expect(result).toEqual({ ok: false, error: "NoDecomposition" });
   });
 });
 

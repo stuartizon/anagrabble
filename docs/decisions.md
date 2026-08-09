@@ -215,6 +215,43 @@ worth recording the reasoning for:
   only the _search_ for what to mutate happens outside it, with a "stale, retry"
   path if state moved between the read and the write.
 
+### Letters checked before dictionary
+
+**Decision**: `resolveWordPlay` checks whether the submitted word's letters
+are actually available (pool + claimed words) _before_ checking whether it's
+a real word. A word that fails both checks always comes back `NoDecomposition`
+never `NotAWord`.
+
+**Why**: raised by Stuart — checking the dictionary first (the original
+order, and the more obviously "cheap check first" one) means a player can
+type any string that isn't currently formable at all and learn whether it's
+a real word, for free, with zero risk (no letters spent, no turn used).
+That's the digital equivalent of walking over to a dictionary mid-game to
+scout words for later — exactly the play style the game shouldn't reward or
+even enable. Checking letters first closes that off entirely: a word that
+isn't formable yet gives identical feedback whether it's real or gibberish,
+so there's nothing to learn by probing. Once the letters genuinely are on
+the board, revealing "not a word" is fine — that's honest feedback about a
+play being attempted right now, not a leak about the future.
+
+**Traded off against**: the dictionary check is a single O(1) hash lookup,
+while the decomposition search is real combinatorial work (see "Implementation
+split" above) — checking dictionary-first was originally chosen partly to
+fail fast on the cheap check before paying for the expensive one, so this
+reorder does mean paying the search cost on every submission, including
+outright gibberish. Accepted: this is a human-paced, turn-based game (not a
+high-QPS hot path), the "relevant" claimed-word subset the search actually
+enumerates stays small in realistic games (CLAUDE.md "Word resolution
+implementation split" already bounds it), and game-design integrity outweighs
+a CPU cost that's real but small at this scale.
+
+**Scope, precisely**: this only changes behavior for words that are _both_
+not real _and_ not currently formable. A real word with unavailable letters
+already returned `NoDecomposition` regardless of check order (the dictionary
+check passes either way); a fake word with available letters still returns
+`NotAWord` either way (legitimate present-tense feedback, not a future
+peek). Verified by `packages/game/src/resolution.test.ts`.
+
 ### Scoring
 
 **Decision**: a played/stolen word scores `1 + (word.length - minWordLength)` —

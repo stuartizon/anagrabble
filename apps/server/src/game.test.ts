@@ -233,8 +233,12 @@ describe("game", () => {
       expect(result).toEqual({ error: "PlayerNotFound" });
     });
 
-    it("returns NotAWord for something not in the dictionary", async () => {
-      await seedPlayingState();
+    it("returns NotAWord for something not in the dictionary when its letters are available", async () => {
+      // packages/game's resolveWordPlay checks letters before the dictionary
+      // (see docs/decisions.md "Letters checked before dictionary") — the
+      // pool has to actually spell "zzzzx" for this to exercise NotAWord
+      // rather than NoDecomposition.
+      await seedPlayingState({ pool: ["Z", "Z", "Z", "Z", "X"] });
       const result = await submitWord(redis, submitWordCommand({ word: "zzzzx" }));
       expect(result).toEqual({ error: "NotAWord" });
     });

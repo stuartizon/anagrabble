@@ -121,6 +121,15 @@ load-bearing for any piece of state.
     however the extra letters would be sourced (pool letters or combined with
     another claimed word); the point is blocking "just add a suffix," not the
     letter source.
+  - **Letters are checked before the dictionary.** `resolveWordPlay`
+    (`packages/game/src/resolution.ts`) rejects on letter-unavailability
+    (`NoDecomposition`) before it ever checks whether the word is real
+    (`NotAWord`). A word that isn't even formable right now must never reveal
+    whether it's a real word — otherwise SubmitWord becomes a free dictionary
+    lookup for words a player is only scouting for later, not attempting to
+    play (see docs/decisions.md "Letters checked before dictionary"). Once
+    the letters genuinely are available, `NotAWord` is legitimate
+    present-tense feedback about a play that could actually be attempted.
 - **Word resolution implementation split** (do not put full combinatorial search
   in Lua):
   1. Node reads current state from Redis (plain read, no lock), runs the full

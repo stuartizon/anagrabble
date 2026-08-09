@@ -30,7 +30,7 @@ export function LobbyPage() {
   const [joining, setJoining] = useState(false);
   const [playerName, setPlayerNameField] = useState(identity.name);
 
-  const { status, lobby, error, send } = useGameSocket(gameId, identity.id);
+  const { status, lobby, error, wordPlay, send } = useGameSocket(gameId, identity.id);
 
   const shareLink = `${window.location.origin}/${gameId}`;
 
@@ -63,7 +63,11 @@ export function LobbyPage() {
     });
   };
 
-  if (error) {
+  // Only a missing game warrants replacing the whole page — every other
+  // error code (NotHost, a rejected word, a stale-state retry, ...) means
+  // the game itself is fine and should be shown inline near whatever
+  // command produced it, not swap out the page it happened on.
+  if (error?.code === "GameNotFound") {
     return (
       <PageShell>
         <Header />
@@ -91,7 +95,15 @@ export function LobbyPage() {
   }
 
   if (lobby.status === "playing") {
-    return <GameBoard lobby={lobby} playerId={identity.id} send={send} />;
+    return (
+      <GameBoard
+        lobby={lobby}
+        playerId={identity.id}
+        send={send}
+        error={error}
+        wordPlay={wordPlay}
+      />
+    );
   }
 
   const colors = assignPlayerColors(lobby.players, identity.id);

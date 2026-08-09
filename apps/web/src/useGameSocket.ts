@@ -5,16 +5,40 @@ import {
   type Event,
   type HandshakeMessage,
   type LobbySnapshot,
+  type UsedWord,
 } from "@anagrabble/protocol";
 
 const WS_URL = import.meta.env.VITE_WS_URL ?? "ws://localhost:8080";
 
 export type SocketStatus = "connecting" | "open" | "closed";
 
+/** Narration data for the most recent WordPlayed event — enough for a
+ * client to render "Sam stole CAT from You -> CAST" (CLAUDE.md "Core
+ * gameplay") without diffing successive `lobby` snapshots itself. A new
+ * object every time (never mutated), so consumers can key a useEffect off
+ * its identity to show a one-shot toast. */
+export interface WordPlayNarration {
+  seq: number;
+  playerId: string;
+  word: string;
+  usedWords: UsedWord[];
+}
+
+export interface GameSocketError {
+  code: string;
+  message: string;
+  /** The commandId of whatever was rejected, when the server sent one — lets
+   * a consumer correlate this specific rejection back to the specific
+   * command that caused it (e.g. which SubmitWord attempt), rather than
+   * assuming it's whatever they most recently did. */
+  commandId?: string;
+}
+
 interface GameSocketState {
   status: SocketStatus;
   lobby: LobbySnapshot | null;
-  error: { code: string; message: string } | null;
+  error: GameSocketError | null;
+  wordPlay: WordPlayNarration | null;
 }
 
 /** Opens (and re-opens, on gameId change) a WebSocket scoped to one lobby
@@ -31,11 +55,12 @@ export function useGameSocket(gameId?: string, knownPlayerId?: string) {
     status: "connecting",
     lobby: null,
     error: null,
+    wordPlay: null,
   });
   const socketRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    setState({ status: "connecting", lobby: null, error: null });
+    setState({ status: "connecting", lobby: null, error: null, wordPlay: null });
     const params = new URLSearchParams();
     if (gameId) params.set("game", gameId);
     if (gameId && knownPlayerId) params.set("player", knownPlayerId);
@@ -60,7 +85,25 @@ export function useGameSocket(gameId?: string, knownPlayerId?: string) {
       }
 
       if (message.type === "Error") {
-        setState((s) => ({ ...s, error: { code: message.code, message: message.message } }));
+        setState((s) => ({
+          ...s,
+          error: { code: message.code, message: message.message, commandId: message.commandId },
+        }));
+        return;
+      }
+
+      if (message.type === "WordPlayed") {
+        setState((s) => ({
+          ...s,
+          lobby: message.lobby,
+          error: null,
+          wordPlay: {
+            seq: message.seq,
+            playerId: message.playerId,
+            word: message.word,
+            usedWords: message.usedWords,
+          },
+        }));
         return;
       }
 

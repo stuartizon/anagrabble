@@ -7,15 +7,15 @@ revealed tiles, or steal existing claimed words by extending or combining them
 
 ## Status
 
-Lobby slice and tile-turning are done: create a game, share an invite link,
-join it, and see connected players live; the host can start the game, and
-players take turns turning tiles from the bank (auto-advancing if a turn
-timer expires) — all wired end to end through real WebSocket/Redis state (no
-mocked data). Word submission and stealing (claim a word from the pool,
-steal/extend an opponent's) is implemented end to end on the backend — the
-decomposition search, the atomic Redis mutation, and the WebSocket command/
-event — but has no frontend UI yet. See `docs/user-stories.md` for scope.
-Auth is stubbed (a local player-identity, not real accounts).
+Lobby, tile-turning, and word submission/stealing are all done end to end:
+create a game, share an invite link, join it, see connected players live,
+turn tiles from the bank (auto-advancing if a turn timer expires), and
+claim/steal words — through real WebSocket/Redis state (no mocked data),
+verified in a real browser against the real backend. See
+`docs/user-stories.md` for exact scope and what's still missing (a running
+play history, an explicit word-count badge, the bank-empty idle countdown,
+post-game summary). Auth is stubbed (a local player-identity, not real
+accounts).
 
 ## Stack
 

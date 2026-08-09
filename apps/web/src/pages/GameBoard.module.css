@@ -1,9 +1,27 @@
+/* Full-height app shell: Header (its own natural height), a scrollable
+   middle (pool/players/words), and the word-submission bar docked below it
+   — never scrolls out of view, matching design-system/In Game.dc.html's
+   structure (its word bar sits outside the scrollable content div). */
+.page {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.scrollArea {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+}
+
 .board {
   display: flex;
   flex-direction: column;
   gap: 24px;
   width: 100%;
-  max-width: 640px;
+  max-width: 760px;
   padding: 24px 20px;
 }
 
@@ -51,6 +69,13 @@
   font-weight: 600;
   font-size: var(--text-sm);
   color: var(--ink);
+}
+
+.playerScore {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  color: var(--gold);
 }
 
 .poolLabel {
@@ -120,4 +145,82 @@
   font-family: var(--font-body);
   font-size: var(--text-sm);
   color: var(--text-muted);
+}
+
+.wordsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  background: var(--surface-sunken);
+  border-radius: var(--radius-md);
+  padding: 12px;
+}
+
+.wordsEmpty {
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+}
+
+/* Matches design-system WordTag's shape="rounded" (radius-md, not a full
+   pill) and indicator="dot" (a circular swatch, not the square used
+   elsewhere for player chips/tile-turn indicators). */
+.wordTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 4px;
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  border: 1px solid var(--border);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+
+.wordTagDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Matches design-system Toast's dark/ink background + white text — same
+   treatment for every tone, since these are routine play-by-play messages,
+   not alarms, even the rejection ones (design-system's components/feedback/
+   Toast.jsx). Skips that component's tone-colored dot — flat black/white
+   only. */
+.message {
+  align-self: center;
+  margin-bottom: 16px;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  padding: 11px 16px;
+  border-radius: var(--radius-md);
+  background: var(--ink);
+  color: #fff;
+  box-shadow: var(--shadow-md);
+}
+
+.wordFormDock {
+  border-top: 1px solid var(--border);
+  background: var(--surface-card);
+  padding: 16px 20px calc(16px + env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: center;
+}
+
+.wordForm {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: nowrap;
+  width: 100%;
+  max-width: 760px;
+}
+
+.wordFormInput {
+  flex: 1 1 200px;
+  min-width: 0;
 }

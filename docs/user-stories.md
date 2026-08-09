@@ -25,16 +25,25 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 - [x] As the current player, I can turn over one tile from the bank on my turn.
 - [x] As a player, if the current player's turn timer expires, the turn
       auto-advances to the next player (see CLAUDE.md: client-triggered for MVP).
-- [~] As any player, I can submit a word at any time, formable from pool letters,
-  by stealing an opponent's word (extended or combined), or both. Backend
-  is done end to end (decomposition search, atomic Redis mutation,
-  SubmitWord/WordPlayed wire types) — no frontend UI yet.
-- [ ] As a player, when I submit a word that's a valid steal, I see clearly whose
+- [x] As any player, I can submit a word at any time, formable from pool letters,
+      by stealing an opponent's word (extended or combined), or both. End to end:
+      decomposition search, atomic Redis mutation, SubmitWord/WordPlayed wire
+      types, and a word-input UI in `GameBoard` — verified in a real browser
+      against the real backend (create/join/start/turn/play/steal, two
+      players, no console errors).
+- [x] As a player, when I submit a word that's a valid steal, I see clearly whose
       word was taken and how (matches the narration style in the design prototype,
-      e.g. "Sam stole CAT from You → CAST").
-- [ ] As a player, if two of us submit overlapping words near-simultaneously, only
-      one of us succeeds and I get clear feedback if I lost the race.
+      e.g. "Sam stole CAT from You → CAST") — `GameBoard`'s toast message,
+      driven by `WordPlayedEvent.usedWords`.
+- [x] As a player, if two of us submit overlapping words near-simultaneously, only
+      one of us succeeds (guaranteed by `apply_submit_word.lua`'s atomic
+      re-verification, with its own concurrent-race test) and I get clear
+      feedback if I lost the race (`StaleState` -> "The board just changed —
+      try again."). Mechanism fully tested at the Lua/wrapper layers; not
+      separately re-verified as a live two-browser race in this pass.
 - [ ] As a player, I see live score and word-count updates for all players.
+      Score is live (`GameBoard`'s player chips); an explicit word-count
+      badge per player isn't shown yet.
 - [ ] As a player, I see a running history of plays in the current game.
 - [ ] As a player, once the tile bank is empty, the game auto-ends after an idle
       period with no new words played (idle countdown resets on every play — see

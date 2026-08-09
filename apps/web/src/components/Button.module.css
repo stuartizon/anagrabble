@@ -7,6 +7,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  white-space: nowrap;
   transition:
     background-color 140ms ease-out,
     border-color 140ms ease-out,

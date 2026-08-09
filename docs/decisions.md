@@ -301,6 +301,16 @@ touching anything else.
   was pushed into how protocol changes are written: additive-only per PR, with
   genuine breaking changes split into an "expand" rollout (backend tolerates old
   - new) followed by a later "contract" rollout.
+- **Rejection messages correlate by `commandId`, not "last submitted"**:
+  `ErrorEvent.commandId` already exists for idempotency dedup; `apps/web`'s
+  `GameBoard` also uses it client-side to tie a rejection back to the exact
+  attempt that caused it (e.g. naming the actual rejected word in a `NotAWord`
+  toast). Rejected alternative: just remembering "whatever word was most
+  recently submitted" — simpler, but wrong under a real race (submit word A,
+  submit word B before A's rejection round-trips back, A's error would
+  incorrectly name B). `commandId` was already round-tripped for idempotency
+  reasons, so correlating by it instead costs almost nothing and closes the
+  race entirely, with no server/protocol change needed.
 
 ---
 

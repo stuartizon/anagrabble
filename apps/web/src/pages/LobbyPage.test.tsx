@@ -107,6 +107,17 @@ describe("LobbyPage", () => {
     expect(await screen.findByText("Home")).toBeInTheDocument();
   });
 
+  it("does not swap to the not-found page for a non-fatal error (e.g. a rejected word)", () => {
+    mockSocket({
+      lobby: lobbySnapshot({ players: [HOST, GUEST] }),
+      error: { code: "NotAWord", message: "Not a word we know" },
+    });
+    renderAsPlayer("guest-1");
+
+    expect(screen.queryByText("Game not found")).not.toBeInTheDocument();
+    expect(screen.getByText("Waiting for the host to start the game…")).toBeInTheDocument();
+  });
+
   describe("as the host", () => {
     it("shows the player list and disables Start with fewer than two players", () => {
       mockSocket({ lobby: lobbySnapshot({ players: [HOST] }) });

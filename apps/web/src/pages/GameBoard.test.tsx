@@ -149,7 +149,7 @@ describe("GameBoard", () => {
       commandId: "cmd-1",
       gameId: "ABCDE",
       playerId: "me-1",
-      word: "cat",
+      word: "CAT",
     });
     expect(input).toHaveValue("");
   });
@@ -160,7 +160,16 @@ describe("GameBoard", () => {
     const input = screen.getByPlaceholderText("Type a word…");
     await userEvent.type(input, "cat{Enter}");
 
-    expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: "SubmitWord", word: "cat" }));
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: "SubmitWord", word: "CAT" }));
+  });
+
+  it("uppercases input and strips non-letter characters as the user types", async () => {
+    renderBoard();
+
+    const input = screen.getByPlaceholderText("Type a word…");
+    await userEvent.type(input, "ca7 t's!");
+
+    expect(input).toHaveValue("CATS");
   });
 
   it("does not submit a blank or whitespace-only word", async () => {

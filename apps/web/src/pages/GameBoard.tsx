@@ -413,7 +413,9 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
               <div className={styles.wordFormInput}>
                 <Input
                   value={wordValue}
-                  onChange={(e) => setWordValue(e.target.value)}
+                  onChange={(e) =>
+                    setWordValue(e.target.value.toUpperCase().replace(/[^A-Z]/g, ""))
+                  }
                   placeholder="Type a word…"
                   size="lg"
                 />

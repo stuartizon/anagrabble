@@ -32,7 +32,7 @@ import {
   type LobbyError,
 } from "./lobby.js";
 
-export type StartGameError = LobbyError | "NotHost" | "NotEnoughPlayers";
+export type StartGameError = LobbyError | "NotHost";
 export type TurnTileError = "GameNotFound" | "GameNotStarted" | "NotYourTurn";
 
 /** Host-only lobby -> playing transition: shuffles the tile bag (see
@@ -56,7 +56,6 @@ export async function startGame(
 
   if (state.status !== "lobby") return { error: "GameAlreadyStarted" };
   if (state.players[0]?.id !== cmd.hostId) return { error: "NotHost" };
-  if (state.players.length < 2) return { error: "NotEnoughPlayers" };
 
   const bag = createShuffledBag();
   const now = Date.now();

@@ -110,7 +110,6 @@ export function LobbyPage() {
   const isHost = identity.id === lobby.hostId;
   const isJoined = lobby.players.some((p) => p.id === identity.id);
   const isUnjoinedGuest = !isHost && !isJoined;
-  const canStart = lobby.players.length >= 2;
   const host = lobby.players.find((p) => p.id === lobby.hostId);
   const subtitle = isHost
     ? "Send this link to whoever’s playing."
@@ -170,14 +169,17 @@ export function LobbyPage() {
             </div>
 
             {isHost && (
-              <Button
-                size="lg"
-                disabled={!canStart || starting}
-                onClick={startGame}
-                style={{ width: "100%", justifyContent: "center" }}
-              >
-                {!canStart ? "Waiting for players…" : starting ? "Starting…" : "Start game"}
-              </Button>
+              <>
+                <div className={styles.startHint}>Start once everyone at the table has joined.</div>
+                <Button
+                  size="lg"
+                  disabled={starting}
+                  onClick={startGame}
+                  style={{ width: "100%", justifyContent: "center" }}
+                >
+                  {starting ? "Starting…" : "Start game"}
+                </Button>
+              </>
             )}
             {isUnjoinedGuest && (
               <>

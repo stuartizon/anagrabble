@@ -133,10 +133,12 @@ describe("game", () => {
       expect(result).toEqual({ error: "NotHost" });
     });
 
-    it("rejects starting with fewer than two players", async () => {
+    it("allows the host to start solo, with just one player", async () => {
       await createGame(redis, createGameCommand());
       const result = await startGame(redis, startGameCommand());
-      expect(result).toEqual({ error: "NotEnoughPlayers" });
+      expect(result).not.toHaveProperty("error");
+      const { snapshot } = result as { snapshot: LobbySnapshot };
+      expect(snapshot.status).toBe("playing");
     });
 
     it("rejects starting a game that's already playing", async () => {

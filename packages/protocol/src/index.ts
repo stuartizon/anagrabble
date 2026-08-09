@@ -174,7 +174,6 @@ export interface ErrorEvent {
     | "GameAlreadyStarted"
     | "GameNotStarted"
     | "NotHost"
-    | "NotEnoughPlayers"
     | "NotYourTurn"
     | "PlayerNotFound"
     | "TooShort"

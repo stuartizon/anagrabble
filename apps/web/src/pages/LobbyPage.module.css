@@ -143,3 +143,11 @@
   color: var(--text-muted);
   padding: 12px 0;
 }
+
+.startHint {
+  text-align: center;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}

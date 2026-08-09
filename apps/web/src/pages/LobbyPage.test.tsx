@@ -119,15 +119,16 @@ describe("LobbyPage", () => {
   });
 
   describe("as the host", () => {
-    it("shows the player list and disables Start with fewer than two players", () => {
+    it("shows the player list and allows starting solo, with a hint to wait for others", () => {
       mockSocket({ lobby: lobbySnapshot({ players: [HOST] }) });
       renderAsPlayer("host-1");
 
       expect(screen.getByText("1 player at the table")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Waiting for players…" })).toBeDisabled();
+      expect(screen.getByText("Start once everyone at the table has joined.")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Start game" })).toBeEnabled();
     });
 
-    it("enables Start once a second player has joined", () => {
+    it("keeps Start enabled once a second player has joined", () => {
       mockSocket({ lobby: lobbySnapshot({ players: [HOST, GUEST] }) });
       renderAsPlayer("host-1");
 

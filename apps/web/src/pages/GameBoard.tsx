@@ -142,6 +142,13 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay }: GameBoardP
 
   const [wordValue, setWordValue] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  // Read inside the wordPlay effect via ref rather than as a dependency —
+  // lobby gets a new object on every TileTurned/etc. too, and the toast must
+  // only (re)trigger when wordPlay itself changes, not on unrelated snapshot
+  // updates (that previously reopened a just-dismissed toast on the next
+  // tile turn).
+  const lobbyRef = useRef(lobby);
+  lobbyRef.current = lobby;
   // The input is cleared optimistically on submit (below), so by the time an
   // Error event comes back asynchronously, wordValue itself no longer has
   // what was attempted. Keyed by commandId (round-tripped on ErrorEvent)
@@ -157,10 +164,10 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay }: GameBoardP
     // same slot as this player's own errors. See docs/decisions.md "Toasts
     // are personal, not broadcast narration".
     if (!wordPlay || wordPlay.playerId !== playerId) return;
-    setMessage(narrateOwnPlay(lobby, wordPlay));
+    setMessage(narrateOwnPlay(lobbyRef.current, wordPlay));
     const timer = setTimeout(() => setMessage(null), MESSAGE_DISMISS_MS);
     return () => clearTimeout(timer);
-  }, [wordPlay, lobby, playerId]);
+  }, [wordPlay, playerId]);
 
   useEffect(() => {
     if (!error) return;

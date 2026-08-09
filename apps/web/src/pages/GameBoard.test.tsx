@@ -1,5 +1,5 @@
 import { MemoryRouter } from "react-router-dom";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LobbySnapshot, PlayerState } from "@anagrabble/protocol";
@@ -152,6 +152,38 @@ describe("GameBoard", () => {
     });
 
     expect(screen.getByText("You played TAR")).toBeInTheDocument();
+  });
+
+  it("does not resurrect a dismissed toast when the lobby snapshot updates afterward (e.g. a tile turn)", () => {
+    // Regression test: the toast effect used to depend on the whole `lobby`
+    // object, which gets a new reference on every snapshot update (not just
+    // WordPlayed). A lobby update arriving after the toast's own dismiss
+    // timer had already fired was re-running the effect against the same,
+    // still-not-null `wordPlay` and showing it again.
+    vi.useFakeTimers();
+    try {
+      const wordPlay: WordPlayNarration = {
+        seq: 2,
+        playerId: "me-1",
+        word: "TAR",
+        usedWords: [],
+      };
+      const { rerender } = render(boardElement({ wordPlay }));
+      expect(screen.getByText("You played TAR")).toBeInTheDocument();
+
+      act(() => {
+        vi.advanceTimersByTime(2500);
+      });
+      expect(screen.queryByText("You played TAR")).not.toBeInTheDocument();
+
+      // Same wordPlay reference, but a fresh lobby object — as happens on a
+      // TileTurned/LobbyState update after the play.
+      rerender(boardElement({ wordPlay, lobby: lobbySnapshot({ bankCount: 99 }) }));
+
+      expect(screen.queryByText("You played TAR")).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("shows no toast for another player's play — that's shared/ambient, not personal to this screen", () => {

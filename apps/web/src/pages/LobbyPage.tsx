@@ -167,12 +167,7 @@ export function LobbyPage() {
             {isHost && (
               <>
                 <div className={styles.startHint}>Start once everyone at the table has joined.</div>
-                <Button
-                  size="lg"
-                  disabled={starting}
-                  onClick={startGame}
-                  style={{ width: "100%", justifyContent: "center" }}
-                >
+                <Button size="lg" disabled={starting} onClick={startGame} fullWidth>
                   {starting ? "Starting…" : "Start game"}
                 </Button>
               </>
@@ -191,7 +186,7 @@ export function LobbyPage() {
                   size="lg"
                   onClick={joinGame}
                   disabled={!playerName.trim() || status !== "open" || joining}
-                  style={{ width: "100%", justifyContent: "center" }}
+                  fullWidth
                 >
                   {joining ? "Joining…" : "Join game"}
                 </Button>

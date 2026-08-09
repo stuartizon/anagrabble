@@ -3,7 +3,7 @@
 // :hover — with a real stylesheet available, that state boilerplate goes
 // away in favor of &:hover / &:active.
 
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import styles from "./Button.module.css";
 import { cx } from "../cx";
 
@@ -17,7 +17,7 @@ interface ButtonProps {
   children: ReactNode;
   onClick?: () => void;
   type?: "button" | "submit";
-  style?: CSSProperties;
+  fullWidth?: boolean;
 }
 
 export function Button({
@@ -27,15 +27,14 @@ export function Button({
   children,
   onClick,
   type = "button",
-  style,
+  fullWidth,
 }: ButtonProps) {
   return (
     <button
       type={type}
       disabled={disabled}
       onClick={onClick}
-      className={cx(styles.button, styles[size], styles[variant])}
-      style={style}
+      className={cx(styles.button, styles[size], styles[variant], fullWidth && styles.fullWidth)}
     >
       {children}
     </button>

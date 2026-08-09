@@ -23,6 +23,11 @@
   opacity: 0.5;
 }
 
+.fullWidth {
+  width: 100%;
+  justify-content: center;
+}
+
 /* sizes */
 
 .sm {

@@ -107,7 +107,7 @@ export function NewGamePage() {
                 size="lg"
                 onClick={createGame}
                 disabled={!playerName.trim() || status !== "open" || !!pendingGameId}
-                style={{ width: "100%", justifyContent: "center" }}
+                fullWidth
               >
                 {pendingGameId ? "Creating…" : "Create game"}
               </Button>

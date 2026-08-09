@@ -215,6 +215,60 @@ worth recording the reasoning for:
   only the _search_ for what to mutate happens outside it, with a "stale, retry"
   path if state moved between the read and the write.
 
+### Scoring
+
+**Decision**: a played/stolen word scores `1 + (word.length - minWordLength)` —
+1 point at the config's minimum word length, +1 per letter beyond it (e.g. a
+3-letter-minimum game: CAT=1, CAST=2, SCAT=3). Recomputed from scratch from a
+player's current `words` whenever it changes (`packages/redis/src/scripts/
+apply_submit_word.lua`), not tracked as an incremental +/- delta, so it can't
+drift out of sync with `.words` — stealing a word away naturally drops the
+old owner's score by exactly what that word was worth, with no separate
+bookkeeping to keep consistent.
+
+**Why not raw word length** (`word.length`, no minWordLength offset): this is
+what the localStorage-mocked design prototype (`design-system/In Game.dc.html`)
+actually computes — but CLAUDE.md already flags that prototype as
+"not production code," and its own in-app rules copy
+(`design-system/RulesContent.dc.html`) explicitly describes the
+minWordLength-relative formula instead, so the two shipped-but-informal
+references disagreed with each other. Went with the rules copy: it's the
+actual player-facing explanation of the rule, and the relative formula makes
+`minWordLength` (a host-configurable setting) meaningfully affect scoring
+weight, not just the eligibility cutoff.
+
+**Known tension, flagged but not solved here**: a 4-letter-minimum game is
+fundamentally harder than a 3-letter-minimum one but produces systematically
+lower raw scores for equivalent skill (Stuart's observation) — a problem for
+any future cross-game stats/leaderboard view (`docs/user-stories.md` "I can
+view my stats across past games"), not for a single game's own scoreboard.
+Not addressed now since that story isn't built yet; whoever picks it up
+should decide whether to normalize per-game scores for cross-game comparison
+(e.g. relative to that game's config) or just not compare raw scores across
+different `minWordLength` settings at all.
+
+### Word play transfers the tile-turn
+
+**Decision**: successfully playing or stealing a word also makes the
+submitter the next player to turn a tile — `apply_submit_word.lua` reassigns
+`turnPlayerIndex`/`turnDeadline` to the submitter as part of the same atomic
+mutation, exactly like `apply_turn_tile.lua` does for a tile turn.
+
+**Why this needed confirming rather than assuming**: CLAUDE.md's existing
+"Tile turning vs. word stealing are different concurrency problems" framing
+(above) reads as if the two systems are fully independent, and the actual
+prototype code (`design-system/In Game.dc.html`) implements them that way —
+`submitWord` never touches `turn`, only the tile timer does. But the
+prototype's own rules copy (`RulesContent.dc.html`) says otherwise: "Whoever
+makes or steals a word becomes the next player to turn a tile." Confirmed
+with Stuart: the rules copy is correct, the prototype code is the
+incomplete one. This does couple the two systems at the mutation level (this
+Lua script now touches turn-timer fields, not just word-play fields), but the
+two remain independent concurrency problems in the sense that mattered for
+the original framing — a tile turn is still gated by who's current, a word
+claim is still free-for-all any time; the turn just changes hands as a
+_side effect_ of a word claim landing.
+
 ### Game-end condition
 
 **Decision**: once the tile bank is empty, start a 60-second idle countdown

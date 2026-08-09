@@ -7,3 +7,11 @@ export {
   type ApplyTurnTileKeys,
   type ApplyTurnTileResult,
 } from "./applyTurnTile.js";
+export {
+  applySubmitWord,
+  type ApplySubmitWordArgs,
+  type ApplySubmitWordError,
+  type ApplySubmitWordKeys,
+  type ApplySubmitWordResult,
+  type UsedWord,
+} from "./applySubmitWord.js";

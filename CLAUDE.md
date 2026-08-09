@@ -87,6 +87,15 @@ load-bearing for any piece of state.
   never trusted to the client.
 - **Word submission/stealing is free-for-all**: any player, any time. This is the
   actual "first wins" race the whole Redis/atomicity design exists for.
+- **Playing/stealing a word also transfers the tile-turn**: the submitter
+  becomes the current player, same as if they'd turned a tile — see
+  docs/decisions.md "Word play transfers the tile-turn" for why this needed
+  confirming rather than assuming (the two design references disagreed).
+  `apply_submit_word.lua` reassigns `turnPlayerIndex`/`turnDeadline` as part
+  of the same atomic mutation.
+- **Scoring**: 1 point at `minWordLength`, +1 per letter beyond it — see
+  docs/decisions.md "Scoring" for the formula, why (not raw word length),
+  and a flagged-but-unsolved tension with future cross-game stats.
 - **Turn timer enforcement (MVP decision)**: client-triggered only. Any connected
   client fires `TurnTile` when its local countdown hits zero; the Lua script
   verifies `now >= turnDeadline` server-side regardless of who called it. No

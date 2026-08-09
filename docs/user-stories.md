@@ -61,9 +61,17 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
       client-side only, not persisted anywhere server-side". Player
       word-count badges are a separate follow-up piece of work, not bundled
       here.
-- [ ] As a player, once the tile bank is empty, the game auto-ends after an idle
+- [x] As a player, once the tile bank is empty, the game auto-ends after an idle
       period with no new words played (idle countdown resets on every play — see
       CLAUDE.md "Game-end condition"). Not a live-consensus mechanic for MVP.
+      End to end: `EndGame`/`GameEndedEvent`, `apply_end_game.lua`'s atomic
+      deadline check (own concurrent-race test), the apps/server wrapper, and
+      GameBoard's client-triggered auto-fire + a minimal "Game over" banner
+      that disables the word form — see docs/decisions.md "Game-end
+      condition" for the implementation note. The idle timeout stays
+      hardcoded at 60s (not yet the "configurable" CLAUDE.md describes), and
+      the full game-over summary screen is still its own separate,
+      not-yet-started story below.
 
 ## Post-game
 

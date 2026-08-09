@@ -10,7 +10,7 @@ import {
   type LobbySnapshot,
 } from "@anagrabble/protocol";
 import { createGame, joinGame, leaveGame, loadLobbySnapshot } from "./lobby.js";
-import { startGame, submitWord, turnTile } from "./game.js";
+import { endGame, startGame, submitWord, turnTile } from "./game.js";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379";
@@ -272,6 +272,26 @@ wss.on("connection", (socket, req) => {
           }
           await publish({
             type: "TileTurned",
+            seq: result.snapshot.seq,
+            gameId: command.gameId,
+            lobby: result.snapshot,
+          });
+          break;
+        }
+        case "EndGame": {
+          const result = await endGame(redis, command);
+          if ("error" in result) {
+            sendError(
+              socket,
+              result.error,
+              `Could not end game ${command.gameId}`,
+              command.gameId,
+              command.commandId,
+            );
+            return;
+          }
+          await publish({
+            type: "GameEnded",
             seq: result.snapshot.seq,
             gameId: command.gameId,
             lobby: result.snapshot,

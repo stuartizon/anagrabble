@@ -9,6 +9,7 @@ import { RedisContainer, type StartedRedisContainer } from "@testcontainers/redi
 import { createRedisClient, type Redis } from "@anagrabble/redis";
 import type {
   CreateGameCommand,
+  EndGameCommand,
   GameState,
   JoinGameCommand,
   LobbySnapshot,
@@ -18,7 +19,7 @@ import type {
 } from "@anagrabble/protocol";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createGame, joinGame, stateKey } from "./lobby.js";
-import { startGame, submitWord, turnTile } from "./game.js";
+import { endGame, startGame, submitWord, turnTile } from "./game.js";
 
 const CONFIG = { turnTimerSec: 30, minWordLength: 3, language: "en" };
 
@@ -61,6 +62,15 @@ function turnTileCommand(overrides: Partial<TurnTileCommand> = {}): TurnTileComm
     commandId: crypto.randomUUID(),
     gameId: "game-1",
     playerId: "host-1",
+    ...overrides,
+  };
+}
+
+function endGameCommand(overrides: Partial<EndGameCommand> = {}): EndGameCommand {
+  return {
+    type: "EndGame",
+    commandId: crypto.randomUUID(),
+    gameId: "game-1",
     ...overrides,
   };
 }
@@ -207,6 +217,39 @@ describe("game", () => {
       const result = await turnTile(redis, turnTileCommand({ playerId: "player-2" }));
 
       expect(result).toEqual({ error: "NotYourTurn" });
+    });
+  });
+
+  describe("endGame", () => {
+    // The deadline check/status transition itself (including its own
+    // concurrent-race coverage) is tested at the packages/redis layer
+    // (applyEndGame.test.ts) — this only covers the apps/server wrapper.
+
+    it("returns GameNotFound for an unknown game", async () => {
+      const result = await endGame(redis, endGameCommand());
+      expect(result).toEqual({ error: "GameNotFound" });
+    });
+
+    it("returns GameNotStarted for a game still in the lobby", async () => {
+      await seedTwoPlayerLobby();
+      const result = await endGame(redis, endGameCommand());
+      expect(result).toEqual({ error: "GameNotStarted" });
+    });
+
+    it("returns GameNotIdle before the idle deadline has passed", async () => {
+      await seedPlayingState({ bankCount: 0, endGameDeadline: Date.now() + 60_000 });
+      const result = await endGame(redis, endGameCommand());
+      expect(result).toEqual({ error: "GameNotIdle" });
+    });
+
+    it("ends the game once the idle deadline has passed", async () => {
+      await seedPlayingState({ bankCount: 0, endGameDeadline: Date.now() - 1 });
+
+      const result = await endGame(redis, endGameCommand());
+
+      expect(result).not.toHaveProperty("error");
+      const { snapshot } = result as { snapshot: LobbySnapshot };
+      expect(snapshot.status).toBe("ended");
     });
   });
 

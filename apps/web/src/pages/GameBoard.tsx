@@ -231,6 +231,27 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
     return () => clearInterval(interval);
   }, [turnDeadline, gameId, playerId, send, lobby.bankCount]);
 
+  // Same client-triggered, server-verified pattern as the turnDeadline
+  // effect above, but for the post-bank-empty idle countdown (CLAUDE.md
+  // "Game-end condition"). Gated on status === "playing" so it stops firing
+  // once the game has actually ended.
+  const endGameDeadline = lobby.status === "playing" ? lobby.endGameDeadline : null;
+  const firedForEndDeadline = useRef<number | null>(null);
+
+  useEffect(() => {
+    firedForEndDeadline.current = null;
+    if (endGameDeadline === null) return;
+
+    const interval = setInterval(() => {
+      if (Date.now() >= endGameDeadline && firedForEndDeadline.current !== endGameDeadline) {
+        firedForEndDeadline.current = endGameDeadline;
+        send({ type: "EndGame", commandId: makeCommandId(), gameId });
+      }
+    }, 250);
+
+    return () => clearInterval(interval);
+  }, [endGameDeadline, gameId, send]);
+
   // Turning a tile is meant to be a quick side-action mid-typing, not a
   // context switch — a native <button> otherwise steals focus on click
   // (Chrome/Edge; not Safari), forcing a re-click into the word box to
@@ -417,24 +438,30 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
           )}
 
           <div className={styles.wordFormDock}>
-            <form className={styles.wordForm} onSubmit={submitWord}>
-              <div className={styles.wordFormInput}>
-                <Input
-                  ref={wordInputRef}
-                  value={wordValue}
-                  onChange={(e) =>
-                    setWordValue(e.target.value.toUpperCase().replace(/[^A-Z]/g, ""))
-                  }
-                  placeholder="Type a word…"
-                  size="lg"
-                  mono
-                  autoFocus
-                />
-              </div>
-              <Button type="submit" size="lg">
-                Play word
-              </Button>
-            </form>
+            {lobby.status === "ended" ? (
+              <span className={styles.turnHint} data-testid="game-over-message">
+                Game over — no more moves.
+              </span>
+            ) : (
+              <form className={styles.wordForm} onSubmit={submitWord}>
+                <div className={styles.wordFormInput}>
+                  <Input
+                    ref={wordInputRef}
+                    value={wordValue}
+                    onChange={(e) =>
+                      setWordValue(e.target.value.toUpperCase().replace(/[^A-Z]/g, ""))
+                    }
+                    placeholder="Type a word…"
+                    size="lg"
+                    mono
+                    autoFocus
+                  />
+                </div>
+                <Button type="submit" size="lg">
+                  Play word
+                </Button>
+              </form>
+            )}
           </div>
         </div>
       </div>

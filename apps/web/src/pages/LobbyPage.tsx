@@ -89,7 +89,12 @@ export function LobbyPage() {
     );
   }
 
-  if (lobby.status === "playing") {
+  // "ended" keeps rendering GameBoard too — otherwise a game that
+  // auto-ends (CLAUDE.md "Game-end condition") would fall through to the
+  // pre-game waiting-room view below (share link, "Start game" button),
+  // which makes no sense for a game that's already over. GameBoard itself
+  // shows the "Game over" message once lobby.status === "ended".
+  if (lobby.status === "playing" || lobby.status === "ended") {
     return (
       <GameBoard
         lobby={lobby}

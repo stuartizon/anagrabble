@@ -10,12 +10,12 @@ revealed tiles, or steal existing claimed words by extending or combining them
 Lobby, tile-turning, and word submission/stealing are all done end to end:
 create a game, share an invite link, join it, see connected players live,
 turn tiles from the bank (auto-advancing if a turn timer expires), claim/
-steal words, and see a running play history (desktop-only) — through real
+steal words, see a running play history (desktop-only), and the game
+auto-ends after a 60s idle period once the bank runs dry — through real
 WebSocket/Redis state (no mocked data), verified in a real browser against
 the real backend. See `docs/user-stories.md` for exact scope and what's
-still missing (an explicit word-count badge, the bank-empty idle countdown,
-post-game summary). Auth is stubbed (a local player-identity, not real
-accounts).
+still missing (an explicit word-count badge, post-game summary). Auth is
+stubbed (a local player-identity, not real accounts).
 
 ## Stack
 

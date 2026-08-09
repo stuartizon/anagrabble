@@ -15,3 +15,10 @@ export {
   type ApplySubmitWordResult,
   type UsedWord,
 } from "./applySubmitWord.js";
+export {
+  applyEndGame,
+  type ApplyEndGameArgs,
+  type ApplyEndGameError,
+  type ApplyEndGameKeys,
+  type ApplyEndGameResult,
+} from "./applyEndGame.js";

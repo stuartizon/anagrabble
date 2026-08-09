@@ -172,6 +172,27 @@ describe("LobbyPage", () => {
     });
   });
 
+  describe("once the game has ended", () => {
+    it("keeps rendering the game board instead of falling back to the waiting-room lobby card", () => {
+      // Regression test: this page used to gate GameBoard on
+      // status === "playing" only, so an auto-ended game (CLAUDE.md
+      // "Game-end condition") fell through to the pre-game waiting-room
+      // view (share link, "Start game" button) instead of GameBoard's own
+      // "Game over" message.
+      mockSocket({
+        lobby: lobbySnapshot({
+          status: "ended",
+          players: [HOST, GUEST],
+          bankCount: 0,
+        }),
+      });
+      renderAsPlayer("host-1");
+
+      expect(screen.getByTestId("game-over-message")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Start game/ })).not.toBeInTheDocument();
+    });
+  });
+
   describe("as an unjoined guest", () => {
     it("disables Join until a name is entered, then sends JoinGame", async () => {
       mockSocket({ lobby: lobbySnapshot({ players: [HOST] }) });

@@ -113,6 +113,16 @@ export interface SubmitWordCommand extends BaseCommand {
   word: string;
 }
 
+/** Sent by whichever client's local idle-countdown says `endGameDeadline`
+ * has passed (see CLAUDE.md "Game-end condition") — same client-triggered,
+ * server-verified pattern as TurnTileCommand, just for the post-bank-empty
+ * idle timer instead of the turn timer. No `playerId`: unlike TurnTile,
+ * ending the game doesn't depend on who triggers it. See packages/redis
+ * apply_end_game.lua. */
+export interface EndGameCommand extends BaseCommand {
+  type: "EndGame";
+}
+
 export interface PlayerJoinedEvent extends BaseEvent {
   type: "PlayerJoined";
   player: PlayerState;
@@ -140,6 +150,14 @@ export interface GameStartedEvent extends BaseEvent {
 
 export interface TileTurnedEvent extends BaseEvent {
   type: "TileTurned";
+  lobby: LobbySnapshot;
+}
+
+/** The idle countdown (see CLAUDE.md "Game-end condition") expired with no
+ * further plays — status has moved to "ended". See packages/redis
+ * apply_end_game.lua. */
+export interface GameEndedEvent extends BaseEvent {
+  type: "GameEnded";
   lobby: LobbySnapshot;
 }
 
@@ -181,6 +199,7 @@ export interface ErrorEvent {
     | "NoDecomposition"
     | "DerivationBlocked"
     | "StaleState"
+    | "GameNotIdle"
     | "InvalidCommand";
   message: string;
   commandId?: string;
@@ -193,7 +212,8 @@ export type Command =
   | JoinGameCommand
   | StartGameCommand
   | TurnTileCommand
-  | SubmitWordCommand;
+  | SubmitWordCommand
+  | EndGameCommand;
 export type Event =
   | PongEvent
   | PlayerJoinedEvent
@@ -202,6 +222,7 @@ export type Event =
   | GameStartedEvent
   | TileTurnedEvent
   | WordPlayedEvent
+  | GameEndedEvent
   | ErrorEvent;
 
 export interface HandshakeMessage {

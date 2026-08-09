@@ -333,3 +333,7 @@ mechanic without touching anything else.
   caught, unlike CATS vs. CAT) — a data-quality gap, not a code limitation;
   `isDerivedFrom` itself has no concept of position. See docs/decisions.md
   "Dictionary source and format"'s second known gap.
+- The post-bank-empty idle timeout is hardcoded at 60s in both
+  `apply_turn_tile.lua` and `apply_submit_word.lua` — this section's own
+  "60–90s, configurable" isn't wired up to `GameConfig` yet. See
+  docs/decisions.md "Game-end condition" implementation note.

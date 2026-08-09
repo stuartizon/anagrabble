@@ -125,7 +125,8 @@ export function useGameSocket(gameId?: string, knownPlayerId?: string) {
         message.type === "PlayerJoined" ||
         message.type === "PlayerLeft" ||
         message.type === "GameStarted" ||
-        message.type === "TileTurned"
+        message.type === "TileTurned" ||
+        message.type === "GameEnded"
       ) {
         setState((s) => ({ ...s, lobby: message.lobby, error: null }));
       }

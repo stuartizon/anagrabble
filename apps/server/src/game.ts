@@ -1,4 +1,5 @@
 import {
+  applyEndGame,
   applySubmitWord,
   applyTurnTile,
   type ApplySubmitWordError,
@@ -11,6 +12,7 @@ import {
   type WordPlayError,
 } from "@anagrabble/game";
 import type {
+  EndGameCommand,
   GameState,
   LobbySnapshot,
   StartGameCommand,
@@ -92,6 +94,29 @@ export async function turnTile(
     bagKey: bagKey(cmd.gameId),
     commandId: cmd.commandId,
     playerId: cmd.playerId,
+    now: Date.now(),
+    cmdsTtlSec: CMDS_TTL_SEC,
+  });
+
+  if ("error" in result) return { error: result.error };
+  return { snapshot: toLobbySnapshot(cmd.gameId, result.state) };
+}
+
+export type EndGameError = "GameNotFound" | "GameNotStarted" | "GameNotIdle";
+
+/** Ends the game once a client's local idle countdown says
+ * `endGameDeadline` has passed. Delegates to apply_end_game.lua
+ * (packages/redis) for the same atomicity reason as turnTile above — see
+ * CLAUDE.md "Game-end condition". */
+export async function endGame(
+  redis: Redis,
+  cmd: EndGameCommand,
+): Promise<{ snapshot: LobbySnapshot } | { error: EndGameError }> {
+  const result = await applyEndGame(redis, {
+    stateKey: stateKey(cmd.gameId),
+    seqKey: seqKey(cmd.gameId),
+    cmdsKey: cmdsKey(cmd.gameId),
+    commandId: cmd.commandId,
     now: Date.now(),
     cmdsTtlSec: CMDS_TTL_SEC,
   });

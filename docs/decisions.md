@@ -403,6 +403,18 @@ bank-empty and reset on `WordPlayed` instead of on turns. Explicitly swappable
 later for an explicit "call the game" or "all players confirm" mechanic without
 touching anything else.
 
+**Implementation note**: the actual deadline check/transition is `EndGame`
+(command) / `GameEndedEvent`, following `TurnTile`'s client-triggered,
+server-verified pattern exactly (`packages/redis/src/scripts/apply_end_game.lua`).
+Two deliberate deviations from that template: `EndGameCommand` carries no
+`playerId` (ending the game doesn't depend on who triggers it, unlike a tile
+turn); and re-firing after the game is already `"ended"` is a no-op success,
+not an error — two clients' idle timers can legitimately both expire in the
+same window, and the loser landing after the winner already flipped `status`
+isn't a client bug. The idle timeout itself stays hardcoded at 60s for now
+(see CLAUDE.md "Still open" — CLAUDE.md's own "60–90s, configurable" phrasing
+isn't wired up to `GameConfig` yet).
+
 ---
 
 ## Protocol conventions

@@ -378,4 +378,52 @@ describe("GameBoard", () => {
       "Me played TAR",
     ]);
   });
+
+  it("shows a game-over message and hides the word form once the game has ended", () => {
+    renderBoard({ lobby: lobbySnapshot({ status: "ended", bankCount: 0 }) });
+
+    expect(screen.getByTestId("game-over-message")).toHaveTextContent("Game over — no more moves.");
+    expect(screen.queryByPlaceholderText("Type a word…")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Play word" })).not.toBeInTheDocument();
+  });
+
+  it("fires EndGame once the idle countdown deadline has passed", () => {
+    vi.useFakeTimers();
+    try {
+      const now = Date.now();
+      renderBoard({
+        lobby: lobbySnapshot({ bankCount: 0, endGameDeadline: now + 1000 }),
+      });
+
+      act(() => {
+        vi.advanceTimersByTime(1250);
+      });
+
+      expect(send).toHaveBeenCalledWith({
+        type: "EndGame",
+        commandId: "cmd-1",
+        gameId: "ABCDE",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not fire EndGame once the game has already ended", () => {
+    vi.useFakeTimers();
+    try {
+      const now = Date.now();
+      renderBoard({
+        lobby: lobbySnapshot({ status: "ended", bankCount: 0, endGameDeadline: now - 1 }),
+      });
+
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "EndGame" }));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

@@ -131,7 +131,11 @@ describe("resolveWordPlay: single-word steal/extend", () => {
       scores: {},
       minWordLength,
     });
-    expect(result).toEqual({ ok: false, error: "NoDecomposition" });
+    // Distinct from NoDecomposition: letters were genuinely available (S was
+    // right there), this was rejected specifically for being a trivial
+    // derivation, not for being unbuildable — see docs/decisions.md
+    // "DerivationBlocked as its own rejection reason".
+    expect(result).toEqual({ ok: false, error: "DerivationBlocked" });
   });
 
   it("lets a player extend their own claimed word", () => {

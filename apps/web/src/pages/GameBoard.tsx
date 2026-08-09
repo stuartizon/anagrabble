@@ -32,19 +32,32 @@ function remainingSeconds(deadline: number | null): number {
  * from the player's side these are the same outcome ("what I tried isn't
  * currently possible"), just caught by different backend layers depending
  * on timing: `NoDecomposition` when the decomposition search itself
- * (packages/game) already sees the letters/words as unavailable,
- * `StaleState` when the search thought they were available but the atomic
- * Lua re-verification found they'd been consumed by a faster play in the
- * gap since (see CLAUDE.md "Word resolution implementation split"). A
- * player has no way to tell those apart and no reason to care which one
- * happened — so neither should the copy. Also deliberately doesn't say
- * "letters" — it covers every way a play can be currently illegal
- * (pool-only insufficient, a steal that's actually just a blocked
- * derivation, a bare zero-addition resubmission, ...), not just "the
- * upturned tiles don't have it". Note there's no "word already claimed"
- * case at all — duplicate claims of the identical word are allowed, as long
- * as the letters are genuinely available each time (see docs/decisions.md
- * "Duplicate word claims are allowed").
+ * (packages/game) already sees nothing buildable (letters genuinely
+ * unavailable, or the only option was a bare zero-addition resubmission —
+ * those two are merged for the same reason), `StaleState` when the search
+ * found something buildable but the atomic Lua re-verification found it
+ * had been consumed by a faster play in the gap since (see CLAUDE.md "Word
+ * resolution implementation split"). A player has no way to tell those
+ * apart and no reason to care which one happened — so neither should the
+ * copy. Also deliberately doesn't say "letters" — pool-only insufficient
+ * and bare resubmission are different failures underneath, not just "the
+ * upturned tiles don't have it".
+ *
+ * `DerivationBlocked` gets its own distinct copy: unlike the above, this
+ * one's genuinely actionable — a decomposition *was* buildable, using real
+ * new letters, but it's rejected specifically for being a trivial
+ * dictionary derivation (packages/game's `isDerivedFrom`). Only ever
+ * reported once letters are confirmed available, same anti-oracle ordering
+ * as letters-before-dictionary (see docs/decisions.md "DerivationBlocked as
+ * its own rejection reason"). The copy avoids naming a position ("ending",
+ * "suffix") since the rule itself isn't positional — the dictionary data
+ * only happens to record suffix-style derivations today, not prefixes (see
+ * docs/decisions.md "Dictionary source and format" for that known gap).
+ *
+ * Note there's no "word already claimed" case at all — duplicate claims of
+ * the identical word are allowed, as long as the letters are genuinely
+ * available each time (see docs/decisions.md "Duplicate word claims are
+ * allowed").
  *
  * `NotYourTurn` is suppressed rather than mapped to copy: the only way it
  * can reach this component is the turn-timer effect's own background
@@ -66,6 +79,8 @@ function errorText(
     case "NoDecomposition":
     case "StaleState":
       return "That's not a legal move right now.";
+    case "DerivationBlocked":
+      return "You have to change the root.";
     case "NotYourTurn":
       return null;
     default:

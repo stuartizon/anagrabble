@@ -119,8 +119,15 @@ load-bearing for any piece of state.
     (ABATE claimed → ABATED) is not a legal play, even though it's letter-formable
     — `packages/game/src/dictionary.ts`'s `isDerivedFrom`. This applies
     however the extra letters would be sourced (pool letters or combined with
-    another claimed word); the point is blocking "just add a suffix," not the
-    letter source.
+    another claimed word); the point is blocking a trivial extension, not the
+    letter source. Not positional — the rule isn't specifically about
+    suffixes, it's whatever the dictionary records as a root relationship
+    (currently suffix-only in practice, a known data gap, not a code
+    constraint — see docs/decisions.md "Dictionary source and format").
+    Reported as its own distinct error, `DerivationBlocked`, separate from
+    `NoDecomposition` — see docs/decisions.md "DerivationBlocked as its own
+    rejection reason" for why this one earns distinct copy when
+    letters-unavailable and bare-resubmission don't.
   - **Letters are checked before the dictionary.** `resolveWordPlay`
     (`packages/game/src/resolution.ts`) rejects on letter-unavailability
     (`NoDecomposition`) before it ever checks whether the word is real
@@ -314,3 +321,7 @@ mechanic without touching anything else.
   different Node instance. Fine at one server process; revisit before
   running more than one. See docs/decisions.md "Lobby slice" section for the
   fuller reasoning and the two candidate fixes.
+- Dictionary derivation data is suffix-only (e.g. UNHAPPY vs. HAPPY isn't
+  caught, unlike CATS vs. CAT) — a data-quality gap, not a code limitation;
+  `isDerivedFrom` itself has no concept of position. See docs/decisions.md
+  "Dictionary source and format"'s second known gap.

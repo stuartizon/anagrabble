@@ -180,6 +180,7 @@ export interface ErrorEvent {
     | "TooShort"
     | "NotAWord"
     | "NoDecomposition"
+    | "DerivationBlocked"
     | "StaleState"
     | "InvalidCommand";
   message: string;

@@ -203,7 +203,12 @@ describe("resolveWordPlay: derivation always blocks the steal", () => {
           minWordLength: 3,
         });
 
-        expect(result).toEqual({ ok: false, error: "NoDecomposition" });
+        // Not NoDecomposition: this construction guarantees a genuinely
+        // letter-valid, non-bare decomposition existed (root's letters are a
+        // strict sub-multiset of word's, per the fixture filter above) — it
+        // was rejected specifically for being a derivation, which is exactly
+        // what DerivationBlocked means to distinguish.
+        expect(result).toEqual({ ok: false, error: "DerivationBlocked" });
       }),
       { numRuns: 300 },
     );

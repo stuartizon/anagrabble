@@ -28,7 +28,7 @@ export interface ResolvedWordPlay {
   usedPoolLetters: string[];
 }
 
-export type WordPlayError = "TooShort" | "NotAWord" | "NoDecomposition";
+export type WordPlayError = "TooShort" | "NotAWord" | "NoDecomposition" | "DerivationBlocked";
 
 export type ResolveWordPlayResult =
   { ok: true; plan: ResolvedWordPlay } | { ok: false; error: WordPlayError };
@@ -72,6 +72,18 @@ interface Candidate {
   usedPoolLetters: string[];
 }
 
+interface FindCandidatesResult {
+  candidates: Candidate[];
+  /** True when some otherwise-valid decomposition — genuinely letter-valid,
+   * not a bare resubmission — was rejected specifically because it's a
+   * recorded dictionary derivation. Only meaningful when `candidates` is
+   * empty: it distinguishes "nothing here is buildable at all" from "one
+   * thing would have worked, except it's just a trivial derivation" (see
+   * resolveWordPlay's DerivationBlocked vs NoDecomposition split, and
+   * docs/decisions.md "DerivationBlocked as its own rejection reason"). */
+  derivationBlocked: boolean;
+}
+
 /** All subsets of `items`, smallest first. Only ever called on the
  * letter-compatible subset of claimed words (see findCandidates), which in
  * practice is small — a full power set here is fine for that size. */
@@ -109,12 +121,13 @@ function findCandidates(
   poolLetters: LetterCounts,
   pool: string[],
   claimedWords: ClaimedWord[],
-): Candidate[] {
+): FindCandidatesResult {
   // Only claimed words letter-compatible with the target can possibly
   // participate — this is the prune that keeps the subset search small.
   const relevant = claimedWords.filter((w) => isSubMultiset(letterCounts(w.word), targetLetters));
 
   const candidates: Candidate[] = [];
+  let derivationBlocked = false;
   for (const subset of subsetsOf(relevant)) {
     const usedLetters = subset.reduce((acc, w) => {
       for (const [letter, count] of letterCounts(w.word)) {
@@ -127,17 +140,25 @@ function findCandidates(
     const remaining = subtract(targetLetters, usedLetters);
     if (!isSubMultiset(remaining, poolLetters)) continue;
 
-    // "A single word reused with zero additions is invalid" (CLAUDE.md).
+    // "A single word reused with zero additions is invalid" (CLAUDE.md) —
+    // checked first: a zero-addition case is "nothing new was built" (folds
+    // into NoDecomposition), not a derivation rejection, even on the rare
+    // chance the same pair also happens to be recorded as a derivation.
     if (subset.length === 1 && totalCount(remaining) === 0) continue;
 
     // Derivation blocks a steal/extend no matter how the rest of the
     // letters were sourced — see CLAUDE.md "Derivation is not a legal steal".
-    if (subset.some((w) => isDerivedFrom(submittedWord, w.word))) continue;
+    // Only flagged once we know this subset was otherwise genuinely
+    // buildable — see resolveWordPlay for why that ordering matters.
+    if (subset.some((w) => isDerivedFrom(submittedWord, w.word))) {
+      derivationBlocked = true;
+      continue;
+    }
 
     candidates.push({ usedWords: subset, usedPoolLetters: selectPoolLetters(pool, remaining) });
   }
 
-  return candidates;
+  return { candidates, derivationBlocked };
 }
 
 /** CLAUDE.md priority tiers: (1) steals from another player, (2) pool-only,
@@ -195,14 +216,21 @@ export function resolveWordPlay(input: ResolveWordPlayInput): ResolveWordPlayRes
   const targetLetters = letterCounts(word);
   const poolLetters = letterCounts(input.pool);
 
-  const candidates = findCandidates(
+  const { candidates, derivationBlocked } = findCandidates(
     word,
     targetLetters,
     poolLetters,
     input.pool,
     input.claimedWords,
   );
-  if (candidates.length === 0) return { ok: false, error: "NoDecomposition" };
+  if (candidates.length === 0) {
+    // DerivationBlocked only ever fires when a decomposition genuinely was
+    // buildable — same anti-oracle reasoning as letters-before-dictionary
+    // above, one level further: a word that isn't buildable at all must
+    // never additionally reveal "and it'd also be a blocked derivation if
+    // you could build it".
+    return { ok: false, error: derivationBlocked ? "DerivationBlocked" : "NoDecomposition" };
+  }
 
   if (!isWord(word)) return { ok: false, error: "NotAWord" };
 

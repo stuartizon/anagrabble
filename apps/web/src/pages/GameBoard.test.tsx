@@ -240,6 +240,13 @@ describe("GameBoard", () => {
     expect(screen.getByText("That's not a legal move right now.")).toBeInTheDocument();
   });
 
+  it("shows distinct copy for DerivationBlocked, not the generic 'not a legal move' text", () => {
+    renderBoard({ error: { code: "DerivationBlocked", message: "raw server message" } });
+
+    expect(screen.getByText("You have to change the root.")).toBeInTheDocument();
+    expect(screen.queryByText("That's not a legal move right now.")).not.toBeInTheDocument();
+  });
+
   it("falls back to the server's message for an unmapped error code", () => {
     renderBoard({ error: { code: "SomethingElse", message: "raw server message" } });
 

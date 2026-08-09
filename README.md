@@ -43,7 +43,7 @@ docs/            decisions.md, user-stories.md, redis-schema.md
 
 ## Getting started
 
-Requires Node 20+, pnpm, and Docker.
+Requires Node 22.22.2+, pnpm, and Docker.
 
 ```bash
 pnpm install

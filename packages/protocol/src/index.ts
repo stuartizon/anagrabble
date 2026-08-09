@@ -176,7 +176,6 @@ export interface ErrorEvent {
     | "TooShort"
     | "NotAWord"
     | "NoDecomposition"
-    | "WordAlreadyClaimed"
     | "StaleState"
     | "InvalidCommand";
   message: string;

@@ -7,6 +7,14 @@
 -- applying it. Two clients racing to consume the same claimed word or the
 -- same pool tile is exactly the race this exists to resolve deterministically.
 --
+-- Deliberately does NOT check whether `word` is already claimed by someone
+-- (or even by this same player) — duplicate claims of the identical word
+-- are allowed, as long as the letters are genuinely available each time (see
+-- docs/decisions.md "Duplicate word claims are allowed"). The removal logic
+-- below is count-based rather than identity-based specifically so this falls
+-- out correctly: it already tolerates the same word string appearing more
+-- than once in a player's `words`.
+--
 -- KEYS[1] state, KEYS[2] seq, KEYS[3] cmds (see lobby.ts key builders).
 -- ARGV[1] commandId, ARGV[2] submitterId, ARGV[3] now (ms), ARGV[4] cmds TTL
 -- (s), ARGV[5] word (exact string to store), ARGV[6] usedWords JSON
@@ -43,13 +51,6 @@ if submitterIndex == nil then
 end
 
 local word = ARGV[5]
-for _, p in ipairs(state.players) do
-  for _, w in ipairs(p.words) do
-    if w == word then
-      return cjson.encode({ error = 'WordAlreadyClaimed' })
-    end
-  end
-end
 
 local usedWords = cjson.decode(ARGV[6])
 local usedPoolLetters = cjson.decode(ARGV[7])

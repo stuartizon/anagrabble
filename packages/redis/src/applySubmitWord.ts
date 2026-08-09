@@ -37,7 +37,6 @@ export type ApplySubmitWordError =
   | "GameNotFound"
   | "GameNotStarted"
   | "PlayerNotFound"
-  | "WordAlreadyClaimed"
   /** Referenced words/pool letters moved between the Node-side search and
    * this call — see CLAUDE.md "Word resolution implementation split".
    * Caller should re-run resolveWordPlay against fresh state and retry. */

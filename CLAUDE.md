@@ -130,6 +130,13 @@ load-bearing for any piece of state.
     play (see docs/decisions.md "Letters checked before dictionary"). Once
     the letters genuinely are available, `NotAWord` is legitimate
     present-tense feedback about a play that could actually be attempted.
+  - **Duplicate word claims are allowed.** A word already claimed by someone
+    (even by the same player) can be independently claimed again by anyone,
+    as long as the letters are genuinely available — a claimed word is not a
+    globally-unique, permanently-reserved string. Each independent claim
+    scores fully on its own, no discount for a repeat (see docs/decisions.md
+    "Duplicate word claims are allowed"). There is deliberately no "already
+    claimed" rejection code.
 - **Word resolution implementation split** (do not put full combinatorial search
   in Lua):
   1. Node reads current state from Redis (plain read, no lock), runs the full

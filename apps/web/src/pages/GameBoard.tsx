@@ -31,12 +31,24 @@ function remainingSeconds(deadline: number | null): number {
  * `NoDecomposition` deliberately doesn't say "letters" — it covers every way
  * a play can be currently illegal (pool-only insufficient, a steal that's
  * actually just a blocked derivation, a bare zero-addition resubmission,
- * ...), not just "the upturned tiles don't have it". `NotYourTurn` is
- * suppressed rather than mapped: the only way it can reach this component is
- * the turn-timer effect's own background TurnTile auto-fire losing a race
- * against another client (see that effect below) — the UI never lets a
- * player deliberately click "Turn a tile" when it isn't their turn, so this
- * is never a rejection of something the player actually did. */
+ * ...), not just "the upturned tiles don't have it". Note there's no
+ * "word already claimed" case at all — duplicate claims of the identical
+ * word are allowed, as long as the letters are genuinely available each
+ * time (see docs/decisions.md "Duplicate word claims are allowed").
+ *
+ * `StaleState` and `NotYourTurn` are suppressed rather than mapped to copy.
+ * `StaleState` only happens when another player's own legitimate play beat
+ * this one to the same ingredients (see docs/decisions.md "Race-loss
+ * rejections aren't shown as errors") — that other player's own success
+ * toast (the `wordPlay` effect below) is already the explanation; a separate
+ * "you lost" message on top would be redundant at best and, since the input
+ * clears optimistically either way, risks reading as if *their* toast was
+ * confirmation of *your* play. `NotYourTurn` is suppressed for a different
+ * reason: the only way it can reach this component is the turn-timer
+ * effect's own background TurnTile auto-fire losing a race against another
+ * client (see that effect below) — the UI never lets a player deliberately
+ * click "Turn a tile" when it isn't their turn, so it's never a rejection of
+ * something the player actually did. */
 function errorText(
   code: string,
   minWordLength: number,
@@ -50,10 +62,7 @@ function errorText(
       return `Words need to be at least ${minWordLength} letters.`;
     case "NoDecomposition":
       return "That's not a legal move right now.";
-    case "WordAlreadyClaimed":
-      return "That word is already taken.";
     case "StaleState":
-      return "The board just changed — try again.";
     case "NotYourTurn":
       return null;
     default:

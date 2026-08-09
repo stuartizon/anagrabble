@@ -207,6 +207,12 @@ describe("GameBoard", () => {
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
+  it("never shows a message for StaleState (the winning player's own success toast already explains it)", () => {
+    renderBoard({ error: { code: "StaleState", message: "raw server message" } });
+
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
   it("falls back to the server's message for an unmapped error code", () => {
     renderBoard({ error: { code: "SomethingElse", message: "raw server message" } });
 

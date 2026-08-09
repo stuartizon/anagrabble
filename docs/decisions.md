@@ -252,6 +252,49 @@ check passes either way); a fake word with available letters still returns
 `NotAWord` either way (legitimate present-tense feedback, not a future
 peek). Verified by `packages/game/src/resolution.test.ts`.
 
+### Duplicate word claims are allowed
+
+**Decision**: a claimed word is not a globally-unique, permanently-reserved
+string. If the letters for it are genuinely available — whether from the
+pool, or because someone happened to reveal more of the same letters later —
+anyone (including the player who already has it) can independently claim the
+identical word again. `apply_submit_word.lua` has no "already claimed" check
+at all; the only constraints are letter-availability and the existing
+formability rules (bare-resubmission block, derivation block, etc.), same as
+any other play.
+
+**Why**: raised by Stuart, working through a specific scenario (player 1
+holds CAT; pool has C/A/S/T; player 2 steals CAT+S into CAST; C/A/T are left
+untouched in the pool since the steal never needed them; can anyone,
+including player 1 again, now claim a fresh CAT from those letters?). The
+answer that fell out was "yes, obviously" — the letters are just letters,
+and blocking a play because the _string_ happens to match something already
+on the board, independent of whether the letters to build it are actually
+there, doesn't correspond to any real constraint. Confirmed explicitly:
+score stacks per independent claim (each one is worth full points, no
+discount for a repeat) and duplicates are allowed for the same player, not
+just different players — both deliberate, not oversights.
+
+**Why this was safe to build quickly**: `apply_submit_word.lua`'s word-removal
+logic was already written as count-based (`removedByOwner[owner][word] = N`,
+decrementing as it walks a player's `words`) rather than identity/first-match
+based — not originally written with duplicates in mind, but it meant the
+mutation and scoring logic already tolerated the same string appearing more
+than once in a player's list without any change. The only code that actually
+assumed uniqueness was the `WordAlreadyClaimed` check itself, a single
+self-contained block — removing it, and the corresponding error code
+(`ApplySubmitWordError`, `ErrorEvent`), was the entire change. Swept the
+codebase for any other place matching a word by value under an assumption of
+uniqueness (`.includes`/`.some`/`.find` against `.words`) — found none.
+
+**Considered and rejected**: restricting duplicates to different owners only
+(blocking a single player from holding two of their own identical word,
+since a physical-tiles analogy might suggest "why would you want two
+identical piles"). Rejected once scoring was confirmed to stack — a player
+has a clear, intentional reason to want a second copy of their own word
+(more points), so there's no principled reason to allow the cross-player
+case but not the same-player one.
+
 ### Scoring
 
 **Decision**: a played/stolen word scores `1 + (word.length - minWordLength)` —
@@ -348,6 +391,25 @@ touching anything else.
   incorrectly name B). `commandId` was already round-tripped for idempotency
   reasons, so correlating by it instead costs almost nothing and closes the
   race entirely, with no server/protocol change needed.
+- **Race-loss rejections aren't shown as errors**: `StaleState` (the code
+  that means "another player's own legitimate play beat this one to the same
+  ingredients" — see CLAUDE.md "Word resolution implementation split") is
+  suppressed in `GameBoard`, not mapped to copy, same treatment as
+  `NotYourTurn`. Raised by Stuart: when a race is lost, the _winning_
+  player's own success toast (`WordPlayed`, broadcast to everyone in the
+  room) already lands on every client and explains what happened — a
+  separate "you lost" toast for the loser is redundant, and worse, since the
+  input clears optimistically on submit either way, a same-slot toast
+  collision could show the winner's "Sam played CAT" in a way that reads as
+  confirmation of the loser's _own_ attempt. The losing player is left to
+  infer "mine didn't land" from the board simply not reflecting their
+  attempt — judged sufficient, since the reason is genuinely just "someone
+  else got there first," not something actionable about their own input the
+  way `NotAWord`/`TooShort`/`NoDecomposition` are. (This originally also
+  covered `WordAlreadyClaimed`, since a race could resolve to either code
+  depending only on whether the two competing plays happened to land on the
+  identical output word — that code no longer exists at all; see "Duplicate
+  word claims are allowed" below.)
 
 ---
 

@@ -103,19 +103,52 @@ describe("applySubmitWord", () => {
     expect(result).toEqual({ error: "PlayerNotFound" });
   });
 
-  it("returns WordAlreadyClaimed when the word is already on the board", async () => {
-    await seed(makeState({ players: [{ id: "p1", name: "One", words: ["cast"], score: 2 }] }));
+  it("lets a different player independently claim a word someone else already has", async () => {
+    // p2 already has "cat" (default fixture); p1 builds their own from the
+    // pool. Duplicate claims of the identical word are allowed as long as
+    // the letters are genuinely available each time — see docs/decisions.md
+    // "Duplicate word claims are allowed".
+    await seed(makeState());
     const result = await applySubmitWord(redis, {
       ...KEYS,
       commandId: crypto.randomUUID(),
       submitterId: "p1",
       now: Date.now(),
       cmdsTtlSec: 3600,
-      word: "cast",
+      word: "cat",
       usedWords: [],
-      usedPoolLetters: [],
+      usedPoolLetters: ["C", "A", "T"],
     });
-    expect(result).toEqual({ error: "WordAlreadyClaimed" });
+
+    if (!("state" in result)) throw new Error("expected success");
+    expect(result.state.players[0]).toMatchObject({ id: "p1", words: ["cat"], score: 1 });
+    expect(result.state.players[1]).toMatchObject({ id: "p2", words: ["cat"], score: 1 });
+    expect(result.state.pool).toEqual(["S"]);
+  });
+
+  it("lets the same player claim a second, independent copy of their own word", async () => {
+    await seed(
+      makeState({
+        pool: ["C", "A", "T"],
+        players: [{ id: "p1", name: "One", words: ["cat"], score: 1 }],
+      }),
+    );
+    const result = await applySubmitWord(redis, {
+      ...KEYS,
+      commandId: crypto.randomUUID(),
+      submitterId: "p1",
+      now: Date.now(),
+      cmdsTtlSec: 3600,
+      word: "cat",
+      usedWords: [],
+      usedPoolLetters: ["C", "A", "T"],
+    });
+
+    if (!("state" in result)) throw new Error("expected success");
+    // Score stacks — each independent claim scores on its own, no discount
+    // for a repeat (Stuart, confirmed: "pure score stacking").
+    expect(result.state.players[0]).toMatchObject({ id: "p1", words: ["cat", "cat"], score: 2 });
+    expect(result.state.pool).toEqual([]);
   });
 
   it("applies a pool-only play: adds the word, scores it, transfers the turn", async () => {

@@ -292,8 +292,12 @@ describe("game", () => {
       expect(success.snapshot.turnPlayerIndex).toBe(0);
     });
 
-    it("returns WordAlreadyClaimed when the word is already on the board", async () => {
+    it("lets a different player independently claim a word already on the board", async () => {
+      // Duplicate claims of the identical word are allowed as long as the
+      // letters are genuinely available each time — see docs/decisions.md
+      // "Duplicate word claims are allowed".
       await seedPlayingState({
+        pool: ["C", "A", "T"],
         players: [
           { id: "host-1", name: "Host", words: ["CAT"], score: 1 },
           { id: "player-2", name: "Player Two", words: [], score: 0 },
@@ -303,7 +307,11 @@ describe("game", () => {
         redis,
         submitWordCommand({ playerId: "player-2", word: "cat" }),
       );
-      expect(result).toEqual({ error: "WordAlreadyClaimed" });
+
+      expect(result).not.toHaveProperty("error");
+      const success = result as Exclude<typeof result, { error: unknown }>;
+      expect(success.snapshot.players[0]).toMatchObject({ words: ["CAT"], score: 1 });
+      expect(success.snapshot.players[1]).toMatchObject({ words: ["CAT"], score: 1 });
     });
   });
 });

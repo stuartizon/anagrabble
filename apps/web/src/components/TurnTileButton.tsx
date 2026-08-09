@@ -19,11 +19,7 @@ export function TurnTileButton({ secondsLeft, totalSeconds, onClick }: TurnTileB
   const progress = totalSeconds > 0 ? Math.max(0, Math.min(1, secondsLeft / totalSeconds)) : 0;
 
   return (
-    <button
-      type="button"
-      className={cx(styles.button, urgent && styles.urgent)}
-      onClick={onClick}
-    >
+    <button type="button" className={cx(styles.button, urgent && styles.urgent)} onClick={onClick}>
       {/* Recedes from full width to 0 as time runs out, rather than filling
           up — reads as "time draining away", not "progress toward a goal". */}
       <span className={styles.progress} style={{ width: `${progress * 100}%` }} />

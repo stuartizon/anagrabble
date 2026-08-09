@@ -249,26 +249,28 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay }: GameBoardP
             )}
           </div>
 
-          <div>
-            <div className={styles.poolLabel}>Everyone else&rsquo;s words</div>
-            <div className={styles.wordsList}>
-              {others.every((p) => p.words.length === 0) ? (
-                <span className={styles.wordsEmpty}>No words yet</span>
-              ) : (
-                others.flatMap((p) =>
-                  p.words.map((w) => (
-                    <span key={`${p.id}-${w}`} className={styles.wordTag}>
-                      <span
-                        className={styles.wordTagDot}
-                        style={{ background: colors.get(p.id) }}
-                      />
-                      {w}
-                    </span>
-                  )),
-                )
-              )}
+          {others.length > 0 && (
+            <div>
+              <div className={styles.poolLabel}>Everyone else&rsquo;s words</div>
+              <div className={styles.wordsList}>
+                {others.every((p) => p.words.length === 0) ? (
+                  <span className={styles.wordsEmpty}>No words yet</span>
+                ) : (
+                  others.flatMap((p) =>
+                    p.words.map((w) => (
+                      <span key={`${p.id}-${w}`} className={styles.wordTag}>
+                        <span
+                          className={styles.wordTagDot}
+                          style={{ background: colors.get(p.id) }}
+                        />
+                        {w}
+                      </span>
+                    )),
+                  )
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           <div>
             <div className={styles.poolLabel}>Your words</div>

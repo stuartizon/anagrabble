@@ -85,6 +85,16 @@ describe("GameBoard", () => {
     expect(screen.getByText("Everyone else’s words")).toBeInTheDocument();
   });
 
+  it("hides the 'Everyone else's words' section in a solo game", () => {
+    renderBoard({
+      lobby: lobbySnapshot({ players: [{ ...ME, words: ["CAT"], score: 1 }] }),
+    });
+
+    expect(screen.getByText("Your words")).toBeInTheDocument();
+    expect(screen.queryByText("Everyone else’s words")).not.toBeInTheDocument();
+    expect(screen.queryAllByText("No words yet")).toHaveLength(0);
+  });
+
   it("shows each player's score", () => {
     renderBoard({
       lobby: lobbySnapshot({

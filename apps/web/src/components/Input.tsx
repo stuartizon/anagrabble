@@ -13,6 +13,7 @@ interface InputProps {
   error?: string;
   size?: "md" | "lg";
   disabled?: boolean;
+  mono?: boolean;
 }
 
 export function Input({
@@ -23,6 +24,7 @@ export function Input({
   error,
   size = "md",
   disabled,
+  mono,
 }: InputProps) {
   return (
     <label className={styles.label}>
@@ -33,6 +35,7 @@ export function Input({
           size === "lg" && styles.lg,
           error && styles.error,
           disabled && styles.disabled,
+          mono && styles.mono,
         )}
         value={value}
         placeholder={placeholder}

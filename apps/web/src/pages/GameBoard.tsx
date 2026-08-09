@@ -418,6 +418,7 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
                   }
                   placeholder="Type a word…"
                   size="lg"
+                  mono
                 />
               </div>
               <Button type="submit" size="lg">

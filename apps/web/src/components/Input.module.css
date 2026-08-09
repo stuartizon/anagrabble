@@ -12,7 +12,7 @@
 }
 
 .input {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: var(--text-base);
   padding: 9px 12px;
   border-radius: var(--radius-md);
@@ -33,6 +33,10 @@
 .lg {
   font-size: var(--text-lg);
   padding: 12px 14px;
+}
+
+.mono {
+  font-family: var(--font-display);
 }
 
 /* declared after .input:focus so it wins the border-color tiebreak (equal

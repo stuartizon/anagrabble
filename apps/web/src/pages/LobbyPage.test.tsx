@@ -56,6 +56,8 @@ function mockSocket(overrides: {
     status: overrides.status ?? "open",
     lobby: overrides.lobby === undefined ? lobbySnapshot() : overrides.lobby,
     error: overrides.error ?? null,
+    wordPlay: null,
+    history: [],
     send,
   });
 }

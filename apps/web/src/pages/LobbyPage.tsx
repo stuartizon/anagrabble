@@ -30,7 +30,7 @@ export function LobbyPage() {
   const [joining, setJoining] = useState(false);
   const [playerName, setPlayerNameField] = useState(identity.name);
 
-  const { status, lobby, error, wordPlay, send } = useGameSocket(gameId, identity.id);
+  const { status, lobby, error, wordPlay, history, send } = useGameSocket(gameId, identity.id);
 
   const shareLink = `${window.location.origin}/${gameId}`;
 
@@ -102,6 +102,7 @@ export function LobbyPage() {
         send={send}
         error={error}
         wordPlay={wordPlay}
+        history={history}
       />
     );
   }

@@ -37,6 +37,7 @@ type BoardProps = {
   lobby?: LobbySnapshot;
   error?: GameSocketError | null;
   wordPlay?: WordPlayNarration | null;
+  history?: WordPlayNarration[];
 };
 
 function boardElement(props: BoardProps = {}) {
@@ -48,6 +49,7 @@ function boardElement(props: BoardProps = {}) {
         send={send}
         error={props.error ?? null}
         wordPlay={props.wordPlay ?? null}
+        history={props.history ?? []}
       />
     </MemoryRouter>
   );
@@ -293,5 +295,26 @@ describe("GameBoard", () => {
     renderBoard({ error: { code: "SomethingElse", message: "raw server message" } });
 
     expect(screen.getByText("raw server message")).toBeInTheDocument();
+  });
+
+  it("shows empty-state copy for history when nobody has played yet", () => {
+    renderBoard();
+
+    expect(screen.getByText("No words played yet.")).toBeInTheDocument();
+  });
+
+  it("lists history entries newest-first, narrated in the third person for every player", () => {
+    renderBoard({
+      history: [
+        { seq: 2, playerId: "me-1", word: "TAR", usedWords: [] },
+        { seq: 3, playerId: "opp-1", word: "CAST", usedWords: [{ word: "CAT", ownerId: "me-1" }] },
+      ],
+    });
+
+    const entries = screen.getAllByText(/played|stole/);
+    expect(entries.map((e) => e.textContent)).toEqual([
+      "Sam stole CAT from Me → CAST",
+      "Me played TAR",
+    ]);
   });
 });

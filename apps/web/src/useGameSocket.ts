@@ -39,6 +39,16 @@ interface GameSocketState {
   lobby: LobbySnapshot | null;
   error: GameSocketError | null;
   wordPlay: WordPlayNarration | null;
+  /** Every WordPlayed event seen this connection, oldest-first — unlike
+   * `wordPlay` (latest-only, for the toast), this accumulates for the
+   * history panel. Deliberately resets only when the effect below re-runs
+   * (a genuine new connection: fresh page load, or gameId change) — not on
+   * every message — so a mid-session reconnect (once that exists) can
+   * preserve it rather than trashing what's already shown. Purely
+   * client-side and ephemeral by design: nothing server-side persists a
+   * play log today, so a fresh page load legitimately starts from empty
+   * (see docs/decisions.md "History panel is client-side only"). */
+  history: WordPlayNarration[];
 }
 
 /** Opens (and re-opens, on gameId change) a WebSocket scoped to one lobby
@@ -56,11 +66,12 @@ export function useGameSocket(gameId?: string, knownPlayerId?: string) {
     lobby: null,
     error: null,
     wordPlay: null,
+    history: [],
   });
   const socketRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    setState({ status: "connecting", lobby: null, error: null, wordPlay: null });
+    setState({ status: "connecting", lobby: null, error: null, wordPlay: null, history: [] });
     const params = new URLSearchParams();
     if (gameId) params.set("game", gameId);
     if (gameId && knownPlayerId) params.set("player", knownPlayerId);
@@ -93,16 +104,18 @@ export function useGameSocket(gameId?: string, knownPlayerId?: string) {
       }
 
       if (message.type === "WordPlayed") {
+        const narration: WordPlayNarration = {
+          seq: message.seq,
+          playerId: message.playerId,
+          word: message.word,
+          usedWords: message.usedWords,
+        };
         setState((s) => ({
           ...s,
           lobby: message.lobby,
           error: null,
-          wordPlay: {
-            seq: message.seq,
-            playerId: message.playerId,
-            word: message.word,
-            usedWords: message.usedWords,
-          },
+          wordPlay: narration,
+          history: [...s.history, narration],
         }));
         return;
       }

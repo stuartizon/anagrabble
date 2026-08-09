@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Command, LobbySnapshot } from "@anagrabble/protocol";
+import type { Command, LobbySnapshot, UsedWord } from "@anagrabble/protocol";
 import { Header } from "../components/Header";
 import { Input } from "../components/Input";
 import { Button } from "../components/Button";
@@ -10,9 +10,9 @@ import type { GameSocketError, WordPlayNarration } from "../useGameSocket";
 import styles from "./GameBoard.module.css";
 
 // Minimal slice of design-system/In Game.dc.html: tile-turning, word
-// submission, and enough word-list/narration feedback to make a play feel
-// like it did something. History log and the settings/menu chrome are
-// separate stories and land later.
+// submission, enough word-list/narration feedback to make a play feel like
+// it did something, and a running history panel. The settings/menu chrome
+// is a separate story and lands later.
 
 interface GameBoardProps {
   lobby: LobbySnapshot;
@@ -20,6 +20,7 @@ interface GameBoardProps {
   send: (command: Command) => void;
   error: GameSocketError | null;
   wordPlay: WordPlayNarration | null;
+  history: WordPlayNarration[];
 }
 
 function remainingSeconds(deadline: number | null): number {
@@ -88,25 +89,36 @@ function errorText(
   }
 }
 
-/** "You stole CAT from Sam -> CAST" — always first-person, since this only
- * ever fires for the player who just played (see the gating on its one call
- * site below). Other players learn about a play from the board updating,
- * and eventually the history panel — not a toast; see docs/decisions.md
- * "Toasts are personal, not broadcast narration". Only called a steal when
- * the used word actually belonged to someone else; extending your own word
- * or a fresh pool play both just say "played". */
-function narrateOwnPlay(lobby: LobbySnapshot, play: WordPlayNarration): string {
+function playerName(lobby: LobbySnapshot, playerId: string): string {
+  return lobby.players.find((p) => p.id === playerId)?.name ?? "Someone";
+}
+
+/** "You stole CAT from Sam -> CAST" (or, for a history row, "Ash stole CAT
+ * from Sam -> CAST") — `actorLabel` is "You" for the toast (only ever fires
+ * for the player who just played, see the gating on its one call site
+ * below) and the actual player name for the history panel, since that list
+ * is shared and must read correctly for any viewer. Only called a steal
+ * when the used word actually belonged to someone else; extending your own
+ * word or a fresh pool play both just say "played". */
+function describePlay(
+  actorLabel: string,
+  lobby: LobbySnapshot,
+  play: { playerId: string; word: string; usedWords: UsedWord[] },
+): string {
   const stolen = play.usedWords.find((w) => w.ownerId !== play.playerId);
   if (stolen) {
-    const owner = lobby.players.find((p) => p.id === stolen.ownerId)?.name ?? "Someone";
-    return `You stole ${stolen.word} from ${owner} → ${play.word}`;
+    return `${actorLabel} stole ${stolen.word} from ${playerName(lobby, stolen.ownerId)} → ${play.word}`;
   }
-  return `You played ${play.word}`;
+  return `${actorLabel} played ${play.word}`;
+}
+
+function narrateOwnPlay(lobby: LobbySnapshot, play: WordPlayNarration): string {
+  return describePlay("You", lobby, play);
 }
 
 const MESSAGE_DISMISS_MS = 2500;
 
-export function GameBoard({ lobby, playerId, send, error, wordPlay }: GameBoardProps) {
+export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: GameBoardProps) {
   const colors = assignPlayerColors(lobby.players, playerId);
   const currentPlayer = lobby.players[lobby.turnPlayerIndex];
   const isCurrentPlayer = currentPlayer?.id === playerId;
@@ -199,120 +211,147 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay }: GameBoardP
     <div className={styles.page}>
       <Header />
 
-      <div className={styles.scrollArea}>
-        <div className={styles.board}>
-          <div className={styles.topRow}>
-            <div className={styles.bankCount}>{lobby.bankCount} tiles left</div>
-          </div>
-
-          <div className={styles.playersRow}>
-            {lobby.players.map((p, i) => (
-              <div
-                key={p.id}
-                className={cx(
-                  styles.playerChip,
-                  i === lobby.turnPlayerIndex && styles.playerChipActive,
-                )}
-              >
-                <span className={styles.playerDot} style={{ background: colors.get(p.id) }} />
-                <span className={styles.playerName}>{p.name}</span>
-                <span className={styles.playerScore}>{p.score}</span>
-              </div>
-            ))}
-          </div>
-
-          <div>
-            <div className={styles.poolLabel}>Upturned tiles</div>
-            <div className={styles.poolTiles}>
-              {lobby.pool.length === 0 && (
-                <span className={styles.poolEmpty}>No tiles turned yet.</span>
-              )}
-              {lobby.pool.map((letter, i) => (
-                <span key={i} className={styles.tile}>
-                  {letter}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div className={styles.turnSection}>
-            {lobby.bankCount <= 0 ? (
-              <div className={styles.turnHint}>The bank is empty.</div>
-            ) : isCurrentPlayer ? (
-              <button className={styles.turnButton} onClick={turnTile}>
-                Turn a tile ({secondsLeft}s)
-              </button>
-            ) : (
-              <div className={styles.turnHint}>
-                Waiting on {currentPlayer?.name ?? "…"} ({secondsLeft}s)
-              </div>
-            )}
-          </div>
-
-          {others.length > 0 && (
-            <div>
-              <div className={styles.poolLabel}>Everyone else&rsquo;s words</div>
-              <div className={styles.wordsList}>
-                {others.every((p) => p.words.length === 0) ? (
-                  <span className={styles.wordsEmpty}>No words yet</span>
-                ) : (
-                  others.flatMap((p) =>
-                    p.words.map((w) => (
-                      <span key={`${p.id}-${w}`} className={styles.wordTag}>
-                        <span
-                          className={styles.wordTagDot}
-                          style={{ background: colors.get(p.id) }}
-                        />
-                        {w}
-                      </span>
-                    )),
-                  )
-                )}
-              </div>
-            </div>
-          )}
-
-          <div>
-            <div className={styles.poolLabel}>Your words</div>
-            <div className={styles.wordsList}>
-              {!me || me.words.length === 0 ? (
-                <span className={styles.wordsEmpty}>No words yet</span>
+      <div className={styles.layout}>
+        <aside className={styles.historyRail}>
+          <div className={styles.historySection}>
+            <div className={styles.poolLabel}>History</div>
+            <div className={styles.historyList}>
+              {history.length === 0 ? (
+                <span className={styles.wordsEmpty}>No words played yet.</span>
               ) : (
-                me.words.map((w) => (
-                  <span key={w} className={styles.wordTag}>
+                [...history].reverse().map((entry) => (
+                  <div key={entry.seq} className={styles.historyEntry}>
                     <span
-                      className={styles.wordTagDot}
-                      style={{ background: colors.get(playerId) }}
+                      className={styles.historyDot}
+                      style={{ background: colors.get(entry.playerId) }}
                     />
-                    {w}
-                  </span>
+                    <span className={styles.historyText}>
+                      {describePlay(playerName(lobby, entry.playerId), lobby, entry)}
+                    </span>
+                  </div>
                 ))
               )}
             </div>
           </div>
-        </div>
-      </div>
+        </aside>
 
-      {message && (
-        <div role="status" className={styles.message}>
-          {message}
-        </div>
-      )}
+        <div className={styles.main}>
+          <div className={styles.scrollArea}>
+            <div className={styles.board}>
+              <div className={styles.topRow}>
+                <div className={styles.bankCount}>{lobby.bankCount} tiles left</div>
+              </div>
 
-      <div className={styles.wordFormDock}>
-        <form className={styles.wordForm} onSubmit={submitWord}>
-          <div className={styles.wordFormInput}>
-            <Input
-              value={wordValue}
-              onChange={(e) => setWordValue(e.target.value)}
-              placeholder="Type a word…"
-              size="lg"
-            />
+              <div className={styles.playersRow}>
+                {lobby.players.map((p, i) => (
+                  <div
+                    key={p.id}
+                    className={cx(
+                      styles.playerChip,
+                      i === lobby.turnPlayerIndex && styles.playerChipActive,
+                    )}
+                  >
+                    <span className={styles.playerDot} style={{ background: colors.get(p.id) }} />
+                    <span className={styles.playerName}>{p.name}</span>
+                    <span className={styles.playerScore}>{p.score}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div>
+                <div className={styles.poolLabel}>Upturned tiles</div>
+                <div className={styles.poolTiles}>
+                  {lobby.pool.length === 0 && (
+                    <span className={styles.poolEmpty}>No tiles turned yet.</span>
+                  )}
+                  {lobby.pool.map((letter, i) => (
+                    <span key={i} className={styles.tile}>
+                      {letter}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className={styles.turnSection}>
+                {lobby.bankCount <= 0 ? (
+                  <div className={styles.turnHint}>The bank is empty.</div>
+                ) : isCurrentPlayer ? (
+                  <button className={styles.turnButton} onClick={turnTile}>
+                    Turn a tile ({secondsLeft}s)
+                  </button>
+                ) : (
+                  <div className={styles.turnHint}>
+                    Waiting on {currentPlayer?.name ?? "…"} ({secondsLeft}s)
+                  </div>
+                )}
+              </div>
+
+              {others.length > 0 && (
+                <div>
+                  <div className={styles.poolLabel}>Everyone else&rsquo;s words</div>
+                  <div className={styles.wordsList}>
+                    {others.every((p) => p.words.length === 0) ? (
+                      <span className={styles.wordsEmpty}>No words yet</span>
+                    ) : (
+                      others.flatMap((p) =>
+                        p.words.map((w) => (
+                          <span key={`${p.id}-${w}`} className={styles.wordTag}>
+                            <span
+                              className={styles.wordTagDot}
+                              style={{ background: colors.get(p.id) }}
+                            />
+                            {w}
+                          </span>
+                        )),
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <div className={styles.poolLabel}>Your words</div>
+                <div className={styles.wordsList}>
+                  {!me || me.words.length === 0 ? (
+                    <span className={styles.wordsEmpty}>No words yet</span>
+                  ) : (
+                    me.words.map((w) => (
+                      <span key={w} className={styles.wordTag}>
+                        <span
+                          className={styles.wordTagDot}
+                          style={{ background: colors.get(playerId) }}
+                        />
+                        {w}
+                      </span>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
-          <Button type="submit" size="lg">
-            Play word
-          </Button>
-        </form>
+
+          {message && (
+            <div role="status" className={styles.message}>
+              {message}
+            </div>
+          )}
+
+          <div className={styles.wordFormDock}>
+            <form className={styles.wordForm} onSubmit={submitWord}>
+              <div className={styles.wordFormInput}>
+                <Input
+                  value={wordValue}
+                  onChange={(e) => setWordValue(e.target.value)}
+                  placeholder="Type a word…"
+                  size="lg"
+                />
+              </div>
+              <Button type="submit" size="lg">
+                Play word
+              </Button>
+            </form>
+          </div>
+        </div>
       </div>
     </div>
   );

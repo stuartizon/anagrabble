@@ -480,6 +480,55 @@ Game.dc.html`'s desktop rail already specifies — history is explicitly
   with what the future history panel will also show for them — accepted,
   since the toast is the only _immediate_ confirmation until that panel
   exists.
+- **History panel is client-side only, not persisted anywhere server-side**:
+  `useGameSocket` accumulates every `WordPlayed` event it receives into a
+  `history` array for `GameBoard`'s history panel (see the entry above —
+  this is that panel, now built). It resets only when the socket effect
+  itself re-runs (a genuine new connection: first page load, or a player
+  joining mid-game via a fresh `gameId`) — not on every message — so it
+  survives ordinary re-renders, and a future auto-reconnect implementation
+  (there is none yet; today a dropped socket just goes to `status: "closed"`
+  with nothing that retries it) can preserve it rather than trashing what's
+  already shown. Raised by Stuart. Why: the panel is explicitly supplementary
+  — the board's live state (pool, scores, word lists) is already the source
+  of truth for "what's true now," so losing history on a fresh page load is
+  fine, and a mid-session WS blip-reconnect (once built) silently dropping
+  some entries is an acceptable, known gap rather than something worth
+  building real persistence for. Explicitly not the same problem as the
+  Postgres durable-history path described in CLAUDE.md's "Core architecture"
+  — that's about Redis being able to rebuild authoritative game state after
+  a crash; this is an ephemeral, per-viewer narration convenience with no
+  bearing on correctness. If a dropped-message gap ever needs to be visible
+  to players rather than just silently possible, the suggested next step
+  (not built) is narrating connect/disconnect events into the same history
+  list, so a viewer can at least tell something might be missing.
+- **Word input dock has no border/background at any width**: while matching
+  the History panel to `design-system/In Game.dc.html`'s left rail (previous
+  two entries), the mobile word-submission dock was also brought in line
+  with that source's `wordBarDockStyle` — which gives mobile a border-top +
+  `--surface-card` background + shadow (a visually distinct docked panel)
+  but leaves desktop as bare padding with no border/background at all.
+  Raised by Stuart: judged a mistake in the design source, not an
+  intentional mobile-vs-desktop difference — the dock should look the same
+  (no border, no separate background) at every width. `apps/web`'s
+  `.wordFormDock` now has no border/background at any breakpoint; only the
+  padding still varies (mobile keeps `env(safe-area-inset-bottom)`, a device
+  notch concern, unrelated to the look). Worth knowing this is a deliberate
+  divergence from that source file, not an oversight, if `In Game.dc.html`
+  is ever revisited as a reference.
+- **Desktop word input dock keeps a guaranteed top padding, unlike the
+  design source**: `wordBarDockStyle`'s desktop variant has zero top padding
+  (`'0 28px 24px'`) — harmless when the scroll area above has slack, but
+  collapses to nothing once the board content is tall enough to fill or
+  overflow it (e.g. a large pool of upturned tiles), leaving the word input
+  flush against whatever's directly above with no breathing room. Raised by
+  Stuart, noticing asymmetric spacing (generous below the dock, none above)
+  that got worse the more content was on screen. Mobile's variant already
+  guards against this with 16px top padding regardless of content length;
+  desktop now does too, at 24px (matching the section-to-section rhythm used
+  elsewhere — `.board`'s own `gap`, `.historyRail`'s `gap`) — another
+  deliberate divergence from `In Game.dc.html`, same spirit as the
+  border/background entry directly above.
 
 ---
 

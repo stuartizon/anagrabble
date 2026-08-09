@@ -49,7 +49,15 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 - [ ] As a player, I see live score and word-count updates for all players.
       Score is live (`GameBoard`'s player chips); an explicit word-count
       badge per player isn't shown yet.
-- [ ] As a player, I see a running history of plays in the current game.
+- [x] As a player, I see a running history of plays in the current game.
+      `GameBoard`'s desktop-only History panel, driven by a `history` array
+      `useGameSocket` accumulates from `WordPlayed` events — newest-first,
+      third-person narration for every player (not just the actor, unlike
+      the toast). Client-side only, resets on a fresh connection rather than
+      surviving a reconnect — see docs/decisions.md "History panel is
+      client-side only, not persisted anywhere server-side". Player
+      word-count badges are a separate follow-up piece of work, not bundled
+      here.
 - [ ] As a player, once the tile bank is empty, the game auto-ends after an idle
       period with no new words played (idle countdown resets on every play — see
       CLAUDE.md "Game-end condition"). Not a live-consensus mechanic for MVP.

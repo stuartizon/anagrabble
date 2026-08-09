@@ -52,7 +52,7 @@ function renderAsPlayer(playerId: string) {
   // seeded id to stick.
   localStorage.setItem("anagrabble_player", JSON.stringify({ id: playerId, name: playerId === "guest-1" ? "Guest" : "Host" }));
   return render(
-    <MemoryRouter initialEntries={["/ABCDE"]}>
+    <MemoryRouter initialEntries={["/ABCDE"]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         <Route path="/:gameId" element={<LobbyPage />} />
         <Route path="/" element={<div>Home</div>} />

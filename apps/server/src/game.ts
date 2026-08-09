@@ -1,10 +1,22 @@
-import { applyTurnTile, type Redis } from "@anagrabble/redis";
-import { createShuffledBag } from "@anagrabble/game";
+import {
+  applySubmitWord,
+  applyTurnTile,
+  type ApplySubmitWordError,
+  type Redis,
+} from "@anagrabble/redis";
+import {
+  createShuffledBag,
+  resolveWordPlay,
+  type ClaimedWord,
+  type WordPlayError,
+} from "@anagrabble/game";
 import type {
   GameState,
   LobbySnapshot,
   StartGameCommand,
+  SubmitWordCommand,
   TurnTileCommand,
+  UsedWord,
 } from "@anagrabble/protocol";
 import {
   CMDS_TTL_SEC,
@@ -87,4 +99,72 @@ export async function turnTile(
 
   if ("error" in result) return { error: result.error };
   return { snapshot: toLobbySnapshot(cmd.gameId, result.state) };
+}
+
+export type SubmitWordError = ApplySubmitWordError | WordPlayError;
+
+export interface SubmitWordSuccess {
+  snapshot: LobbySnapshot;
+  word: string;
+  usedWords: UsedWord[];
+  usedPoolLetters: string[];
+}
+
+/** Any player, any time — see CLAUDE.md "Word resolution implementation
+ * split". Node runs the full decomposition search (packages/game
+ * resolveWordPlay) against a plain read, then hands the resolved plan to
+ * apply_submit_word.lua (packages/redis) for the cheap atomic
+ * re-verification and mutation — that script's own tests cover the
+ * concurrent-race case this function just wires up. */
+export async function submitWord(
+  redis: Redis,
+  cmd: SubmitWordCommand,
+): Promise<SubmitWordSuccess | { error: SubmitWordError }> {
+  const state = await loadGameState(redis, cmd.gameId);
+  if (!state) return { error: "GameNotFound" };
+  if (state.status !== "playing") return { error: "GameNotStarted" };
+
+  const submitter = state.players.find((p) => p.id === cmd.playerId);
+  if (!submitter) return { error: "PlayerNotFound" };
+
+  const claimedWords: ClaimedWord[] = state.players.flatMap((p) =>
+    p.words.map((word) => ({ word, ownerId: p.id })),
+  );
+  const scores = Object.fromEntries(state.players.map((p) => [p.id, p.score]));
+
+  const resolved = resolveWordPlay({
+    submittedWord: cmd.word,
+    submitterId: cmd.playerId,
+    pool: state.pool,
+    claimedWords,
+    scores,
+    minWordLength: state.config.minWordLength,
+  });
+  if (!resolved.ok) return { error: resolved.error };
+
+  // Stored/displayed uppercase, matching the pool's own casing (tiles are
+  // drawn A-Z — packages/game/src/bag.ts) and the design prototype's
+  // convention. resolveWordPlay itself is case-insensitive either way.
+  const word = cmd.word.toUpperCase();
+
+  const result = await applySubmitWord(redis, {
+    stateKey: stateKey(cmd.gameId),
+    seqKey: seqKey(cmd.gameId),
+    cmdsKey: cmdsKey(cmd.gameId),
+    commandId: cmd.commandId,
+    submitterId: cmd.playerId,
+    now: Date.now(),
+    cmdsTtlSec: CMDS_TTL_SEC,
+    word,
+    usedWords: resolved.plan.usedWords,
+    usedPoolLetters: resolved.plan.usedPoolLetters,
+  });
+
+  if ("error" in result) return { error: result.error };
+  return {
+    snapshot: toLobbySnapshot(cmd.gameId, result.state),
+    word,
+    usedWords: resolved.plan.usedWords,
+    usedPoolLetters: resolved.plan.usedPoolLetters,
+  };
 }

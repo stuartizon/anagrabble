@@ -10,7 +10,7 @@ import {
   type LobbySnapshot,
 } from "@anagrabble/protocol";
 import { createGame, joinGame, leaveGame, loadLobbySnapshot } from "./lobby.js";
-import { startGame, turnTile } from "./game.js";
+import { startGame, submitWord, turnTile } from "./game.js";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379";
@@ -274,6 +274,30 @@ wss.on("connection", (socket, req) => {
             type: "TileTurned",
             seq: result.snapshot.seq,
             gameId: command.gameId,
+            lobby: result.snapshot,
+          });
+          break;
+        }
+        case "SubmitWord": {
+          const result = await submitWord(redis, command);
+          if ("error" in result) {
+            sendError(
+              socket,
+              result.error,
+              `Could not play "${command.word}" for game ${command.gameId}`,
+              command.gameId,
+              command.commandId,
+            );
+            return;
+          }
+          await publish({
+            type: "WordPlayed",
+            seq: result.snapshot.seq,
+            gameId: command.gameId,
+            playerId: command.playerId,
+            word: result.word,
+            usedWords: result.usedWords,
+            usedPoolLetters: result.usedPoolLetters,
             lobby: result.snapshot,
           });
           break;

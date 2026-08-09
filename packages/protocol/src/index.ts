@@ -103,6 +103,16 @@ export interface TurnTileCommand extends BaseCommand {
   playerId: string;
 }
 
+/** Any player, any time — see CLAUDE.md "Word submission/stealing is
+ * free-for-all". The server infers *how* `word` forms (pool letters,
+ * steal, combine) — the client never specifies a decomposition. See
+ * packages/game resolveWordPlay and packages/redis apply_submit_word.lua. */
+export interface SubmitWordCommand extends BaseCommand {
+  type: "SubmitWord";
+  playerId: string;
+  word: string;
+}
+
 export interface PlayerJoinedEvent extends BaseEvent {
   type: "PlayerJoined";
   player: PlayerState;
@@ -133,6 +143,25 @@ export interface TileTurnedEvent extends BaseEvent {
   lobby: LobbySnapshot;
 }
 
+/** A claimed word this play consumed — either stolen from another player or
+ * (if `ownerId` is the same as `WordPlayedEvent.playerId`) the submitter's
+ * own word being extended. Enough for a client to narrate "Sam stole CAT
+ * from You -> CAST" (CLAUDE.md "Core gameplay") without needing to diff
+ * successive `lobby` snapshots itself. */
+export interface UsedWord {
+  word: string;
+  ownerId: string;
+}
+
+export interface WordPlayedEvent extends BaseEvent {
+  type: "WordPlayed";
+  playerId: string;
+  word: string;
+  usedWords: UsedWord[];
+  usedPoolLetters: string[];
+  lobby: LobbySnapshot;
+}
+
 export interface ErrorEvent {
   type: "Error";
   code:
@@ -143,6 +172,12 @@ export interface ErrorEvent {
     | "NotHost"
     | "NotEnoughPlayers"
     | "NotYourTurn"
+    | "PlayerNotFound"
+    | "TooShort"
+    | "NotAWord"
+    | "NoDecomposition"
+    | "WordAlreadyClaimed"
+    | "StaleState"
     | "InvalidCommand";
   message: string;
   commandId?: string;
@@ -150,7 +185,12 @@ export interface ErrorEvent {
 }
 
 export type Command =
-  PingCommand | CreateGameCommand | JoinGameCommand | StartGameCommand | TurnTileCommand;
+  | PingCommand
+  | CreateGameCommand
+  | JoinGameCommand
+  | StartGameCommand
+  | TurnTileCommand
+  | SubmitWordCommand;
 export type Event =
   | PongEvent
   | PlayerJoinedEvent
@@ -158,6 +198,7 @@ export type Event =
   | LobbyStateEvent
   | GameStartedEvent
   | TileTurnedEvent
+  | WordPlayedEvent
   | ErrorEvent;
 
 export interface HandshakeMessage {

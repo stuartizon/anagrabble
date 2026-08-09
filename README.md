@@ -22,6 +22,7 @@ for scope. Auth is stubbed (a local player-identity, not real accounts).
 | Durable history | Postgres, written after Redis accepts a move |
 | Frontend | Vite + React, `react-router-dom` |
 | Monorepo | pnpm workspaces |
+| Testing | Vitest (per-package; see `CLAUDE.md` "Testing strategy") |
 
 See `CLAUDE.md` for the full architecture rationale and conventions, and
 `docs/decisions.md` for the detailed reasoning behind each choice (why Redis over
@@ -69,6 +70,17 @@ To build and run everything via Docker instead:
 ```bash
 docker compose -f infrastructure/docker-compose.yml up
 ```
+
+## Testing
+
+```bash
+pnpm test
+```
+
+Runs each package's test suite (currently: a Vitest smoke test in
+`packages/game`). See `CLAUDE.md` "Testing strategy" for the framework
+chosen per layer as coverage grows, and "Test-driven development" for the
+red-green-refactor convention this repo follows when picking up new work.
 
 ## Contributing / working on this repo
 

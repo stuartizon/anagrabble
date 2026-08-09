@@ -138,6 +138,45 @@ load-bearing for any piece of state.
     single commit touching both apps will not deploy atomically, so both versions
     must tolerate briefly talking to each other.
 
+## Testing strategy
+
+No tests exist yet beyond `packages/game`'s initial Vitest smoke test — this
+section is the plan each layer's tests follow as they land, not a description of
+what's fully built. Framework per layer, and why:
+
+- **`packages/game`** (domain/decomposition logic, no I/O): **Vitest** for unit
+  tests, **fast-check** for property-based tests once the word-resolution search
+  exists (generate random pools + claimed-word states, assert invariants like
+  "every decomposition's letters are a subset of what's available" rather than
+  hand-writing every case). Highest bug-risk, easiest-to-test code in the repo —
+  prioritize it, and see "Test-driven development" below.
+- **`packages/redis`** (Lua re-verification/mutation scripts): **Vitest against a
+  real Redis** (testcontainers or `redis-memory-server`) — not a mock, since the
+  point is verifying atomic behavior under real `EVAL` semantics. Specifically
+  cover the concurrent-race case: fire two overlapping word claims at the same
+  script back-to-back, assert exactly one wins deterministically.
+- **`apps/server`** (WS/HTTP gateway): **Vitest** for command-handling unit tests
+  (validation, `commandId` idempotency dedup), plus integration tests using a
+  real `ws` client against a running server + real Redis (same harness as
+  `packages/redis`) to cover full round-trips including `seq` gap-detection/
+  resync.
+- **`packages/protocol`** (schema evolution guarantees): a lightweight
+  compatibility test — a checked-in fixture of the previous protocol version's
+  message shapes must still parse under the current types (and vice versa where
+  relevant). Enforces the expand/contract rule above as a test, not just a
+  PR-review reminder.
+- **`apps/web`** (React frontend): **Vitest + React Testing Library** for
+  component/interaction tests, **Playwright** for a small number of true
+  end-to-end flows (create/join a game, see a tile claimed). Keep Playwright
+  coverage minimal — it's the only layer where testing across the real WS
+  boundary in a real browser matters, not a place to re-test business logic
+  already covered elsewhere.
+
+Vitest is the default runner across every layer (native ESM/TS, already
+Vite-native for `apps/web`), so most packages share one tool; testcontainers and
+Playwright are added only where a layer genuinely needs a real Redis or a real
+browser.
+
 ## Design system
 
 Sourced from a Claude Design export (`design-system/`) — not invented by
@@ -191,6 +230,13 @@ mechanic without touching anything else.
   change's nature, followed by a plain imperative-sentence subject and body.
   No Conventional Commits-style scope prefixes (`feat:`, `fix:`, `docs:`,
   etc.) and no ticket/issue numbers.
+- **Test-driven development.** When picking up a user story from
+  `docs/user-stories.md`, or any task involving non-trivial logic (not glue
+  code or config), write a failing test first, make it pass with the minimum
+  code, then refactor (red-green-refactor). Applies especially to
+  `packages/game`'s decomposition search and the Lua scripts in
+  `packages/redis` — see "Testing strategy" above — where correctness bugs are
+  the costliest and least visible if untested.
 
 ## Still open / not yet decided
 

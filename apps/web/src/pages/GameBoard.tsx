@@ -28,27 +28,30 @@ function remainingSeconds(deadline: number | null): number {
 }
 
 /** Player-facing copy for a rejected SubmitWord, or `null` to show nothing.
- * `NoDecomposition` deliberately doesn't say "letters" — it covers every way
- * a play can be currently illegal (pool-only insufficient, a steal that's
- * actually just a blocked derivation, a bare zero-addition resubmission,
- * ...), not just "the upturned tiles don't have it". Note there's no
- * "word already claimed" case at all — duplicate claims of the identical
- * word are allowed, as long as the letters are genuinely available each
- * time (see docs/decisions.md "Duplicate word claims are allowed").
+ * `NoDecomposition` and `StaleState` share the same copy, deliberately —
+ * from the player's side these are the same outcome ("what I tried isn't
+ * currently possible"), just caught by different backend layers depending
+ * on timing: `NoDecomposition` when the decomposition search itself
+ * (packages/game) already sees the letters/words as unavailable,
+ * `StaleState` when the search thought they were available but the atomic
+ * Lua re-verification found they'd been consumed by a faster play in the
+ * gap since (see CLAUDE.md "Word resolution implementation split"). A
+ * player has no way to tell those apart and no reason to care which one
+ * happened — so neither should the copy. Also deliberately doesn't say
+ * "letters" — it covers every way a play can be currently illegal
+ * (pool-only insufficient, a steal that's actually just a blocked
+ * derivation, a bare zero-addition resubmission, ...), not just "the
+ * upturned tiles don't have it". Note there's no "word already claimed"
+ * case at all — duplicate claims of the identical word are allowed, as long
+ * as the letters are genuinely available each time (see docs/decisions.md
+ * "Duplicate word claims are allowed").
  *
- * `StaleState` and `NotYourTurn` are suppressed rather than mapped to copy.
- * `StaleState` only happens when another player's own legitimate play beat
- * this one to the same ingredients (see docs/decisions.md "Race-loss
- * rejections aren't shown as errors") — that other player's own success
- * toast (the `wordPlay` effect below) is already the explanation; a separate
- * "you lost" message on top would be redundant at best and, since the input
- * clears optimistically either way, risks reading as if *their* toast was
- * confirmation of *your* play. `NotYourTurn` is suppressed for a different
- * reason: the only way it can reach this component is the turn-timer
- * effect's own background TurnTile auto-fire losing a race against another
- * client (see that effect below) — the UI never lets a player deliberately
- * click "Turn a tile" when it isn't their turn, so it's never a rejection of
- * something the player actually did. */
+ * `NotYourTurn` is suppressed rather than mapped to copy: the only way it
+ * can reach this component is the turn-timer effect's own background
+ * TurnTile auto-fire losing a race against another client (see that effect
+ * below) — the UI never lets a player deliberately click "Turn a tile" when
+ * it isn't their turn, so it's never a rejection of something the player
+ * actually did. */
 function errorText(
   code: string,
   minWordLength: number,
@@ -61,8 +64,8 @@ function errorText(
     case "TooShort":
       return `Words need to be at least ${minWordLength} letters.`;
     case "NoDecomposition":
-      return "That's not a legal move right now.";
     case "StaleState":
+      return "That's not a legal move right now.";
     case "NotYourTurn":
       return null;
     default:
@@ -70,23 +73,20 @@ function errorText(
   }
 }
 
-function playerName(lobby: LobbySnapshot, viewerId: string, id: string): string {
-  if (id === viewerId) return "You";
-  return lobby.players.find((p) => p.id === id)?.name ?? "Someone";
-}
-
-/** "Sam stole CAT from You -> CAST" — CLAUDE.md "Core gameplay"'s narration
- * style. Only called a steal when the used word actually belonged to
- * someone else; extending your own word or a fresh pool play both just say
- * "played". */
-function narrate(lobby: LobbySnapshot, viewerId: string, play: WordPlayNarration): string {
-  const actor = playerName(lobby, viewerId, play.playerId);
+/** "You stole CAT from Sam -> CAST" — always first-person, since this only
+ * ever fires for the player who just played (see the gating on its one call
+ * site below). Other players learn about a play from the board updating,
+ * and eventually the history panel — not a toast; see docs/decisions.md
+ * "Toasts are personal, not broadcast narration". Only called a steal when
+ * the used word actually belonged to someone else; extending your own word
+ * or a fresh pool play both just say "played". */
+function narrateOwnPlay(lobby: LobbySnapshot, play: WordPlayNarration): string {
   const stolen = play.usedWords.find((w) => w.ownerId !== play.playerId);
   if (stolen) {
-    const owner = playerName(lobby, viewerId, stolen.ownerId);
-    return `${actor} stole ${stolen.word} from ${owner} → ${play.word}`;
+    const owner = lobby.players.find((p) => p.id === stolen.ownerId)?.name ?? "Someone";
+    return `You stole ${stolen.word} from ${owner} → ${play.word}`;
   }
-  return `${actor} played ${play.word}`;
+  return `You played ${play.word}`;
 }
 
 const MESSAGE_DISMISS_MS = 2500;
@@ -136,8 +136,13 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay }: GameBoardP
   const pendingWordsRef = useRef(new Map<string, string>());
 
   useEffect(() => {
-    if (!wordPlay) return;
-    setMessage(narrate(lobby, playerId, wordPlay));
+    // Only the actor's own play gets a toast — someone else's success is
+    // shared/ambient information (the board itself already reflects it),
+    // not personal feedback about this screen, so it doesn't belong in the
+    // same slot as this player's own errors. See docs/decisions.md "Toasts
+    // are personal, not broadcast narration".
+    if (!wordPlay || wordPlay.playerId !== playerId) return;
+    setMessage(narrateOwnPlay(lobby, wordPlay));
     const timer = setTimeout(() => setMessage(null), MESSAGE_DISMISS_MS);
     return () => clearTimeout(timer);
   }, [wordPlay, lobby, playerId]);

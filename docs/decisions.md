@@ -391,25 +391,55 @@ touching anything else.
   incorrectly name B). `commandId` was already round-tripped for idempotency
   reasons, so correlating by it instead costs almost nothing and closes the
   race entirely, with no server/protocol change needed.
-- **Race-loss rejections aren't shown as errors**: `StaleState` (the code
-  that means "another player's own legitimate play beat this one to the same
-  ingredients" — see CLAUDE.md "Word resolution implementation split") is
-  suppressed in `GameBoard`, not mapped to copy, same treatment as
-  `NotYourTurn`. Raised by Stuart: when a race is lost, the _winning_
-  player's own success toast (`WordPlayed`, broadcast to everyone in the
-  room) already lands on every client and explains what happened — a
-  separate "you lost" toast for the loser is redundant, and worse, since the
-  input clears optimistically on submit either way, a same-slot toast
-  collision could show the winner's "Sam played CAT" in a way that reads as
-  confirmation of the loser's _own_ attempt. The losing player is left to
-  infer "mine didn't land" from the board simply not reflecting their
-  attempt — judged sufficient, since the reason is genuinely just "someone
-  else got there first," not something actionable about their own input the
-  way `NotAWord`/`TooShort`/`NoDecomposition` are. (This originally also
-  covered `WordAlreadyClaimed`, since a race could resolve to either code
-  depending only on whether the two competing plays happened to land on the
-  identical output word — that code no longer exists at all; see "Duplicate
-  word claims are allowed" below.)
+- **`StaleState` and `NoDecomposition` share the same rejection copy**
+  _(history of how this was reasoned about, since it changed twice in one
+  sitting)_: originally `StaleState` (the code meaning "another player's own
+  legitimate play beat this one to the same ingredients" — see CLAUDE.md
+  "Word resolution implementation split") was suppressed entirely, on the
+  logic that the _winning_ player's own success toast — then broadcast to
+  everyone in the room — already explained what happened, so a "you lost"
+  toast on top was redundant and risked colliding with it. Once toasts
+  became actor-only (next entry), that premise no longer held — the loser
+  never sees the winner's toast either way, broadcast or not. Reconsidered:
+  raised by Stuart that a `StaleState` rejection and a `NoDecomposition`
+  rejection are indistinguishable from the player's side regardless — both
+  just mean "what I tried isn't currently possible," and which one fires is
+  purely a backend timing accident (did the TypeScript search already see it
+  as unavailable, or did it look available and get caught by the Lua
+  re-verification a moment later). A player has no way to tell those apart
+  and no reason to care which happened, so `GameBoard`'s `errorText` now
+  maps both to the same "That's not a legal move right now." — not
+  suppressed, not distinct copy, just merged. (This originally also covered
+  `WordAlreadyClaimed`, since a race could resolve to either code depending
+  only on whether the two competing plays happened to land on the identical
+  output word — that code no longer exists at all; see "Duplicate word
+  claims are allowed" below.)
+- **Toasts are personal, not broadcast narration**: a toast only ever
+  reflects something about _this_ player's own screen — their own
+  `SubmitWord` succeeding or failing. `WordPlayedEvent`s about a
+  _different_ player's play are not shown as a toast at all, even though
+  they're broadcast to and received by every client in the room; that
+  information is either inferred from the board updating live, or (once
+  built) shown in the persistent history panel that `design-system/In
+Game.dc.html`'s desktop rail already specifies — history is explicitly
+  desktop-only in that source (`railDisplay: isMobile ? 'none' : 'flex'`),
+  so this is a real, accepted gap on mobile until/unless that changes: other
+  players' plays are invisible there beyond the board itself updating.
+  Raised by Stuart. Why: an error is, by construction, always about your own
+  action — there's nothing else that could ever compete for the same toast
+  slot. Making success symmetric (only your own plays toast) means the toast
+  mechanism never has to arbitrate between two unrelated events again; the
+  message-collision problem several entries above (`commandId` correlation,
+  the `StaleState` entry above) is closed structurally rather than patched.
+  Rejected alternative: a proper cascading/stacking toast queue that shows
+  every event, in order, regardless of whose it is — technically solves the
+  same collision problem, but adds real complexity (stacking, per-toast
+  timers, a max-visible cap) to build a transient version of a list the
+  history panel is going to provide permanently and properly anyway; not
+  worth building twice. The actor's own toast is intentionally redundant
+  with what the future history panel will also show for them — accepted,
+  since the toast is the only _immediate_ confirmation until that panel
+  exists.
 
 ---
 

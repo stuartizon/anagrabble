@@ -145,9 +145,13 @@ export interface TileTurnedEvent extends BaseEvent {
 
 /** A claimed word this play consumed — either stolen from another player or
  * (if `ownerId` is the same as `WordPlayedEvent.playerId`) the submitter's
- * own word being extended. Enough for a client to narrate "Sam stole CAT
- * from You -> CAST" (CLAUDE.md "Core gameplay") without needing to diff
- * successive `lobby` snapshots itself. */
+ * own word being extended. Enough for a client to narrate e.g. "Sam stole
+ * CAT from You -> CAST" (CLAUDE.md "Core gameplay") from any viewer's
+ * perspective without needing to diff successive `lobby` snapshots itself —
+ * `apps/web` currently only narrates the actor's own play as a toast (see
+ * docs/decisions.md "Toasts are personal, not broadcast narration"), but
+ * the event carries enough for any player's perspective, for whenever the
+ * persistent history panel narrates everyone's plays. */
 export interface UsedWord {
   word: string;
   ownerId: string;

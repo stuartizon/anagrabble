@@ -146,12 +146,36 @@ describe("GameBoard", () => {
     expect(screen.getByText("You stole CAT from Sam → CAST")).toBeInTheDocument();
   });
 
-  it("narrates a plain play (no steal) when nothing was taken from another player", () => {
+  it("narrates the viewer's own plain play (no steal)", () => {
+    renderBoard({
+      wordPlay: { seq: 2, playerId: "me-1", word: "TAR", usedWords: [] },
+    });
+
+    expect(screen.getByText("You played TAR")).toBeInTheDocument();
+  });
+
+  it("shows no toast for another player's play — that's shared/ambient, not personal to this screen", () => {
     renderBoard({
       wordPlay: { seq: 2, playerId: "opp-1", word: "TAR", usedWords: [] },
     });
 
-    expect(screen.getByText("Sam played TAR")).toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("shows no toast when another player steals from a third player", () => {
+    renderBoard({
+      lobby: lobbySnapshot({
+        players: [ME, OPPONENT, { id: "third-1", name: "Ash", words: [], score: 0 }],
+      }),
+      wordPlay: {
+        seq: 2,
+        playerId: "opp-1",
+        word: "CAST",
+        usedWords: [{ word: "CAT", ownerId: "third-1" }],
+      },
+    });
+
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
   it("shows friendly copy for a known rejection code, naming the word that was actually attempted", async () => {
@@ -207,10 +231,13 @@ describe("GameBoard", () => {
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
-  it("never shows a message for StaleState (the winning player's own success toast already explains it)", () => {
+  it("shows the same 'not a legal move' copy for StaleState as for NoDecomposition", () => {
+    // From the player's side these are the same outcome, just caught by
+    // different backend layers depending on timing — see errorText's
+    // doc comment.
     renderBoard({ error: { code: "StaleState", message: "raw server message" } });
 
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.getByText("That's not a legal move right now.")).toBeInTheDocument();
   });
 
   it("falls back to the server's message for an unmapped error code", () => {

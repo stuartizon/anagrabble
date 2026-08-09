@@ -33,14 +33,19 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
       players, no console errors).
 - [x] As a player, when I submit a word that's a valid steal, I see clearly whose
       word was taken and how (matches the narration style in the design prototype,
-      e.g. "Sam stole CAT from You → CAST") — `GameBoard`'s toast message,
-      driven by `WordPlayedEvent.usedWords`.
+      e.g. "You stole CAT from Sam → CAST") — `GameBoard`'s toast message,
+      driven by `WordPlayedEvent.usedWords`. Scoped to the actor's own play only —
+      other players' plays don't toast (see docs/decisions.md "Toasts are
+      personal, not broadcast narration"); that's the persistent history
+      panel's job once it exists, desktop-only per the design source.
 - [x] As a player, if two of us submit overlapping words near-simultaneously, only
       one of us succeeds (guaranteed by `apply_submit_word.lua`'s atomic
-      re-verification, with its own concurrent-race test) and I get clear
-      feedback if I lost the race (`StaleState` -> "The board just changed —
-      try again."). Mechanism fully tested at the Lua/wrapper layers; not
-      separately re-verified as a live two-browser race in this pass.
+      re-verification, with its own concurrent-race test) and the loser sees
+      "That's not a legal move right now." — the same copy as any other
+      currently-illegal attempt (`StaleState` and `NoDecomposition` share
+      copy deliberately; see docs/decisions.md). Mechanism fully tested at
+      the Lua/wrapper layers; not separately re-verified as a live
+      two-browser race in this pass.
 - [ ] As a player, I see live score and word-count updates for all players.
       Score is live (`GameBoard`'s player chips); an explicit word-count
       badge per player isn't shown yet.

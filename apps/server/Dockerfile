@@ -1,6 +1,6 @@
 # Build context is the repo root (see infrastructure/docker-compose.yml) so pnpm
 # can resolve the workspace packages this service depends on.
-FROM node:20-alpine
+FROM node:22-alpine
 
 RUN corepack enable
 

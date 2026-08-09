@@ -22,14 +22,12 @@ const HOST: PlayerState = {
   name: "Host",
   words: [],
   score: 0,
-  color: "var(--player-1)",
 };
 const GUEST: PlayerState = {
   id: "guest-1",
   name: "Guest",
   words: [],
   score: 0,
-  color: "var(--player-2)",
 };
 
 function lobbySnapshot(overrides: Partial<LobbySnapshot> = {}): LobbySnapshot {

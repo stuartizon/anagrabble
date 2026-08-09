@@ -122,7 +122,7 @@ describe("NewGamePage", () => {
         endGameDeadline: null,
         bankCount: 0,
         pool: [],
-        players: [{ id: "host-1", name: "Alex", words: [], score: 0, color: "var(--player-1)" }],
+        players: [{ id: "host-1", name: "Alex", words: [], score: 0 }],
       },
     });
     rerender(<AppTree />);

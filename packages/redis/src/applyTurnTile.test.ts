@@ -30,9 +30,9 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
     bankCount: 5,
     pool: [],
     players: [
-      { id: "p1", name: "One", words: [], score: 0, color: "var(--player-1)" },
-      { id: "p2", name: "Two", words: [], score: 0, color: "var(--player-2)" },
-      { id: "p3", name: "Three", words: [], score: 0, color: "var(--player-3)" },
+      { id: "p1", name: "One", words: [], score: 0 },
+      { id: "p2", name: "Two", words: [], score: 0 },
+      { id: "p3", name: "Three", words: [], score: 0 },
     ],
     ...overrides,
   };

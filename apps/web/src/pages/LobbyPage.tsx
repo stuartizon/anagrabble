@@ -9,6 +9,7 @@ import { PageShell, CenteredContent, NarrowColumn } from "../components/Layout";
 import { useGameSocket } from "../useGameSocket";
 import { getPlayerIdentity, setPlayerName } from "../playerIdentity";
 import { makeCommandId } from "../gameId";
+import { assignPlayerColors } from "../playerColors";
 import { cx } from "../cx";
 import { GameBoard } from "./GameBoard";
 import styles from "./LobbyPage.module.css";
@@ -93,6 +94,7 @@ export function LobbyPage() {
     return <GameBoard lobby={lobby} playerId={identity.id} send={send} />;
   }
 
+  const colors = assignPlayerColors(lobby.players, identity.id);
   const isHost = identity.id === lobby.hostId;
   const isJoined = lobby.players.some((p) => p.id === identity.id);
   const isUnjoinedGuest = !isHost && !isJoined;
@@ -148,7 +150,7 @@ export function LobbyPage() {
               <div className={styles.playerList}>
                 {lobby.players.map((p) => (
                   <div key={p.id} className={styles.playerRow}>
-                    <span className={styles.playerDot} style={{ background: p.color }} />
+                    <span className={styles.playerDot} style={{ background: colors.get(p.id) }} />
                     <span className={styles.playerName}>{p.name}</span>
                   </div>
                 ))}

@@ -46,8 +46,6 @@ export interface PlayerState {
   /** Claimed words — always empty until word play lands. */
   words: string[];
   score: number;
-  /** CSS custom property reference, e.g. "var(--player-1)" — assigned by join order. */
-  color: string;
 }
 
 export interface GameState {

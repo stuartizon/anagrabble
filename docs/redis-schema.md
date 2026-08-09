@@ -49,7 +49,7 @@ length = the full letter distribution) when the lobby transitions to
   "endGameDeadline": null,
   "bankCount": 143,
   "pool": ["C"],
-  "players": [{ "id": "p1", "name": "Alex", "words": [], "score": 0, "color": "var(--player-1)" }]
+  "players": [{ "id": "p1", "name": "Alex", "words": [], "score": 0 }]
 }
 ```
 
@@ -77,8 +77,9 @@ moving from there:
 endGameDeadline`, the game auto-ends.
 - **`bankCount`** / **`pool`**: tile bank remaining count and the currently
   revealed/unclaimed pool letters.
-- **`players[].words` / `.score`**: empty/zero until word play lands; `.color`
-  is assigned at join time (see "Player color" below).
+- **`players[].words` / `.score`**: empty/zero until word play lands. There's
+  no `.color` field — display color isn't part of the shared game state at
+  all; see "Player color" below.
 
 ## Host convention
 
@@ -95,10 +96,43 @@ host by the same convention — free host migration, not a special case.
 
 ## Player color
 
-Assigned by join order, cycling through `--player-1`..`--player-8`
-(`packages/protocol` / `design-system` tokens) — `players.length` at join
-time indexes into that list. Not stored anywhere except on the player
-object itself.
+Not part of `GameState` at all — no field, no Redis key, nothing persisted
+or sent over the wire. Each client computes it locally
+(`apps/web/src/playerColors.ts`, `assignPlayerColors`) from data it already
+has: the current `players` list plus its own player id. The viewer always
+sees themselves in `--accent` (deliberately — same green as the rest of the
+UI's primary accent); everyone else is ranked by `playerId` (ascending,
+just a fixed deterministic tiebreak) and assigned `--player-2`..
+`--player-8` in that order — so a 2-player game always gets the
+most-contrasting pairing (`--accent` + `--player-2`), not whatever a
+per-id hash happened to land on further down the palette (an earlier
+version of this hashed independently per player; changed once it was
+noticed that could pair the accent with a low-contrast color like
+`--player-7`/`8` even for a 2-player game — see docs/decisions.md).
+
+This used to be assigned server-side at join time (cycling through
+`--player-1`..`--player-8` by `players.length`) and persisted as
+`players[].color`. That broke down for a couple of concrete reasons, not
+just preference: a player who left a lobby and rejoined got reassigned a
+different color (indexed by the _current_ `players.length`, not anything
+tied to their identity), and any future support for players joining or
+leaving mid-game would have the same problem. Computing it per-viewer
+sidesteps the storage/reassignment issue entirely — nothing is persisted,
+so nothing can go stale.
+
+Two deliberate constraints this accepts:
+
+- **Uniqueness only up to a full 8-player roster** (7 "other" colors + your
+  own accent) — the size of the reserved palette (CLAUDE.md "Design
+  system"). Nothing currently caps player count at 8; beyond that, colors
+  repeat. Not a problem yet — enforce the cap or add more `--player-N`
+  tokens whenever it becomes one.
+- **A roster change can shift an existing other player's color**, since
+  rank (not identity alone) determines the assignment — e.g. someone
+  leaving frees up a low slot that gets backfilled by whoever's next in
+  rank. Not observable today (the roster is frozen for the whole game once
+  it starts — see "Known limitations" below), so only a live concern once
+  players can join/leave mid-game.
 
 ## Two `seq` values
 

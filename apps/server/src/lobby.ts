@@ -20,17 +20,6 @@ export const bagKey = (gameId: string) => `game:{${gameId}}:bag`;
 
 export const CMDS_TTL_SEC = 3600;
 
-const PLAYER_COLORS = [
-  "var(--player-1)",
-  "var(--player-2)",
-  "var(--player-3)",
-  "var(--player-4)",
-  "var(--player-5)",
-  "var(--player-6)",
-  "var(--player-7)",
-  "var(--player-8)",
-];
-
 export type LobbyError = "GameNotFound" | "GameIdTaken" | "GameAlreadyStarted";
 
 /** The host is, by convention, whoever is first in `players` — set once at
@@ -109,7 +98,6 @@ export async function createGame(
     name: cmd.hostName,
     words: [],
     score: 0,
-    color: PLAYER_COLORS[0],
   };
   const state: GameState = {
     status: "lobby",
@@ -160,7 +148,6 @@ export async function joinGame(
     name: cmd.playerName,
     words: [],
     score: 0,
-    color: PLAYER_COLORS[state.players.length % PLAYER_COLORS.length],
   };
 
   const seq = await nextSeq(redis, cmd.gameId);

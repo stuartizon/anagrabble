@@ -92,13 +92,13 @@ describe("lobby", () => {
       expect(result).toEqual({ error: "GameNotFound" });
     });
 
-    it("adds the player, assigns the next color, and bumps seq", async () => {
+    it("adds the player and bumps seq", async () => {
       await createGame(redis, createGameCommand());
       const result = await joinGame(redis, joinGameCommand());
 
       expect(result).toMatchObject({
         isNew: true,
-        player: { id: "player-2", name: "Player Two", color: "var(--player-2)" },
+        player: { id: "player-2", name: "Player Two" },
       });
       const { snapshot } = result as { snapshot: LobbySnapshot };
       expect(snapshot.players.map((p) => p.id)).toEqual(["host-1", "player-2"]);

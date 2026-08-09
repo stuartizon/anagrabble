@@ -370,6 +370,72 @@ Redis with a TTL instead of a JS `setTimeout`, so the grace period survives
 a reconnect landing on any node. Revisit before running more than one
 server instance.
 
+## Player color: computed client-side, not server-assigned
+
+**Decision**: a player's display color isn't part of `GameState` at all —
+no `players[].color` field, nothing in Redis, nothing on the wire. Each
+client computes it locally (`apps/web/src/playerColors.ts`,
+`assignPlayerColors`): the viewer always sees themselves in `--accent` (the
+same green used elsewhere as the UI's primary accent — deliberate, not
+incidental), and every other player is ranked by `playerId` (ascending — a
+fixed, arbitrary tiebreak, not meaningful in itself) and assigned
+`--player-2`..`--player-8` in that order.
+
+**Alternatives considered**:
+
+- **Server-assigned by join order** (what actually shipped first, in the
+  lobby slice, before this was revisited): `players.length` at join time
+  indexed into `--player-1`..`--player-8`, stored on `PlayerState`, sent
+  over the wire. Rejected for two concrete failure modes, not just
+  aesthetics: a player who left a lobby and rejoined got reassigned a
+  different color (indexed by current roster size, not anything tied to
+  their identity), and the same problem would recur for any future
+  mid-game join/leave support.
+- **Independent hash per id, collisions resolved by probing** (this
+  package's first client-side attempt): hash each other player's `playerId`
+  into a preferred slot among `--player-2`..`--player-8`; on a collision,
+  whichever id sorts first keeps the slot, the loser probes forward. This
+  genuinely never reassigns a player's color for reasons unrelated to them
+  (no dependency on roster size or order), and guarantees uniqueness — but
+  it was rejected once a concrete downside surfaced: with only 2 players in
+  a game, the lone opponent has a 1-in-7 chance of hashing to
+  `--player-7`/`--player-8`, both of which read as low-contrast against the
+  `--accent` green (checked against the actual token values — they're
+  visually close). A hash has no reason to prefer the palette's
+  more-distinct end, so the _common_ case (small games) wasn't reliably
+  getting the best pairing.
+- **Pure independent hash per id, no collision resolution**: simplest
+  possible option, rejected early for not guaranteeing uniqueness at all —
+  two other players could land on the same color.
+
+**Why the sorted-rank version won despite the roster-order-sensitivity
+that ruled it out earlier**: once "small games should always get the most
+contrasting colors" became a real requirement, it stopped being optional —
+guaranteeing that is inherently a _rank_ property (it needs to know how
+many others there are and fill the palette from the front), which no
+per-id-only function can give you. The hash+probe version optimized for "a
+player's color never moves for unrelated reasons"; the sorted-rank version
+optimizes for "colors are always maximally distinct for however many
+players are actually in the game," which was judged more valuable — good
+contrast in the common 2-4 player case beats stability against a roster
+change that, today, can't even happen mid-game (see the limitation below).
+
+**Known limitations, accepted for now**:
+
+- **Uniqueness only up to a full 8-player roster** (7 "other" colors plus
+  the viewer's own accent) — the size of the reserved `--player-N` palette
+  (CLAUDE.md "Design system"). Nothing currently enforces a player-count
+  cap; beyond 8, colors repeat. Fix whenever it matters: enforce the cap,
+  or add more palette tokens.
+- **A roster change can shift an existing other player's color**, since
+  rank determines the assignment, not identity alone. Not observable
+  today — the roster is frozen for the whole game once it starts (`lobby.ts`
+  rejects `JoinGame` once `status !== "lobby"`; `leaveGame` is a no-op once
+  it has) — so this only becomes a live concern once players can join or
+  leave mid-game, which isn't built yet. Revisit then; a common enough
+  pattern elsewhere (chat/presence UIs reassigning avatar colors as a
+  roster changes) that it may just be acceptable as-is.
+
 ## Explicitly still open
 
 - **Backend HTTP framework** for the handful of non-gameplay REST routes (auth,

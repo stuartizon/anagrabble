@@ -3,6 +3,7 @@ import type { Command, LobbySnapshot } from "@anagrabble/protocol";
 import { Header } from "../components/Header";
 import { PageShell, CenteredContent } from "../components/Layout";
 import { makeCommandId } from "../gameId";
+import { assignPlayerColors } from "../playerColors";
 import { cx } from "../cx";
 import styles from "./GameBoard.module.css";
 
@@ -23,6 +24,7 @@ function remainingSeconds(deadline: number | null): number {
 }
 
 export function GameBoard({ lobby, playerId, send }: GameBoardProps) {
+  const colors = assignPlayerColors(lobby.players, playerId);
   const currentPlayer = lobby.players[lobby.turnPlayerIndex];
   const isCurrentPlayer = currentPlayer?.id === playerId;
   const [secondsLeft, setSecondsLeft] = useState(() => remainingSeconds(lobby.turnDeadline));
@@ -73,7 +75,7 @@ export function GameBoard({ lobby, playerId, send }: GameBoardProps) {
                   i === lobby.turnPlayerIndex && styles.playerChipActive,
                 )}
               >
-                <span className={styles.playerDot} style={{ background: p.color }} />
+                <span className={styles.playerDot} style={{ background: colors.get(p.id) }} />
                 <span className={styles.playerName}>{p.name}</span>
               </div>
             ))}

@@ -231,8 +231,15 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
     return () => clearInterval(interval);
   }, [turnDeadline, gameId, playerId, send, lobby.bankCount]);
 
+  // Turning a tile is meant to be a quick side-action mid-typing, not a
+  // context switch — a native <button> otherwise steals focus on click
+  // (Chrome/Edge; not Safari), forcing a re-click into the word box to
+  // keep typing. Word submission clears+refocuses for the same reason.
+  const wordInputRef = useRef<HTMLInputElement>(null);
+
   const turnTile = () => {
     send({ type: "TurnTile", commandId: makeCommandId(), gameId, playerId });
+    wordInputRef.current?.focus();
   };
 
   const shareLink = `${window.location.origin}/${gameId}`;
@@ -288,6 +295,7 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
     pendingWordsRef.current.set(commandId, word);
     send({ type: "SubmitWord", commandId, gameId, playerId, word });
     setWordValue("");
+    wordInputRef.current?.focus();
   };
 
   const me = lobby.players.find((p) => p.id === playerId);
@@ -412,6 +420,7 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
             <form className={styles.wordForm} onSubmit={submitWord}>
               <div className={styles.wordFormInput}>
                 <Input
+                  ref={wordInputRef}
                   value={wordValue}
                   onChange={(e) =>
                     setWordValue(e.target.value.toUpperCase().replace(/[^A-Z]/g, ""))
@@ -419,6 +428,7 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
                   placeholder="Type a word…"
                   size="lg"
                   mono
+                  autoFocus
                 />
               </div>
               <Button type="submit" size="lg">

@@ -2,6 +2,7 @@
 // state is a real :focus pseudo-class here instead of useState (the source
 // tracks it in JS since inline styles can't express :focus).
 
+import { forwardRef } from "react";
 import styles from "./Input.module.css";
 import { cx } from "../cx";
 
@@ -14,22 +15,18 @@ interface InputProps {
   size?: "md" | "lg";
   disabled?: boolean;
   mono?: boolean;
+  autoFocus?: boolean;
 }
 
-export function Input({
-  label,
-  placeholder,
-  value,
-  onChange,
-  error,
-  size = "md",
-  disabled,
-  mono,
-}: InputProps) {
+export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
+  { label, placeholder, value, onChange, error, size = "md", disabled, mono, autoFocus },
+  ref,
+) {
   return (
     <label className={styles.label}>
       {label && <span className={styles.labelText}>{label}</span>}
       <input
+        ref={ref}
         className={cx(
           styles.input,
           size === "lg" && styles.lg,
@@ -41,8 +38,9 @@ export function Input({
         placeholder={placeholder}
         onChange={onChange}
         disabled={disabled}
+        autoFocus={autoFocus}
       />
       {error && <span className={styles.errorText}>{error}</span>}
     </label>
   );
-}
+});

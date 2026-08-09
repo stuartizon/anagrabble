@@ -5,7 +5,6 @@ import { Input } from "../components/Input";
 import { Button } from "../components/Button";
 import { makeCommandId } from "../gameId";
 import { assignPlayerColors } from "../playerColors";
-import { cx } from "../cx";
 import type { GameSocketError, WordPlayNarration } from "../useGameSocket";
 import styles from "./GameBoard.module.css";
 
@@ -212,7 +211,20 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
       <Header />
 
       <div className={styles.layout}>
-        <aside className={styles.historyRail}>
+        <aside className={styles.sidebar}>
+          <div className={styles.playersSection}>
+            <div className={styles.poolLabel}>Players</div>
+            {lobby.players.map((p) => (
+              <div key={p.id} className={styles.playerRow}>
+                <span className={styles.playerDot} style={{ background: colors.get(p.id) }} />
+                <span className={styles.playerName} data-testid="sidebar-player-name">
+                  {p.name}
+                </span>
+                <span className={styles.playerScore}>{p.score}</span>
+              </div>
+            ))}
+          </div>
+
           <div className={styles.historySection}>
             <div className={styles.poolLabel}>History</div>
             <div className={styles.historyList}>
@@ -240,22 +252,6 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
             <div className={styles.board}>
               <div className={styles.topRow}>
                 <div className={styles.bankCount}>{lobby.bankCount} tiles left</div>
-              </div>
-
-              <div className={styles.playersRow}>
-                {lobby.players.map((p, i) => (
-                  <div
-                    key={p.id}
-                    className={cx(
-                      styles.playerChip,
-                      i === lobby.turnPlayerIndex && styles.playerChipActive,
-                    )}
-                  >
-                    <span className={styles.playerDot} style={{ background: colors.get(p.id) }} />
-                    <span className={styles.playerName}>{p.name}</span>
-                    <span className={styles.playerScore}>{p.score}</span>
-                  </div>
-                ))}
               </div>
 
               <div>

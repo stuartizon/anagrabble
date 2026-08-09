@@ -8,9 +8,10 @@
   flex-direction: column;
 }
 
-/* Row of [History rail | main content] — matches design-system/In Game.dc.html's
-   `grid-template-columns:280px 1fr` two-column shell. The rail is desktop-only
-   (see .historyRail below); on mobile this is effectively just `.main`. */
+/* Row of [sidebar | main content] — matches design-system/In Game.dc.html's
+   `grid-template-columns:280px 1fr` two-column shell. The sidebar is
+   desktop-only (see .sidebar below); on mobile this is effectively just
+   `.main`. */
 .layout {
   flex: 1;
   min-height: 0;
@@ -51,48 +52,6 @@
   font-family: var(--font-body);
   font-size: var(--text-sm);
   color: var(--text-secondary);
-}
-
-.playersRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.playerChip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  background: var(--surface-card);
-}
-
-.playerChipActive {
-  border-color: var(--accent);
-  background: var(--accent-light);
-}
-
-.playerDot {
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  flex-shrink: 0;
-}
-
-.playerName {
-  font-family: var(--font-body);
-  font-weight: 600;
-  font-size: var(--text-sm);
-  color: var(--ink);
-}
-
-.playerScore {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: var(--text-sm);
-  color: var(--gold);
 }
 
 .poolLabel {
@@ -220,17 +179,16 @@
   box-shadow: var(--shadow-md);
 }
 
-/* Left rail, matching design-system/In Game.dc.html's `<aside>` almost
+/* Left sidebar, matching design-system/In Game.dc.html's `<aside>` almost
    exactly (280px, card background, border-right, flex column with a gap
    between sections). Desktop-only — see docs/decisions.md "Toasts are
    personal, not broadcast narration" for why the history panel accepts the
    same gap on mobile as that source (`railDisplay: isMobile ? 'none' :
-   'flex'` there). Only carries History for now — the design's Players/
-   Invite sections in the same rail are a separate follow-up piece of work,
-   not bundled here. `gap: 24px` and `.historySection`'s `flex: 1` are ready
-   for that: a Players section added above will push History down and
-   shrink the space it flexes into, rather than needing restructuring. */
-.historyRail {
+   'flex'` there). Generic — not `.historyRail`, since it holds more than
+   history: Players then History today, matching the design's section
+   order; the design's Invite (share-link) section is a separate follow-up
+   piece of work, not bundled here. */
+.sidebar {
   display: none;
   width: 280px;
   flex-shrink: 0;
@@ -243,16 +201,52 @@
 }
 
 @media (min-width: 840px) {
-  .historyRail {
+  .sidebar {
     display: flex;
   }
 }
 
-/* Grows to fill whatever height .historyRail has left — today that's the
-   whole rail (History is the only section), later it'll be whatever's left
-   below Players/Invite. min-height: 0 is required for the flex child to
-   shrink below its content size so .historyList's own overflow can scroll
-   instead of the section just growing forever. */
+.playersSection {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.playerRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.playerDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.playerName {
+  flex: 1;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: var(--text-base);
+  color: var(--ink);
+}
+
+.playerScore {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-base);
+  color: var(--gold);
+}
+
+/* Grows to fill whatever height .sidebar has left — today that's the
+   whole sidebar below Players (History is the only other section), later
+   it'll be whatever's left below Players/Invite. min-height: 0 is required
+   for the flex child to shrink below its content size so .historyList's
+   own overflow can scroll instead of the section just growing forever. */
 .historySection {
   display: flex;
   flex-direction: column;
@@ -313,7 +307,7 @@
        to fill/overflow it (e.g. a large pool of upturned tiles), leaving
        the input flush against whatever's above with no breathing room.
        24px matches the section-to-section rhythm used elsewhere (.board's
-       own `gap`, .historyRail's `gap`) and is guaranteed regardless of
+       own `gap`, .sidebar's `gap`) and is guaranteed regardless of
        content length, same guarantee mobile's 16px top padding already
        gives — see docs/decisions.md "Word input dock has no border/
        background at any width" for the other divergence from this same

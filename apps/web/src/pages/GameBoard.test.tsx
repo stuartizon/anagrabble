@@ -97,7 +97,7 @@ describe("GameBoard", () => {
     expect(screen.queryAllByText("No words yet")).toHaveLength(0);
   });
 
-  it("shows each player's score", () => {
+  it("lists players in the sidebar with their name and score, in turn order", () => {
     renderBoard({
       lobby: lobbySnapshot({
         players: [
@@ -107,6 +107,8 @@ describe("GameBoard", () => {
       }),
     });
 
+    const names = screen.getAllByTestId("sidebar-player-name").map((el) => el.textContent);
+    expect(names).toEqual(["Me", "Sam"]);
     expect(screen.getByText("4")).toBeInTheDocument();
     expect(screen.getByText("7")).toBeInTheDocument();
   });

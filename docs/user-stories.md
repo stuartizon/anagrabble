@@ -47,8 +47,11 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
       the Lua/wrapper layers; not separately re-verified as a live
       two-browser race in this pass.
 - [ ] As a player, I see live score and word-count updates for all players.
-      Score is live (`GameBoard`'s player chips); an explicit word-count
-      badge per player isn't shown yet.
+      Score is live (`GameBoard`'s sidebar Players list, matching
+      design-system/In Game.dc.html's desktop layout); an explicit
+      word-count badge per player isn't shown yet — the design's own
+      desktop sidebar row doesn't carry one either, so this needs a design
+      call before picking back up.
 - [x] As a player, I see a running history of plays in the current game.
       `GameBoard`'s desktop-only History panel, driven by a `history` array
       `useGameSocket` accumulates from `WordPlayed` events — newest-first,

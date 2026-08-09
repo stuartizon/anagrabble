@@ -82,17 +82,34 @@ export function NewGamePage() {
         <NarrowColumn>
           <Card>
             <div className={styles.title}>New game</div>
-            <div className={styles.subtitle}>Set the rules, then share the link with your players.</div>
+            <div className={styles.subtitle}>
+              Set the rules, then share the link with your players.
+            </div>
             <div className={styles.fieldStack}>
-              <Select label="Language" value={language} onChange={(e) => setLanguage(e.target.value)} options={LANGUAGE_OPTIONS} />
+              <Select
+                label="Language"
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+                options={LANGUAGE_OPTIONS}
+              />
               <Select
                 label="Minimum word length"
                 value={minWordLength}
                 onChange={(e) => setMinWordLength(e.target.value)}
                 options={MIN_WORD_LENGTH_OPTIONS}
               />
-              <Select label="Turn timer" value={turnTimer} onChange={(e) => setTurnTimer(e.target.value)} options={TURN_TIMER_OPTIONS} />
-              <Input label="Your name" value={playerName} onChange={(e) => setPlayerNameField(e.target.value)} placeholder="Your name" />
+              <Select
+                label="Turn timer"
+                value={turnTimer}
+                onChange={(e) => setTurnTimer(e.target.value)}
+                options={TURN_TIMER_OPTIONS}
+              />
+              <Input
+                label="Your name"
+                value={playerName}
+                onChange={(e) => setPlayerNameField(e.target.value)}
+                placeholder="Your name"
+              />
             </div>
             {error && <div className={styles.errorText}>{error.message}</div>}
             <div className={styles.buttonRow}>

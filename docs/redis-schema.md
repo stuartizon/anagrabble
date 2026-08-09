@@ -13,11 +13,11 @@ required for multi-key Lua scripts (`EVAL`) to work under cluster mode. Only
 the part inside `{...}` is hashed for slot placement; the rest of the key
 name is just for readability.
 
-| Key                          | Type   | Purpose                                              |
-| ----------------------------- | ------ | ----------------------------------------------------- |
-| `game:{<gameId>}:state`       | string | JSON blob, the full `GameState` (shape below)         |
-| `game:{<gameId>}:seq`         | string | Monotonic move counter, bumped via `INCR`             |
-| `game:{<gameId>}:cmds`        | set    | Recently-seen `commandId`s, for idempotency dedup      |
+| Key                     | Type   | Purpose                                           |
+| ----------------------- | ------ | ------------------------------------------------- |
+| `game:{<gameId>}:state` | string | JSON blob, the full `GameState` (shape below)     |
+| `game:{<gameId>}:seq`   | string | Monotonic move counter, bumped via `INCR`         |
+| `game:{<gameId>}:cmds`  | set    | Recently-seen `commandId`s, for idempotency dedup |
 
 `game:{<gameId>}:cmds` gets an `EXPIRE` (1 hour) refreshed on every add —
 it's a dedup window, not permanent storage; `commandId`s don't need to be
@@ -35,9 +35,7 @@ remembered forever, just long enough to catch retries/reconnects.
   "endGameDeadline": null,
   "bankCount": 100,
   "pool": [],
-  "players": [
-    { "id": "p1", "name": "Alex", "words": [], "score": 0, "color": "var(--player-1)" }
-  ]
+  "players": [{ "id": "p1", "name": "Alex", "words": [], "score": 0, "color": "var(--player-1)" }]
 }
 ```
 
@@ -59,7 +57,7 @@ without restructuring anything:
   "Game-end condition"). Null while `bankCount > 0`. Set to `now + 60000` the
   moment `bankCount` reaches 0, and reset to `now + 60000` again every time a
   `WordPlayed` event is accepted. If a client checks it and finds `now >=
-  endGameDeadline`, the game auto-ends.
+endGameDeadline`, the game auto-ends.
 - **`bankCount`** / **`pool`**: tile bank remaining count and the currently
   revealed/unclaimed pool letters.
 - **`players[].words` / `.score`**: empty/zero until word play lands; `.color`

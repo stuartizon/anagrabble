@@ -6,7 +6,12 @@
 
 import { RedisContainer, type StartedRedisContainer } from "@testcontainers/redis";
 import { createRedisClient, type Redis } from "@anagrabble/redis";
-import type { CreateGameCommand, GameState, JoinGameCommand, LobbySnapshot } from "@anagrabble/protocol";
+import type {
+  CreateGameCommand,
+  GameState,
+  JoinGameCommand,
+  LobbySnapshot,
+} from "@anagrabble/protocol";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createGame, joinGame, leaveGame } from "./lobby.js";
 
@@ -155,8 +160,15 @@ describe("lobby", () => {
 // Writes directly to the documented state key (docs/redis-schema.md) to set
 // up preconditions no public command can reach yet (no StartGame command
 // exists until real gameplay lands).
-async function seedGameState(redis: Redis, gameId: string, transform: (state: GameState) => GameState): Promise<void> {
+async function seedGameState(
+  redis: Redis,
+  gameId: string,
+  transform: (state: GameState) => GameState,
+): Promise<void> {
   const raw = await redis.get(`game:{${gameId}}:state`);
   if (!raw) throw new Error(`no state seeded for ${gameId}`);
-  await redis.set(`game:{${gameId}}:state`, JSON.stringify(transform(JSON.parse(raw) as GameState)));
+  await redis.set(
+    `game:{${gameId}}:state`,
+    JSON.stringify(transform(JSON.parse(raw) as GameState)),
+  );
 }

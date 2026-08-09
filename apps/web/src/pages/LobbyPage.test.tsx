@@ -17,8 +17,20 @@ vi.mock("../gameId", () => ({
   makeCommandId: () => "cmd-1",
 }));
 
-const HOST: PlayerState = { id: "host-1", name: "Host", words: [], score: 0, color: "var(--player-1)" };
-const GUEST: PlayerState = { id: "guest-1", name: "Guest", words: [], score: 0, color: "var(--player-2)" };
+const HOST: PlayerState = {
+  id: "host-1",
+  name: "Host",
+  words: [],
+  score: 0,
+  color: "var(--player-1)",
+};
+const GUEST: PlayerState = {
+  id: "guest-1",
+  name: "Guest",
+  words: [],
+  score: 0,
+  color: "var(--player-2)",
+};
 
 function lobbySnapshot(overrides: Partial<LobbySnapshot> = {}): LobbySnapshot {
   return {
@@ -37,7 +49,11 @@ function lobbySnapshot(overrides: Partial<LobbySnapshot> = {}): LobbySnapshot {
   };
 }
 
-function mockSocket(overrides: { status?: SocketStatus; lobby?: LobbySnapshot | null; error?: { code: string; message: string } | null }) {
+function mockSocket(overrides: {
+  status?: SocketStatus;
+  lobby?: LobbySnapshot | null;
+  error?: { code: string; message: string } | null;
+}) {
   useGameSocketMock.mockReturnValue({
     status: overrides.status ?? "open",
     lobby: overrides.lobby === undefined ? lobbySnapshot() : overrides.lobby,
@@ -50,9 +66,15 @@ function renderAsPlayer(playerId: string) {
   // getPlayerIdentity() regenerates a fresh (random-id) identity whenever
   // the stored name is falsy, so the seeded name must be non-empty for the
   // seeded id to stick.
-  localStorage.setItem("anagrabble_player", JSON.stringify({ id: playerId, name: playerId === "guest-1" ? "Guest" : "Host" }));
+  localStorage.setItem(
+    "anagrabble_player",
+    JSON.stringify({ id: playerId, name: playerId === "guest-1" ? "Guest" : "Host" }),
+  );
   return render(
-    <MemoryRouter initialEntries={["/ABCDE"]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <MemoryRouter
+      initialEntries={["/ABCDE"]}
+      future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+    >
       <Routes>
         <Route path="/:gameId" element={<LobbyPage />} />
         <Route path="/" element={<div>Home</div>} />
@@ -138,7 +160,9 @@ describe("LobbyPage", () => {
 
       expect(screen.getByText("Waiting for the host to start the game…")).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Join game" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: /Start game|Waiting for players/ })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /Start game|Waiting for players/ }),
+      ).not.toBeInTheDocument();
     });
   });
 });

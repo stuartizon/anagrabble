@@ -107,7 +107,13 @@ function send(socket: WebSocket, event: Event) {
   socket.send(JSON.stringify(event));
 }
 
-function sendError(socket: WebSocket, code: ErrorEvent["code"], message: string, gameId?: string, commandId?: string) {
+function sendError(
+  socket: WebSocket,
+  code: ErrorEvent["code"],
+  message: string,
+  gameId?: string,
+  commandId?: string,
+) {
   const event: ErrorEvent = { type: "Error", code, message, gameId, commandId };
   socket.send(JSON.stringify(event));
 }
@@ -186,7 +192,13 @@ wss.on("connection", (socket, req) => {
         case "CreateGame": {
           const result = await createGame(redis, command);
           if ("error" in result) {
-            sendError(socket, result.error, `Could not create game ${command.gameId}`, command.gameId, command.commandId);
+            sendError(
+              socket,
+              result.error,
+              `Could not create game ${command.gameId}`,
+              command.gameId,
+              command.commandId,
+            );
             return;
           }
           meta.gameId = command.gameId;
@@ -199,7 +211,13 @@ wss.on("connection", (socket, req) => {
         case "JoinGame": {
           const result = await joinGame(redis, command);
           if ("error" in result) {
-            sendError(socket, result.error, `Could not join game ${command.gameId}`, command.gameId, command.commandId);
+            sendError(
+              socket,
+              result.error,
+              `Could not join game ${command.gameId}`,
+              command.gameId,
+              command.commandId,
+            );
             return;
           }
           meta.gameId = command.gameId;
@@ -227,7 +245,13 @@ wss.on("connection", (socket, req) => {
       }
     } catch (err) {
       console.error("[ws] error handling command", command, err);
-      sendError(socket, "InvalidCommand", "Server error handling command", command.gameId, command.commandId);
+      sendError(
+        socket,
+        "InvalidCommand",
+        "Server error handling command",
+        command.gameId,
+        command.commandId,
+      );
     }
   });
 

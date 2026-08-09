@@ -36,7 +36,7 @@ Node/TS chosen over reviving the old Akka codebase — see "Why not Akka/Pekko" 
   `docs/redis-schema.md` for the exact key convention and state shape (already
   in place from the lobby slice; gameplay fills in the fields it left at
   defaults, not a reshape).
-- **Postgres holds durable history** (events, results) — written *after* Redis
+- **Postgres holds durable history** (events, results) — written _after_ Redis
   accepts a move, never on the critical path of resolving a race. Use Neon (or
   Supabase) for free-tier scale-to-zero Postgres, separate from Railway.
 - **Node servers are stateless.** Any node can handle any game's command — Redis is
@@ -50,7 +50,7 @@ Node/TS chosen over reviving the old Akka codebase — see "Why not Akka/Pekko" 
 
 An earlier Akka-based prototype exists (single-node, in-memory `GameManager` actor
 per game, no persistence, no clustering, no command idempotency). Verdict: salvage
-the *domain logic* conceptually (single-writer-per-game mental model, immutable
+the _domain logic_ conceptually (single-writer-per-game mental model, immutable
 state), rewrite the infra layer. Reviving it into something with real failover would
 require Cluster Sharding + Persistence + idempotency + resilient WebSocket fanout —
 essentially a full rewrite with more constraints, not less work than starting fresh
@@ -82,7 +82,7 @@ load-bearing for any piece of state.
 
 - **Tile turning is turn-based**: only the current player (by rotating index) may
   turn a tile, gated by a per-turn countdown (`turnTimerSec`, configurable 15–60s).
-  This is a *different* concurrency problem than word submission — effectively
+  This is a _different_ concurrency problem than word submission — effectively
   single-writer by construction, but the deadline must still be server-verified,
   never trusted to the client.
 - **Word submission/stealing is free-for-all**: any player, any time. This is the
@@ -97,7 +97,7 @@ load-bearing for any piece of state.
   infers the decomposition:
   - Pool letters alone → always valid if letters present.
   - Exactly one existing claimed word + ≥1 pool letter → the classic steal
-    (CAT + S = CAST). A single word reused with *zero* additions is invalid.
+    (CAT + S = CAST). A single word reused with _zero_ additions is invalid.
   - Two or more existing claimed words combined (pool letters optional) → valid.
   - **Priority when multiple decompositions exist**: (1) any decomposition that
     steals from another player, (2) pool-only, (3) extending your own word(s) only.
@@ -110,7 +110,7 @@ load-bearing for any piece of state.
      decomposition search in TypeScript (`packages/game`), applies priority +
      tiebreak, produces a concrete resolved plan: `{ usedWords, usedPoolLetters }`.
   2. Node submits that resolved plan to a Lua script, which does a cheap atomic
-     *re-verification* (referenced words still owned/present, pool still has those
+     _re-verification_ (referenced words still owned/present, pool still has those
      exact letters) and applies the mutation, or returns "stale, retry" if state
      moved between steps 1 and 2.
   3. This keeps the hard-to-test combinatorial logic in TypeScript, keeps the Lua
@@ -195,6 +195,7 @@ browser.
 
 Sourced from a Claude Design export (`design-system/`) — not invented by
 engineering. Key constraints worth respecting when building `apps/web`:
+
 - Typographic wordmark only, no logo asset.
 - IBM Plex Mono (display/headings/numeric: scores, timers, tile letters), IBM Plex
   Sans (body/UI labels).

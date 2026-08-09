@@ -7,20 +7,23 @@ Claude Code to read alongside implementation work.
 Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Account & entry
+
 - [ ] As a player, I can sign up / log in so my games and stats persist.
 - [ ] As a player, I can reset my password.
 
 ## Starting a game
+
 - [x] As a host, I can create a new game and configure turn timer (15/30/45/60s),
       minimum word length (3/4/5 letters), and language.
 - [x] As a host, I get a shareable invite link for the game lobby.
 - [x] As a player, I can join a game via invite link.
 - [~] As a player, I see who's in the lobby before the game starts, and the host can
-      start the game once ready. Seeing the lobby live is done; the host's "Start
-      game" button is present but not yet wired to anything (lands with the
-      gameplay slice).
+  start the game once ready. Seeing the lobby live is done; the host's "Start
+  game" button is present but not yet wired to anything (lands with the
+  gameplay slice).
 
 ## Core gameplay
+
 - [ ] As the current player, I can turn over one tile from the bank on my turn.
 - [ ] As a player, if the current player's turn timer expires, the turn
       auto-advances to the next player (see CLAUDE.md: client-triggered for MVP).
@@ -38,20 +41,24 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
       CLAUDE.md "Game-end condition"). Not a live-consensus mechanic for MVP.
 
 ## Post-game
+
 - [ ] As a player, I see a game-over summary (final scores/words).
 - [ ] As a player, I can view my stats across past games.
 
 ## Settings
+
 - [ ] As a player, I can change interface language, sound, and haptics preferences
       (persisted per-user, not per-game).
 
 ## Non-functional / cross-cutting
+
 - [ ] As a player, if my connection drops and reconnects mid-game, I see the
       correct current state (seq-based resync, no silent drift).
 - [ ] As a player on mobile, the game is fully playable (design system has
       responsive rail/menu treatment already specified).
 
 ## Explicitly out of scope for MVP
+
 - Computer/bot opponents (planned later per design system readme).
 - Redis HA / multi-region.
 - Turn-timer server-side polling sweep (see CLAUDE.md open decisions).

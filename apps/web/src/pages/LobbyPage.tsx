@@ -59,7 +59,9 @@ export function LobbyPage() {
           <NarrowColumn>
             <Card>
               <div className={cx(styles.title, styles.notFoundTitleOverride)}>Game not found</div>
-              <div className={styles.notFoundBody}>This link may have expired, or the game already ended.</div>
+              <div className={styles.notFoundBody}>
+                This link may have expired, or the game already ended.
+              </div>
               <Button onClick={() => navigate("/")}>Back home</Button>
             </Card>
           </NarrowColumn>
@@ -99,7 +101,11 @@ export function LobbyPage() {
             <div className={styles.shareLinkRow}>
               <span className={styles.shareLinkText}>{shareLink}</span>
               <button className={styles.copyButton} onClick={copyLink} aria-label="Copy link">
-                {copied ? <Check size={18} color="var(--text-muted)" /> : <Copy size={18} color="var(--text-muted)" />}
+                {copied ? (
+                  <Check size={18} color="var(--text-muted)" />
+                ) : (
+                  <Copy size={18} color="var(--text-muted)" />
+                )}
               </button>
             </div>
 
@@ -120,7 +126,9 @@ export function LobbyPage() {
 
             <div className={styles.playerSection}>
               <div className={styles.playerSectionLabel}>
-                {lobby.players.length === 1 ? "1 player at the table" : `${lobby.players.length} players at the table`}
+                {lobby.players.length === 1
+                  ? "1 player at the table"
+                  : `${lobby.players.length} players at the table`}
               </div>
               <div className={styles.playerList}>
                 {lobby.players.map((p) => (
@@ -142,13 +150,22 @@ export function LobbyPage() {
                 >
                   {canStart ? "Start game" : "Waiting for players…"}
                 </Button>
-                {startClicked && <div className={styles.startHint}>Starting the game is coming in the next slice — not wired up yet.</div>}
+                {startClicked && (
+                  <div className={styles.startHint}>
+                    Starting the game is coming in the next slice — not wired up yet.
+                  </div>
+                )}
               </>
             )}
             {isUnjoinedGuest && (
               <>
                 <div className={styles.nameFieldWrap}>
-                  <Input label="Your name" value={playerName} onChange={(e) => setPlayerNameField(e.target.value)} placeholder="Your name" />
+                  <Input
+                    label="Your name"
+                    value={playerName}
+                    onChange={(e) => setPlayerNameField(e.target.value)}
+                    placeholder="Your name"
+                  />
                 </div>
                 <Button
                   size="lg"
@@ -160,7 +177,9 @@ export function LobbyPage() {
                 </Button>
               </>
             )}
-            {!isHost && isJoined && <div className={styles.waitingText}>Waiting for the host to start the game…</div>}
+            {!isHost && isJoined && (
+              <div className={styles.waitingText}>Waiting for the host to start the game…</div>
+            )}
           </Card>
         </NarrowColumn>
       </CenteredContent>

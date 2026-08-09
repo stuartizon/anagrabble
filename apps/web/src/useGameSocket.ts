@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { PROTOCOL_VERSION, type Command, type Event, type HandshakeMessage, type LobbySnapshot } from "@anagrabble/protocol";
+import {
+  PROTOCOL_VERSION,
+  type Command,
+  type Event,
+  type HandshakeMessage,
+  type LobbySnapshot,
+} from "@anagrabble/protocol";
 
 const WS_URL = import.meta.env.VITE_WS_URL ?? "ws://localhost:8080";
 
@@ -21,7 +27,11 @@ interface GameSocketState {
  * the server treating the old socket's close as that player leaving (see
  * apps/server's pendingLeaves debounce). */
 export function useGameSocket(gameId?: string, knownPlayerId?: string) {
-  const [state, setState] = useState<GameSocketState>({ status: "connecting", lobby: null, error: null });
+  const [state, setState] = useState<GameSocketState>({
+    status: "connecting",
+    lobby: null,
+    error: null,
+  });
   const socketRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
@@ -54,7 +64,11 @@ export function useGameSocket(gameId?: string, knownPlayerId?: string) {
         return;
       }
 
-      if (message.type === "LobbyState" || message.type === "PlayerJoined" || message.type === "PlayerLeft") {
+      if (
+        message.type === "LobbyState" ||
+        message.type === "PlayerJoined" ||
+        message.type === "PlayerLeft"
+      ) {
         setState((s) => ({ ...s, lobby: message.lobby, error: null }));
       }
     });

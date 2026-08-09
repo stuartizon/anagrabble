@@ -20,7 +20,11 @@ vi.mock("../gameId", () => ({
   makeCommandId: () => "cmd-1",
 }));
 
-function mockSocket(overrides: { status?: SocketStatus; lobby?: LobbySnapshot | null; error?: { code: string; message: string } | null }) {
+function mockSocket(overrides: {
+  status?: SocketStatus;
+  lobby?: LobbySnapshot | null;
+  error?: { code: string; message: string } | null;
+}) {
   useGameSocketMock.mockReturnValue({
     status: overrides.status ?? "open",
     lobby: overrides.lobby ?? null,
@@ -31,7 +35,10 @@ function mockSocket(overrides: { status?: SocketStatus; lobby?: LobbySnapshot | 
 
 function AppTree() {
   return (
-    <MemoryRouter initialEntries={["/"]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <MemoryRouter
+      initialEntries={["/"]}
+      future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+    >
       <Routes>
         <Route path="/" element={<NewGamePage />} />
         <Route path="/:gameId" element={<div>Navigated to lobby</div>} />

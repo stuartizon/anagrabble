@@ -13,6 +13,7 @@ why didn't we just—" has an answer already on file.
 (`EVAL`) scripts. Node servers are stateless.
 
 **Alternatives considered**:
+
 - **Actor model + durable event log** (Akka/Pekko Cluster Sharding + Persistence) —
   single-writer-per-game via an actor, events persisted for replay/failover.
   Cleanest correctness story in principle, but requires cluster membership,
@@ -44,14 +45,14 @@ See "Why not Akka/Pekko" below for the concrete comparison.
 ## Why not Akka/Pekko — and the old codebase
 
 **Decision**: Do not revive or evolve the pre-existing Akka codebase. Salvage the
-*domain logic* (word rules, dictionary validation) conceptually; rewrite the infra
+_domain logic_ (word rules, dictionary validation) conceptually; rewrite the infra
 layer in Node/TS + Redis.
 
 **What the old codebase actually was**: a single-node Akka HTTP server — one
 `GameManager` actor per game, in-memory state only, WebSockets via Akka Streams
 hubs, a local in-process event bus. No clustering, no persistence, no command
 idempotency, no explicit sequencing. If the process died, the game was gone. It
-used the *mental model* correctly (single-writer-per-game, immutable state) but
+used the _mental model_ correctly (single-writer-per-game, immutable state) but
 never actually implemented the distributed-systems machinery (Cluster Sharding,
 Persistence) that would make Akka's approach pay off.
 
@@ -63,7 +64,7 @@ backpressure. That's on the order of 80–90% of a rewrite, done under more
 constraints than starting fresh.
 
 **The general Pekko vs. Redis tradeoff, for future reference**: Pekko gives a
-nicer *single-node* mental model — schedule a message to yourself
+nicer _single-node_ mental model — schedule a message to yourself
 (`context.scheduleOnce`), handle it later, done, no coordination needed for the
 happy path. But surviving a node crash with that model requires deliberately
 built persistence + recovery + reschedule-on-recovery logic. Redis's model is
@@ -170,6 +171,7 @@ subdomains (`anagrabble.com` vs `api.anagrabble.com`).
 ## Game rules
 
 ### Tile turning vs. word stealing are different concurrency problems
+
 Confirmed against the actual Claude Design prototype logic: only the current
 player (rotating index) may turn a tile, gated by a per-turn countdown. This is
 effectively single-writer by construction. Word submission/stealing, by contrast,
@@ -177,6 +179,7 @@ is genuinely free-for-all — any player, any time — and is the actual race th
 Redis/Lua atomicity design exists to resolve.
 
 ### Turn timer enforcement: client-triggered only for MVP
+
 **Decision**: any connected client fires `TurnTile` when its local countdown
 hits zero; the Lua script verifies the deadline server-side regardless of who
 called it. No server-side polling sweep for MVP.
@@ -184,7 +187,7 @@ called it. No server-side polling sweep for MVP.
 **Alternative considered**: a Redis sorted-set sweep, independently polled by
 every Node instance (`ZRANGEBYSCORE` against a deadlines set) — rejected for now
 as unnecessary machinery at current scale (a handful of players, presumably
-attentive). Explicitly *not* rejected as an approach — it's a clean fit later,
+attentive). Explicitly _not_ rejected as an approach — it's a clean fit later,
 requires no redesign (converges on the same idempotent `apply_turn_tile` call),
 just deferred until real evidence (actually-stalled games) justifies it.
 **Also explicitly rejected**: Redis keyspace notifications — pub/sub is
@@ -192,7 +195,8 @@ fire-and-forget; a notification with no subscriber connected at that instant is
 lost permanently, which is a worse reliability property than either alternative.
 
 ### Word formability and steal resolution
-The client never specifies *how* a word forms — the server infers the
+
+The client never specifies _how_ a word forms — the server infers the
 decomposition. Full rule set and priority order are in `CLAUDE.md`. Two decisions
 worth recording the reasoning for:
 
@@ -207,11 +211,12 @@ worth recording the reasoning for:
   plan; only a cheap re-verification + apply step runs inside the Lua script.
   Rejected: doing the full search inside Lua — Lua is a poor fit for this kind of
   logic and much harder to test than TypeScript. The atomicity guarantee is
-  preserved because the actual *mutation* is still a single atomic operation;
-  only the *search* for what to mutate happens outside it, with a "stale, retry"
+  preserved because the actual _mutation_ is still a single atomic operation;
+  only the _search_ for what to mutate happens outside it, with a "stale, retry"
   path if state moved between the read and the write.
 
 ### Game-end condition
+
 **Decision**: once the tile bank is empty, start a 60-second idle countdown
 (stored as game state), reset every time a word is played. If it expires with no
 plays, the game auto-ends.
@@ -241,7 +246,7 @@ touching anything else.
   workflow, but judged as more machinery than needed right now), the constraint
   was pushed into how protocol changes are written: additive-only per PR, with
   genuine breaking changes split into an "expand" rollout (backend tolerates old
-  + new) followed by a later "contract" rollout.
+  - new) followed by a later "contract" rollout.
 
 ---
 
@@ -316,7 +321,7 @@ get redirected away from.
 (`game:{<gameId>}:state`), hash-tagged for future cluster-mode compatibility,
 plus a dedicated `:seq` key (atomic `INCR`) and a `:cmds` set for commandId
 dedup. Full convention and the `GameState` shape in `docs/redis-schema.md`.
-The shape is the *full* eventual game state (`status`, `turnPlayerIndex`,
+The shape is the _full_ eventual game state (`status`, `turnPlayerIndex`,
 `turnDeadline`, `endGameDeadline`, `bankCount`, `pool`, `players[].words`/
 `.score`) from the start, not a lobby-only shape — the lobby slice just
 leaves gameplay fields at empty defaults, so later slices fill them in
@@ -343,7 +348,7 @@ them from the lobby — it schedules removal 3 seconds out, cancelled if the
 same `gameId`+`playerId` reconnects first (sent as `?player=` on the socket
 URL). Needed because each page opens its own socket: navigating within the
 app (New Game → Lobby, or a Lobby reload) closes one connection and opens
-another for the *same* player moments later, which a naive "remove on
+another for the _same_ player moments later, which a naive "remove on
 disconnect" mistook for that player actually leaving — including, in
 testing, the host getting bounced from their own just-created lobby.
 
@@ -351,7 +356,7 @@ testing, the host getting bounced from their own just-created lobby.
 reasonable interim pattern (grace-period presence debouncing is standard
 for realtime systems generally), but the implementation is single-process —
 `pendingLeaves` is a plain in-memory `Map` in `apps/server/src/index.ts`. If
-a reconnect lands on a *different* Node process than the one that scheduled
+a reconnect lands on a _different_ Node process than the one that scheduled
 the removal (multiple server instances, a load balancer), the cancellation
 can't find the timer, and the player gets dropped after 3 seconds anyway.
 Invisible today because there's only ever one server process running; a

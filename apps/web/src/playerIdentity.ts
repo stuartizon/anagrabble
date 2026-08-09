@@ -14,7 +14,9 @@ function randomName(): string {
 }
 
 function generateId(): string {
-  return typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `p-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `p-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 export function getPlayerIdentity(): PlayerIdentity {

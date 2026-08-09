@@ -1,5 +1,11 @@
 import type { Redis } from "@anagrabble/redis";
-import type { CreateGameCommand, GameState, JoinGameCommand, LobbySnapshot, PlayerState } from "@anagrabble/protocol";
+import type {
+  CreateGameCommand,
+  GameState,
+  JoinGameCommand,
+  LobbySnapshot,
+  PlayerState,
+} from "@anagrabble/protocol";
 
 // Redis keys — see docs/redis-schema.md for the full convention. Hash-tagged
 // ({<gameId>}) so a future move to clustered Redis keeps all of one game's
@@ -41,7 +47,10 @@ export async function loadGameState(redis: Redis, gameId: string): Promise<GameS
   return raw ? (JSON.parse(raw) as GameState) : null;
 }
 
-export async function loadLobbySnapshot(redis: Redis, gameId: string): Promise<LobbySnapshot | null> {
+export async function loadLobbySnapshot(
+  redis: Redis,
+  gameId: string,
+): Promise<LobbySnapshot | null> {
   const state = await loadGameState(redis, gameId);
   return state ? toLobbySnapshot(gameId, state) : null;
 }
@@ -84,7 +93,13 @@ export async function createGame(
     return { error: "GameIdTaken" };
   }
 
-  const host: PlayerState = { id: cmd.hostId, name: cmd.hostName, words: [], score: 0, color: PLAYER_COLORS[0] };
+  const host: PlayerState = {
+    id: cmd.hostId,
+    name: cmd.hostName,
+    words: [],
+    score: 0,
+    color: PLAYER_COLORS[0],
+  };
   const state: GameState = {
     status: "lobby",
     seq: 0,
@@ -110,7 +125,9 @@ export async function createGame(
 export async function joinGame(
   redis: Redis,
   cmd: JoinGameCommand,
-): Promise<{ snapshot: LobbySnapshot; player: PlayerState; isNew: boolean } | { error: LobbyError }> {
+): Promise<
+  { snapshot: LobbySnapshot; player: PlayerState; isNew: boolean } | { error: LobbyError }
+> {
   const state = await loadGameState(redis, cmd.gameId);
   if (!state) return { error: "GameNotFound" };
 
@@ -118,7 +135,11 @@ export async function joinGame(
   const existingPlayer = state.players.find((p) => p.id === cmd.playerId);
 
   if (alreadySeen || existingPlayer) {
-    return { snapshot: toLobbySnapshot(cmd.gameId, state), player: existingPlayer ?? state.players[0], isNew: false };
+    return {
+      snapshot: toLobbySnapshot(cmd.gameId, state),
+      player: existingPlayer ?? state.players[0],
+      isNew: false,
+    };
   }
 
   if (state.status !== "lobby") return { error: "GameAlreadyStarted" };
@@ -141,7 +162,11 @@ export async function joinGame(
 /** Removes a player from a not-yet-started lobby (called on socket close).
  * No-op (returns null) once the game has started — leaving mid-game doesn't
  * remove you from the game, but "mid-game" isn't implemented yet either. */
-export async function leaveGame(redis: Redis, gameId: string, playerId: string): Promise<LobbySnapshot | null> {
+export async function leaveGame(
+  redis: Redis,
+  gameId: string,
+  playerId: string,
+): Promise<LobbySnapshot | null> {
   const state = await loadGameState(redis, gameId);
   if (!state || state.status !== "lobby") return null;
 
@@ -149,7 +174,11 @@ export async function leaveGame(redis: Redis, gameId: string, playerId: string):
   if (!stillThere) return null;
 
   const seq = await nextSeq(redis, gameId);
-  const nextState: GameState = { ...state, seq, players: state.players.filter((p) => p.id !== playerId) };
+  const nextState: GameState = {
+    ...state,
+    seq,
+    players: state.players.filter((p) => p.id !== playerId),
+  };
   await redis.set(stateKey(gameId), JSON.stringify(nextState));
 
   return toLobbySnapshot(gameId, nextState);

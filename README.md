@@ -15,14 +15,14 @@ for scope. Auth is stubbed (a local player-identity, not real accounts).
 
 ## Stack
 
-| | |
-|---|---|
-| Backend | Node.js + TypeScript, `ws` (WebSocket), Redis (`ioredis`) |
+|                 |                                                                                |
+| --------------- | ------------------------------------------------------------------------------ |
+| Backend         | Node.js + TypeScript, `ws` (WebSocket), Redis (`ioredis`)                      |
 | Live game state | Redis — authoritative; see `docs/redis-schema.md` for the key/shape convention |
-| Durable history | Postgres, written after Redis accepts a move |
-| Frontend | Vite + React, `react-router-dom` |
-| Monorepo | pnpm workspaces |
-| Testing | Vitest (per-package; see `CLAUDE.md` "Testing strategy") |
+| Durable history | Postgres, written after Redis accepts a move                                   |
+| Frontend        | Vite + React, `react-router-dom`                                               |
+| Monorepo        | pnpm workspaces                                                                |
+| Testing         | Vitest (per-package; see `CLAUDE.md` "Testing strategy")                       |
 
 See `CLAUDE.md` for the full architecture rationale and conventions, and
 `docs/decisions.md` for the detailed reasoning behind each choice (why Redis over

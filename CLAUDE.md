@@ -310,6 +310,14 @@ mechanic without touching anything else.
   `packages/game`'s decomposition search and the Lua scripts in
   `packages/redis` — see "Testing strategy" above — where correctness bugs are
   the costliest and least visible if untested.
+- **Run `pnpm format:check` before every commit, not just `pnpm lint` and
+  `pnpm test`.** There's deliberately no pre-commit hook enforcing this
+  locally, so Prettier drift only ever surfaces in CI's `Format check`
+  step — a separate command from `Lint`/`Typecheck`/`Test` in the same job
+  (`.github/workflows/ci.yml`), easy to skip by running eslint/tsc/vitest
+  on changed files and calling it clean without ever running Prettier.
+  That gap is exactly how a plain formatting drift once reached `main` and
+  broke CI on an otherwise-passing commit.
 
 ## Still open / not yet decided
 

@@ -77,10 +77,25 @@ docker compose -f infrastructure/docker-compose.yml up
 pnpm test
 ```
 
-Runs each package's test suite (currently: a Vitest smoke test in
-`packages/game`). See `CLAUDE.md` "Testing strategy" for the framework
-chosen per layer as coverage grows, and "Test-driven development" for the
-red-green-refactor convention this repo follows when picking up new work.
+Runs each package's unit/component/integration test suite: a Vitest smoke
+test in `packages/game`, real-Redis integration tests for the lobby module
+in `apps/server` (spins up a container via testcontainers — needs Docker),
+and mocked component tests for `apps/web`.
+
+```bash
+cd apps/web && pnpm test:e2e
+```
+
+Runs the Playwright end-to-end suite against the real backend + Redis +
+browser (create a game, join via the invite link, see it live) — not part
+of `pnpm test` since it needs Redis already running (`docker compose -f
+infrastructure/docker-compose.yml up redis -d`) and downloaded browser
+binaries (`pnpm --filter @anagrabble/web exec playwright install
+chromium`).
+
+See `CLAUDE.md` "Testing strategy" for the framework chosen per layer, and
+"Test-driven development" for the red-green-refactor convention this repo
+follows when picking up new work.
 
 ## Contributing / working on this repo
 

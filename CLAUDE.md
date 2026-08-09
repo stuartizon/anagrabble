@@ -140,37 +140,51 @@ load-bearing for any piece of state.
 
 ## Testing strategy
 
-No tests exist yet beyond `packages/game`'s initial Vitest smoke test — this
-section is the plan each layer's tests follow as they land, not a description of
-what's fully built. Framework per layer, and why:
+Framework per layer, and why. Some of this has landed (lobby-slice coverage);
+some is still the plan a layer's tests follow once the feature they depend on
+exists — marked below.
 
 - **`packages/game`** (domain/decomposition logic, no I/O): **Vitest** for unit
-  tests, **fast-check** for property-based tests once the word-resolution search
-  exists (generate random pools + claimed-word states, assert invariants like
-  "every decomposition's letters are a subset of what's available" rather than
-  hand-writing every case). Highest bug-risk, easiest-to-test code in the repo —
-  prioritize it, and see "Test-driven development" below.
-- **`packages/redis`** (Lua re-verification/mutation scripts): **Vitest against a
-  real Redis** (testcontainers or `redis-memory-server`) — not a mock, since the
-  point is verifying atomic behavior under real `EVAL` semantics. Specifically
-  cover the concurrent-race case: fire two overlapping word claims at the same
-  script back-to-back, assert exactly one wins deterministically.
-- **`apps/server`** (WS/HTTP gateway): **Vitest** for command-handling unit tests
-  (validation, `commandId` idempotency dedup), plus integration tests using a
-  real `ws` client against a running server + real Redis (same harness as
-  `packages/redis`) to cover full round-trips including `seq` gap-detection/
-  resync.
-- **`packages/protocol`** (schema evolution guarantees): a lightweight
-  compatibility test — a checked-in fixture of the previous protocol version's
-  message shapes must still parse under the current types (and vice versa where
-  relevant). Enforces the expand/contract rule above as a test, not just a
-  PR-review reminder.
+  tests (a smoke test on `DEFAULT_GAME_CONFIG` today). **fast-check** for
+  property-based tests lands once the word-resolution search exists (generate
+  random pools + claimed-word states, assert invariants like "every
+  decomposition's letters are a subset of what's available" rather than
+  hand-writing every case) — highest bug-risk, easiest-to-test code in the
+  repo, prioritize it via TDD (see "Test-driven development" below) when that
+  story is picked up.
+- **`packages/redis`** (Lua re-verification/mutation scripts): **deferred** —
+  no Lua scripts exist yet (the lobby slice mutates Redis directly via
+  `MULTI`, not `EVAL`; see `apps/server/src/lobby.ts`). Once the turn-tile/
+  word-submission stories add real Lua scripts, cover them with Vitest against
+  a **real Redis** (`@testcontainers/redis`, same harness as `apps/server`'s
+  integration tests below) — not a mock, since the point is verifying atomic
+  behavior under real `EVAL` semantics. Specifically cover the concurrent-race
+  case: fire two overlapping word claims at the same script back-to-back,
+  assert exactly one wins deterministically.
+- **`apps/server`** (WS/HTTP gateway): **Vitest** integration tests for
+  `lobby.ts` (create/join/leave-game) against a **real Redis** via
+  `@testcontainers/redis` — idempotency dedup, `seq` bumps, and state-machine
+  guards, not mocked, for the same reason as above. Extends to full WS
+  round-trip tests (a real `ws` client against a running server) once there's
+  more than the lobby slice to exercise that way.
+- **`packages/protocol`** (schema evolution guarantees): **deferred** — a
+  compatibility test (a checked-in fixture of the previous protocol version's
+  message shapes must still parse under the current types, and vice versa)
+  needs at least two real protocol versions to diff; `PROTOCOL_VERSION` has
+  only ever been `1`. Write it as part of the first genuine "expand" PR
+  (see "Schema evolution" above), not before.
 - **`apps/web`** (React frontend): **Vitest + React Testing Library** for
-  component/interaction tests, **Playwright** for a small number of true
-  end-to-end flows (create/join a game, see a tile claimed). Keep Playwright
-  coverage minimal — it's the only layer where testing across the real WS
-  boundary in a real browser matters, not a place to re-test business logic
-  already covered elsewhere.
+  component/interaction tests, mocking `useGameSocket` (NewGamePage,
+  LobbyPage). **Playwright** for a small number of true end-to-end flows
+  against the real backend + Redis + browser — currently: create a game, join
+  it via the invite link from a second browser context, see it update live
+  with no mock anywhere in the stack. Extends to tile-turning/word-claiming
+  flows once gameplay lands. Keep Playwright coverage minimal — it's the only
+  layer where testing across the real WS boundary in a real browser matters,
+  not a place to re-test business logic already covered elsewhere. Runs via
+  `pnpm test:e2e` in `apps/web`, separate from `pnpm test` — needs Redis
+  already running and downloaded browser binaries, neither of which the
+  default test run should require.
 
 Vitest is the default runner across every layer (native ESM/TS, already
 Vite-native for `apps/web`), so most packages share one tool; testcontainers and

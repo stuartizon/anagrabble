@@ -104,6 +104,14 @@ load-bearing for any piece of state.
   - **Tiebreak when multiple valid decompositions exist within the same priority
     tier** (e.g. word stealable from either of two different opponents): prefer
     stealing from the **highest-scoring player** (mild rubber-banding, decided).
+  - **Derivation is not a legal steal.** The dictionary (see "Dictionary"
+    below) records, per word, the root it's a derivation of (e.g. ABATED's
+    root is ABATE). Stealing a claimed word into its recorded root's derivative
+    (ABATE claimed → ABATED) is not a legal play, even though it's letter-formable
+    — `packages/game/src/dictionary.ts`'s `isDerivedFrom`. This applies
+    however the extra letters would be sourced (pool letters or combined with
+    another claimed word); the point is blocking "just add a suffix," not the
+    letter source.
 - **Word resolution implementation split** (do not put full combinatorial search
   in Lua):
   1. Node reads current state from Redis (plain read, no lock), runs the full
@@ -115,6 +123,18 @@ load-bearing for any piece of state.
      moved between steps 1 and 2.
   3. This keeps the hard-to-test combinatorial logic in TypeScript, keeps the Lua
      script small/auditable, and preserves atomicity for the actual mutation.
+
+### Dictionary
+
+- Loaded in-memory in the Node process from a flat file — see
+  `packages/game/src/dictionary.ts` (`isWord`, `rootOf`, `isDerivedFrom`).
+- `packages/game/data/dictionary-source.csv` is the raw source (comma-delimited
+  word,root); `packages/game/data/dictionary.csv` is the derived file the code
+  actually loads, produced by `pnpm build:dictionary`
+  (`packages/game/scripts/build-dictionary.mjs`), which flattens multi-hop root
+  chains to each word's ultimate root so the runtime check is a single lookup.
+  Regenerate after editing the source. See `docs/decisions.md` "Dictionary
+  source and format" for the full reasoning and known gaps in the source data.
 
 ## Protocol conventions
 
@@ -262,8 +282,6 @@ mechanic without touching anything else.
 ## Still open / not yet decided
 
 - Whether/when to add the turn-timer polling sweep.
-- Dictionary source and update process (currently: loaded in-memory in the Node
-  process from a flat file; assumed small enough not to need external storage).
 - Redis HA approach and timing of adopting it (Sentinel template vs. staying
   single-instance) — revisit once usage data exists.
 - Lobby presence tracking (`pendingLeaves` in `apps/server/src/index.ts`) is

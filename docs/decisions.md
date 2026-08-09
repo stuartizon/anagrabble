@@ -436,6 +436,49 @@ change that, today, can't even happen mid-game (see the limitation below).
   pattern elsewhere (chat/presence UIs reassigning avatar colors as a
   roster changes) that it may just be acceptable as-is.
 
+## Dictionary source and format
+
+**Decision**: sourced from Stuart's earlier Akka-based POC
+(`anagrabble-server/src/main/resources/dictionary.txt`, ~279k words, originally
+tab-separated). Checked into `packages/game/data/dictionary-source.csv`
+content-unchanged but reformatted to comma-separated (see "comma vs. tab"
+below). A build script (`packages/game/scripts/build-dictionary.mjs`,
+`pnpm build:dictionary`) transforms it into `packages/game/data/dictionary.csv`,
+which is what `packages/game/src/dictionary.ts` actually loads at runtime.
+
+The format is one word per line, with an optional second column naming the word
+it derives from — e.g. `abated,abate` means ABATED is just ABATE plus a suffix,
+so stealing ABATE into ABATED (rather than combining distinct words) is not a
+legal play (see CLAUDE.md "Word formability" — this is additional detail on top
+of what's written there). Root chains in the original source are only one hop
+(e.g. `abasedly -> abased`, and separately `abased -> abase`); the build script
+walks each chain to its ultimate root and flattens it (`abasedly -> abase`
+directly) so the runtime check is a single map lookup, not a chain walk.
+Verified against the source data: 0 cycles, max chain depth 2 hops.
+
+**Alternatives considered**:
+
+- **Walk the chain at game-time** instead of pre-flattening — rejected: the
+  decomposition search already runs on every word submission (CLAUDE.md "Word
+  resolution implementation split"), and a chain walk per candidate steal is
+  needless repeated work when it's invariant data computable once.
+- **JSON instead of a delimited flat file** for the shipped dictionary —
+  rejected: ~279k entries as JSON (quoted keys/values, braces, commas)
+  meaningfully inflates file size for no parsing benefit; splitting each line
+  on a single character is already trivial.
+- **Comma vs. tab delimiter**: switched from the POC's original tabs to commas
+  — no functional difference (no word contains either character, so neither
+  needs escaping), but `.csv` opens directly as a spreadsheet in Excel/Sheets,
+  which matters given the dictionary is expected to need manual refinement
+  later (see "known gap" below).
+
+**Known gap, accepted for now**: the source data's root annotations are
+incomplete/inconsistent (e.g. `abaser` has no recorded root, though it plausibly
+derives from `abase`) — noted by Stuart as a known limitation of the POC
+dictionary, not something this transform can fix. Refine the source data later
+if derivation blocking turns out to be too permissive in practice; the
+build script requires no changes to pick up a corrected source file.
+
 ## Explicitly still open
 
 - **Backend HTTP framework** for the handful of non-gameplay REST routes (auth,
@@ -448,6 +491,4 @@ change that, today, can't even happen mid-game (see the limitation below).
   native TS ergonomics; NestJS: DI/decorator ceremony disproportionate to this
   project's actual complexity, which lives in the state machine, not routing).
 - **Turn-timer polling sweep** — see "Game rules" above.
-- **Dictionary source/update process** — currently assumed small enough to live
-  in-memory in the Node process, loaded from a flat file. Not yet sourced.
 - **Redis HA timing** — see "Redis hosting" above.

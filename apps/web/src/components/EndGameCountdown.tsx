@@ -17,13 +17,19 @@ export function EndGameCountdown({ secondsLeft, totalSeconds }: EndGameCountdown
 
   return (
     <div className={styles.timer} data-testid="end-game-countdown">
+      <span className={styles.label}>Game ends in</span>
       <div className={styles.track}>
         <div
           className={cx(styles.fill, urgent && styles.urgentFill)}
           style={{ width: `${progress * 100}%` }}
         />
       </div>
-      <span className={cx(styles.digits, urgent && styles.urgentDigits)}>{secondsLeft}s</span>
+      <span className={cx(styles.digits, urgent && styles.urgentDigits)}>
+        {/* Fixed-width digit slot, same as TurnTileButton's .timerDigits —
+            without it, "s" hops sideways whenever the count crosses a
+            digit-width boundary (e.g. 10s -> 9s). */}
+        <span className={styles.digitsNumber}>{secondsLeft}</span>s
+      </span>
     </div>
   );
 }

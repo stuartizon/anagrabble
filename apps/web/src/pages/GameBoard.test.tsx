@@ -396,8 +396,9 @@ describe("GameBoard", () => {
       }),
     });
 
-    expect(screen.getByTestId("end-game-countdown")).toBeInTheDocument();
-    expect(screen.getByText("45s")).toBeInTheDocument();
+    const countdown = screen.getByTestId("end-game-countdown");
+    expect(countdown).toHaveTextContent("Game ends in");
+    expect(countdown).toHaveTextContent("45s");
     expect(screen.queryByText("No more tiles.")).not.toBeInTheDocument();
   });
 

@@ -142,12 +142,19 @@
 /* Houses "Upturned tiles" plus the turn control (button, or plain-text
    hint) on the same line, right-aligned — matches design-system/In
    Game.dc.html's header row for that section. */
+/* min-height reserves space for the tallest of the three things that can
+   sit in the right-hand slot (TurnTileButton, .turnHint text,
+   EndGameCountdown) — EndGameCountdown's own row is taller than the other
+   two (bigger digit font), so without this the whole header (and
+   everything below it) jumps down the moment the bank empties and it
+   first appears. */
 .poolHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 8px;
+  min-height: 40px;
   margin-bottom: 10px;
 }
 

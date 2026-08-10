@@ -2,8 +2,13 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  font-family: var(--font-display);
   padding: 8px 14px;
+}
+
+.label {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
 }
 
 .track {
@@ -27,14 +32,23 @@
 }
 
 .digits {
+  font-family: var(--font-display);
   font-weight: 700;
   font-size: var(--text-lg);
   color: var(--ink);
-  min-width: 28px;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
 }
 
 .urgentDigits {
   color: var(--error);
+}
+
+/* Fixed-width, right-aligned box around the number only (not the "s")
+   — same split as TurnTileButton's .timerDigits, so the "s" stays glued
+   in place instead of hopping sideways when the digit count changes
+   (e.g. 10s -> 9s). */
+.digitsNumber {
+  display: inline-block;
+  min-width: 1.2em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }

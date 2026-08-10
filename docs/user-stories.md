@@ -23,7 +23,15 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
   still open: the server doesn't verify a command's `playerId`/`hostId`
   against the connection's verified session (see the same decisions.md
   entry).
-- [ ] As a player, I can reset my password.
+- [x] As a player, I can reset my password.
+      `LoginPage`'s "Forgot password?" link swaps the card into a third
+      mode: enter your email, enter the emailed code alongside a new
+      password, then straight into the app signed in. Built against real
+      Clerk (`reset_password_email_code`), not a mock — see
+      docs/decisions.md "Password reset: code entry, not the design
+      mock's magic link" for why this uses a code instead of the design
+      mock's magic-link step, and why it auto-signs the visitor in
+      afterward rather than sending them back to log in again.
 
 ## Starting a game
 

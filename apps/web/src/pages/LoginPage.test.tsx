@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LoginPage } from "./LoginPage";
 
 const signInCreateMock = vi.fn();
+const attemptFirstFactorMock = vi.fn();
 const setActiveSignInMock = vi.fn();
 const authenticateWithRedirectMock = vi.fn();
 const signUpCreateMock = vi.fn();
@@ -29,7 +30,11 @@ vi.mock("@clerk/react", () => ({
 vi.mock("@clerk/react/legacy", () => ({
   useSignIn: () => ({
     isLoaded: true,
-    signIn: { create: signInCreateMock, authenticateWithRedirect: authenticateWithRedirectMock },
+    signIn: {
+      create: signInCreateMock,
+      attemptFirstFactor: attemptFirstFactorMock,
+      authenticateWithRedirect: authenticateWithRedirectMock,
+    },
     setActive: setActiveSignInMock,
   }),
   useSignUp: () => ({
@@ -64,6 +69,7 @@ beforeEach(() => {
   isSignedIn = false;
   for (const mock of [
     signInCreateMock,
+    attemptFirstFactorMock,
     setActiveSignInMock,
     authenticateWithRedirectMock,
     signUpCreateMock,
@@ -197,6 +203,75 @@ describe("LoginPage", () => {
       expect(attemptEmailAddressVerificationMock).toHaveBeenCalledWith({ code: "123456" });
       expect(setActiveSignUpMock).toHaveBeenCalledWith({ session: "sess_2" });
       expect(await screen.findByText("Home")).toBeInTheDocument();
+    });
+  });
+
+  describe("password reset", () => {
+    it("requires an email before requesting a reset code", async () => {
+      renderPage();
+      await userEvent.click(screen.getByRole("link", { name: "Forgot password?" }));
+
+      await userEvent.click(screen.getByRole("button", { name: "Send reset code" }));
+
+      expect(screen.getByText("Required")).toBeInTheDocument();
+      expect(signInCreateMock).not.toHaveBeenCalled();
+    });
+
+    it("requests a reset code, then resets the password and signs the visitor in", async () => {
+      signInCreateMock.mockResolvedValue({});
+      attemptFirstFactorMock.mockResolvedValue({ status: "complete", createdSessionId: "sess_3" });
+      renderPage();
+
+      await userEvent.click(screen.getByRole("link", { name: "Forgot password?" }));
+      await userEvent.type(screen.getByLabelText("Email"), "alex@example.com");
+      await userEvent.click(screen.getByRole("button", { name: "Send reset code" }));
+
+      expect(signInCreateMock).toHaveBeenCalledWith({
+        strategy: "reset_password_email_code",
+        identifier: "alex@example.com",
+      });
+      expect(await screen.findByLabelText("Verification code")).toBeInTheDocument();
+
+      await userEvent.type(screen.getByLabelText("Verification code"), "123456");
+      await userEvent.type(screen.getByLabelText("New password"), "new-password");
+      await userEvent.type(screen.getByLabelText("Confirm new password"), "new-password");
+      await userEvent.click(screen.getByRole("button", { name: "Reset password" }));
+
+      expect(attemptFirstFactorMock).toHaveBeenCalledWith({
+        strategy: "reset_password_email_code",
+        code: "123456",
+        password: "new-password",
+      });
+      expect(setActiveSignInMock).toHaveBeenCalledWith({ session: "sess_3" });
+      expect(await screen.findByText("Home")).toBeInTheDocument();
+    });
+
+    it("rejects a mismatched password confirmation without calling Clerk", async () => {
+      signInCreateMock.mockResolvedValue({});
+      renderPage();
+
+      await userEvent.click(screen.getByRole("link", { name: "Forgot password?" }));
+      await userEvent.type(screen.getByLabelText("Email"), "alex@example.com");
+      await userEvent.click(screen.getByRole("button", { name: "Send reset code" }));
+
+      await userEvent.type(await screen.findByLabelText("Verification code"), "123456");
+      await userEvent.type(screen.getByLabelText("New password"), "new-password");
+      await userEvent.type(screen.getByLabelText("Confirm new password"), "different");
+      await userEvent.click(screen.getByRole("button", { name: "Reset password" }));
+
+      expect(screen.getByText("Passwords don't match")).toBeInTheDocument();
+      expect(attemptFirstFactorMock).not.toHaveBeenCalled();
+    });
+
+    it("returns to log in from the reset form via the back link", async () => {
+      renderPage();
+
+      await userEvent.click(screen.getByRole("link", { name: "Forgot password?" }));
+      expect(screen.getByRole("button", { name: "Send reset code" })).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole("link", { name: "Back to log in" }));
+
+      expect(screen.getByRole("button", { name: "Log in" })).toBeInTheDocument();
     });
   });
 });

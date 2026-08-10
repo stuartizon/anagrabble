@@ -13,16 +13,28 @@ import { cx } from "../cx";
 import styles from "./LoginPage.module.css";
 
 // Matches design-system/Log in, Sign up.dc.html: Google + email/password,
-// tabbed between log in and sign up. "Forgot password?" is a separate,
-// not-yet-started user story (see docs/user-stories.md) — that link and the
-// design's reset mode aren't built here.
+// tabbed between log in and sign up, with a "Forgot password?" link that
+// swaps the card into its third "reset" mode.
 //
 // Email verification-by-code on sign-up has no equivalent in the design
 // mock (a fake localStorage demo, so it never needed one) — Clerk's default
 // instance config requires it before a session exists, so it's an extra
 // step layered on top of the design rather than a deviation from it.
+//
+// Reset mode deviates from the mock in the same spirit: the mock's
+// "resetSent" step assumes a magic link ("Open reset link (demo)"), but
+// Clerk's SPA custom-flow API resets via a one-time code entered inline
+// (`reset_password_email_code`, the same shape as sign-up verification
+// above) rather than a link, so the code step replaces it. It also skips
+// the mock's "done" step and its "back to log in" framing: Clerk's
+// Frontend API sets the real session cookie the moment
+// `attemptFirstFactor` completes, independent of any `setActive` call —
+// so calling `setActive` and redirecting straight in (matching
+// submitLogin/submitVerification below) reflects what already happened
+// rather than pretending the visitor is signed out when they aren't.
 
-type Mode = "login" | "signup";
+type Mode = "login" | "signup" | "reset";
+type ResetStep = "request" | "code";
 
 const OAUTH_REDIRECT_URL = "/sso-callback";
 
@@ -44,9 +56,11 @@ export function LoginPage() {
   const { isLoaded: signUpLoaded, signUp, setActive: setActiveSignUp } = useSignUp();
 
   const [mode, setMode] = useState<Mode>("login");
+  const [resetStep, setResetStep] = useState<ResetStep>("request");
   const [firstName, setFirstName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [code, setCode] = useState("");
   const [pendingVerification, setPendingVerification] = useState(false);
   const [formError, setFormError] = useState("");
@@ -58,6 +72,21 @@ export function LoginPage() {
 
   const switchMode = (next: Mode) => {
     setMode(next);
+    setFormError("");
+  };
+
+  const showReset = () => {
+    setMode("reset");
+    setResetStep("request");
+    setFormError("");
+  };
+
+  const backToLogin = () => {
+    setMode("login");
+    setResetStep("request");
+    setCode("");
+    setPassword("");
+    setConfirmPassword("");
     setFormError("");
   };
 
@@ -101,6 +130,55 @@ export function LoginPage() {
     // before a session can be created.
     await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
     setPendingVerification(true);
+  };
+
+  const requestReset = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!signInLoaded || !email.trim()) {
+      setFormError("Required");
+      return;
+    }
+    setFormError("");
+    setSubmitting(true);
+    try {
+      await signIn.create({ strategy: "reset_password_email_code", identifier: email.trim() });
+      setResetStep("code");
+    } catch (err) {
+      setFormError(errorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const submitReset = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!signInLoaded || !code.trim() || !password.trim()) {
+      setFormError("Required");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setFormError("Passwords don't match");
+      return;
+    }
+    setFormError("");
+    setSubmitting(true);
+    try {
+      const result = await signIn.attemptFirstFactor({
+        strategy: "reset_password_email_code",
+        code: code.trim(),
+        password,
+      });
+      if (result.status === "complete") {
+        await setActiveSignIn({ session: result.createdSessionId });
+        navigate(from, { replace: true });
+        return;
+      }
+      setFormError("That code didn't work — try again.");
+    } catch (err) {
+      setFormError(errorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const submit = async (e: FormEvent) => {
@@ -177,6 +255,99 @@ export function LoginPage() {
     );
   }
 
+  if (mode === "reset") {
+    return (
+      <PageShell>
+        <Header />
+        <CenteredContent>
+          <NarrowColumn>
+            <Card>
+              {resetStep === "code" ? (
+                <>
+                  <div className={styles.title}>Reset your password</div>
+                  <div className={styles.subtitle}>
+                    We sent a code to {email.trim()} — enter it below along with your new password.
+                  </div>
+                  <form className={styles.fieldStack} onSubmit={submitReset}>
+                    <Input
+                      label="Verification code"
+                      value={code}
+                      onChange={(e) => setCode(e.target.value)}
+                      placeholder="123456"
+                      autoFocus
+                    />
+                    <Input
+                      label="New password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                    />
+                    <Input
+                      label="Confirm new password"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="••••••••"
+                      error={formError}
+                    />
+                    <div className={styles.buttonRow}>
+                      <Button type="submit" size="lg" disabled={submitting} fullWidth>
+                        {submitting ? "…" : "Reset password"}
+                      </Button>
+                    </div>
+                    <a
+                      href="#"
+                      className={styles.backLink}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        backToLogin();
+                      }}
+                    >
+                      Back to log in
+                    </a>
+                  </form>
+                </>
+              ) : (
+                <>
+                  <div className={styles.title}>Reset your password</div>
+                  <div className={styles.subtitle}>
+                    Enter your email and we&rsquo;ll send you a code to reset it.
+                  </div>
+                  <form className={styles.fieldStack} onSubmit={requestReset}>
+                    <Input
+                      label="Email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@email.com"
+                      error={formError}
+                    />
+                    <div className={styles.buttonRow}>
+                      <Button type="submit" size="lg" disabled={submitting} fullWidth>
+                        {submitting ? "…" : "Send reset code"}
+                      </Button>
+                    </div>
+                    <a
+                      href="#"
+                      className={styles.backLink}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        backToLogin();
+                      }}
+                    >
+                      Back to log in
+                    </a>
+                  </form>
+                </>
+              )}
+            </Card>
+          </NarrowColumn>
+        </CenteredContent>
+      </PageShell>
+    );
+  }
+
   return (
     <PageShell>
       <Header />
@@ -236,6 +407,18 @@ export function LoginPage() {
                 placeholder="••••••••"
                 error={formError}
               />
+              {mode === "login" && (
+                <a
+                  href="#"
+                  className={styles.forgotLink}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    showReset();
+                  }}
+                >
+                  Forgot password?
+                </a>
+              )}
               <div className={styles.buttonRow}>
                 <Button type="submit" size="lg" disabled={submitting} fullWidth>
                   {submitting ? "…" : mode === "login" ? "Log in" : "Create account"}

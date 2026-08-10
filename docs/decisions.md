@@ -1023,6 +1023,49 @@ nothing here enforces or verifies it's been done.
 
 ---
 
+## Password reset: code entry, not the design mock's magic link
+
+**Decision**: "Forgot password?" (`LoginPage.tsx`'s third `"reset"` mode)
+resets via Clerk's `reset_password_email_code` strategy — the visitor
+enters their email, gets a one-time code, and enters that code alongside
+their new password in the same form. On success, the flow calls
+`setActive({ session: result.createdSessionId })` and redirects straight
+into the app, the same as `submitLogin`/`submitVerification`.
+
+**Why it deviates from `design-system/Log in, Sign up.dc.html`'s reset
+step**: two separate deviations, for two separate reasons.
+
+- **Code instead of a magic link.** That mock's `resetSent` state assumes
+  a magic-link email ("Open reset link (demo)" — a fake link the
+  localStorage demo could short-circuit). A real link-based flow needs a
+  public landing route that verifies a token from the URL — a bigger
+  surface than this story needs, and Clerk's documented SPA custom-flow
+  API for password reset is code-based, the same shape as the sign-up
+  email verification already built (`submitVerification` in
+  `LoginPage.tsx`). The separate `design-system/Reset Password.dc.html`
+  file — the landing page a magic link would point to — is accordingly
+  not built; there's no link to land from.
+- **Auto-sign-in instead of the mock's "back to log in."** First built to
+  match the mock's "done" screen (skip `setActive`, send the visitor back
+  to log in with their new password) — reverted after real testing showed
+  this doesn't actually leave the visitor signed out. Clerk's Frontend API
+  sets the real session cookie the moment `attemptFirstFactor` returns
+  `status: "complete"`, independent of any `setActive` call in our code;
+  skipping it only left the SPA's own `isSignedIn` state briefly stale
+  (surfacing as "you're already signed in" on the log-in form, or a
+  signed-in header only after a manual refresh) rather than the visitor
+  actually being signed out. Given the session is created either way,
+  calling `setActive` and redirecting straight in is both more correct
+  (no stale-state window) and better UX — entering a one-time code mailed
+  to the account is at least as strong a proof of identity as the
+  password just typed into the same form, so there's no security reason
+  to force a second, redundant login. The mock's "back to log in" framing
+  isn't good evidence against this: it's a plausible default for a
+  localStorage demo with no real concept of "a session now exists," not
+  a considered security tradeoff.
+
+---
+
 ## Explicitly still open
 
 - **Backend HTTP framework** for the handful of non-gameplay REST routes (auth,

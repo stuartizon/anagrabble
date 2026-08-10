@@ -144,7 +144,7 @@ describe("LoginPage", () => {
   });
 
   describe("sign-up tab", () => {
-    it("requires a name in addition to email and password", async () => {
+    it("requires a first name in addition to email and password", async () => {
       renderPage();
       await userEvent.click(screen.getByRole("tab", { name: "Sign up" }));
 
@@ -162,7 +162,7 @@ describe("LoginPage", () => {
       renderPage();
 
       await userEvent.click(screen.getByRole("tab", { name: "Sign up" }));
-      await userEvent.type(screen.getByLabelText("Name"), "Alex");
+      await userEvent.type(screen.getByLabelText("First name"), "Alex");
       await userEvent.type(screen.getByLabelText("Email"), "alex@example.com");
       await userEvent.type(screen.getByLabelText("Password"), "correct-password");
       await userEvent.click(screen.getByRole("button", { name: "Create account" }));
@@ -170,7 +170,7 @@ describe("LoginPage", () => {
       expect(signUpCreateMock).toHaveBeenCalledWith({
         emailAddress: "alex@example.com",
         password: "correct-password",
-        unsafeMetadata: { displayName: "Alex" },
+        firstName: "Alex",
       });
       expect(prepareEmailAddressVerificationMock).toHaveBeenCalledWith({ strategy: "email_code" });
       expect(await screen.findByText("Check your email")).toBeInTheDocument();
@@ -186,7 +186,7 @@ describe("LoginPage", () => {
       renderPage();
 
       await userEvent.click(screen.getByRole("tab", { name: "Sign up" }));
-      await userEvent.type(screen.getByLabelText("Name"), "Alex");
+      await userEvent.type(screen.getByLabelText("First name"), "Alex");
       await userEvent.type(screen.getByLabelText("Email"), "alex@example.com");
       await userEvent.type(screen.getByLabelText("Password"), "correct-password");
       await userEvent.click(screen.getByRole("button", { name: "Create account" }));

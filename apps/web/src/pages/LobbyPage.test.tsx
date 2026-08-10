@@ -66,7 +66,7 @@ function mockSocket(overrides: {
 }
 
 function renderAsPlayer(playerId: string) {
-  setMockClerkIdentity({ id: playerId, displayName: playerId === "guest-1" ? "Guest" : "Host" });
+  setMockClerkIdentity({ id: playerId, firstName: playerId === "guest-1" ? "Guest" : "Host" });
   return render(
     <MemoryRouter
       initialEntries={["/ABCDE"]}

@@ -57,7 +57,7 @@ function renderPage() {
 beforeEach(() => {
   send.mockClear();
   useGameSocketMock.mockReset();
-  setMockClerkIdentity({ id: "host-1", displayName: "Alex" });
+  setMockClerkIdentity({ id: "host-1", firstName: "Alex" });
   mockSocket({});
 });
 

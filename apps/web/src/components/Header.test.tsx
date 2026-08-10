@@ -8,7 +8,7 @@ import { Header } from "./Header";
 const signOutMock = vi.fn();
 let isSignedIn = false;
 let user: {
-  unsafeMetadata?: { displayName?: string };
+  firstName?: string | null;
   primaryEmailAddress?: { emailAddress: string } | null;
 } | null = null;
 
@@ -43,7 +43,7 @@ describe("Header account status", () => {
   it("renders custom children instead of the account status when provided", () => {
     isSignedIn = true;
     user = {
-      unsafeMetadata: { displayName: "Alex" },
+      firstName: "Alex",
       primaryEmailAddress: { emailAddress: "alex@example.com" },
     };
     renderHeader(<span>Bank count</span>);
@@ -56,7 +56,7 @@ describe("Header account status", () => {
   it("shows an avatar with the display name's initial when signed in", () => {
     isSignedIn = true;
     user = {
-      unsafeMetadata: { displayName: "Alex" },
+      firstName: "Alex",
       primaryEmailAddress: { emailAddress: "alex@example.com" },
     };
     renderHeader();
@@ -64,9 +64,9 @@ describe("Header account status", () => {
     expect(screen.getByRole("button", { name: "Account menu" })).toHaveTextContent("A");
   });
 
-  it("falls back to the email's initial when there's no display name", () => {
+  it("falls back to the email's initial when there's no first name", () => {
     isSignedIn = true;
-    user = { unsafeMetadata: {}, primaryEmailAddress: { emailAddress: "sam@example.com" } };
+    user = { firstName: null, primaryEmailAddress: { emailAddress: "sam@example.com" } };
     renderHeader();
 
     expect(screen.getByRole("button", { name: "Account menu" })).toHaveTextContent("S");
@@ -75,7 +75,7 @@ describe("Header account status", () => {
   it("opens the menu on click, shows the name/email, and logs out", async () => {
     isSignedIn = true;
     user = {
-      unsafeMetadata: { displayName: "Alex" },
+      firstName: "Alex",
       primaryEmailAddress: { emailAddress: "alex@example.com" },
     };
     renderHeader();
@@ -92,7 +92,7 @@ describe("Header account status", () => {
   it("closes the menu when clicking outside", async () => {
     isSignedIn = true;
     user = {
-      unsafeMetadata: { displayName: "Alex" },
+      firstName: "Alex",
       primaryEmailAddress: { emailAddress: "alex@example.com" },
     };
     renderHeader();

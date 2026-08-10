@@ -44,7 +44,7 @@ export function LoginPage() {
   const { isLoaded: signUpLoaded, signUp, setActive: setActiveSignUp } = useSignUp();
 
   const [mode, setMode] = useState<Mode>("login");
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
@@ -90,7 +90,7 @@ export function LoginPage() {
     const result = await signUp.create({
       emailAddress: email.trim(),
       password,
-      unsafeMetadata: { displayName: name.trim() },
+      firstName: firstName.trim(),
     });
     if (result.status === "complete") {
       await setActiveSignUp({ session: result.createdSessionId });
@@ -105,7 +105,7 @@ export function LoginPage() {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !password.trim() || (mode === "signup" && !name.trim())) {
+    if (!email.trim() || !password.trim() || (mode === "signup" && !firstName.trim())) {
       setFormError("Required");
       return;
     }
@@ -215,10 +215,10 @@ export function LoginPage() {
             <form className={styles.fieldStack} onSubmit={submit}>
               {mode === "signup" && (
                 <Input
-                  label="Name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Your name"
+                  label="First name"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="Your first name"
                 />
               )}
               <Input

@@ -23,13 +23,13 @@ export function mockSignedOutClerk() {
 
 export interface MockClerkIdentity {
   id: string;
-  displayName?: string;
+  firstName?: string | null;
   email?: string;
 }
 
 let signedInAs: MockClerkIdentity = {
   id: "user_test123",
-  displayName: "Test Player",
+  firstName: "Testy",
   email: "test@example.com",
 };
 
@@ -53,7 +53,7 @@ export function mockSignedInClerk() {
       isLoaded: true,
       isSignedIn: true,
       user: {
-        unsafeMetadata: { displayName: signedInAs.displayName },
+        firstName: signedInAs.firstName ?? null,
         primaryEmailAddress: signedInAs.email ? { emailAddress: signedInAs.email } : null,
       },
     }),

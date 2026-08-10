@@ -962,11 +962,11 @@ session verification" (above) landed as inert plumbing:
    opaque string (see docs/redis-schema.md), so this is a value-format
    change only — no server or schema change was needed.
 3. **The editable per-game nickname is dropped.** The player's name is
-   now always their Clerk account name (`unsafeMetadata.displayName`,
-   falling back to their email — the same source `Header`'s
-   `AccountStatus` already used, now extracted into
-   `apps/web/src/clerkDisplayName.ts`'s `getDisplayName`). The "Your name"
-   input on New Game / Join Game is gone.
+   now always their Clerk account's `firstName`, falling back to their
+   email if unset (`apps/web/src/clerkDisplayName.ts`'s `getDisplayName`,
+   also used by `Header`'s `AccountStatus`). The "Your name" input on New
+   Game / Join Game is gone, replaced on sign-up by a single "First name"
+   field (`LoginPage.tsx`) that's the only name the app ever collects.
 
 **Why**: gating and identity-linking were the two questions "Backend Clerk
 session verification" explicitly deferred. Dropping the editable nickname
@@ -974,6 +974,34 @@ was a judgment call made alongside them — once identity is
 account-backed, letting someone type a different display name per game
 adds a spoofing-adjacent surface (impersonating another player by name)
 for no real benefit.
+
+**Name source — `firstName`, not `unsafeMetadata`, not first+last**:
+this went through two revisions before landing.
+
+- First cut: stored the sign-up name in `unsafeMetadata.displayName` (a
+  free-form, client-writable metadata bag) rather than Clerk's native
+  name fields, to avoid any Clerk Dashboard configuration. Rejected once
+  noticed that Google sign-in never populates it — that path never calls
+  `signUp.create()`, so `unsafeMetadata.displayName` is simply never set
+  for an OAuth account, and the app silently fell back to their email.
+- Considered enabling Clerk's "First and last name" attribute as
+  **required**, with the sign-up form split into two fields (`firstName`
+  - `lastName`), so `fullName` would be guaranteed non-null with no
+    fallback ever needed. Rejected: the game only ever displays a first
+    name, so collecting and validating a last name it has no use for is
+    data collection without a product reason, and it would force the
+    sign-up form to deviate from the single-field design mock
+    (`Log in, Sign up.dc.html`).
+- Landed on: Clerk's "First and last name" attribute enabled but **not**
+  required, sign-up form keeps one field, relabeled "First name" and
+  passed as `firstName` on `signUp.create()`. This is Clerk's real,
+  native field — Google OAuth populates it the same way password
+  sign-up does, so both paths converge with no special-casing. The
+  tradeoff accepted: because it isn't required at the Clerk config
+  level, nothing guarantees `firstName` is ever set (an account created
+  outside this form could lack one), so `getDisplayName`'s fallback to
+  email is a **permanent** part of the design, not a transitional patch
+  standing in for a future guarantee.
 
 **Deferred, not forgotten — server-side identity enforcement.** This
 change only swaps _where the client gets its id from_. The server still
@@ -986,6 +1014,12 @@ command payload. Closing this requires synchronous verification before
 command handling (currently fire-and-forget in `index.ts`) and touches
 every handler in both files — deliberately out of scope for this change,
 tracked here so it isn't lost.
+
+**Manual prerequisite — Clerk Dashboard config.** For `firstName` to be
+accepted on `signUp.create()` at all, "First and last name" must be
+enabled (not required) under **User & authentication** in the Clerk
+Dashboard. This is an external config change outside the codebase —
+nothing here enforces or verifies it's been done.
 
 ---
 

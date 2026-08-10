@@ -83,6 +83,14 @@ describe("NewGamePage", () => {
     });
   });
 
+  it("opens the rules modal from the Review the rules link", async () => {
+    renderPage();
+
+    await userEvent.click(screen.getByRole("button", { name: "Review the rules" }));
+
+    expect(screen.getByRole("dialog", { name: "Rules" })).toBeInTheDocument();
+  });
+
   it("shows the server error and re-enables the button", () => {
     mockSocket({ error: { code: "GameIdTaken", message: "That game ID is already in use." } });
     renderPage();

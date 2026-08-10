@@ -91,6 +91,10 @@
   color: var(--ink);
 }
 
+.rulesLinkRow {
+  margin-bottom: 20px;
+}
+
 .playerSection {
   margin-bottom: 24px;
 }

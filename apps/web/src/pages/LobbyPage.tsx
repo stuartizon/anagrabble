@@ -6,6 +6,7 @@ import { Header } from "../components/Header";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
 import { PageShell, CenteredContent, NarrowColumn } from "../components/Layout";
+import { RulesLink } from "../components/RulesLink";
 import { useGameSocket } from "../useGameSocket";
 import { getDisplayName } from "../clerkDisplayName";
 import { makeCommandId } from "../gameId";
@@ -153,6 +154,10 @@ export function LobbyPage() {
                 <span className={styles.configLabel}>Turn timer</span>
                 <span className={styles.configValue}>{lobby.config.turnTimerSec}s</span>
               </div>
+            </div>
+
+            <div className={styles.rulesLinkRow}>
+              <RulesLink />
             </div>
 
             <div className={styles.playerSection}>

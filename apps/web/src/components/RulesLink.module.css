@@ -1,0 +1,19 @@
+/* A <button>, not an <a> — global.css's `a`/`a:hover` colors don't apply to
+   this element, unlike Header.module.css's .accountLink, so accent color is
+   set explicitly here instead. A real link would navigate on a bare click
+   (before JS even loads); this only ever opens the modal in place. */
+.link {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--accent);
+}
+
+.link:hover {
+  color: var(--accent-dark);
+}

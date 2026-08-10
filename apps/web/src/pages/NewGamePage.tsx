@@ -7,6 +7,7 @@ import { Card } from "../components/Card";
 import { Select } from "../components/Select";
 import { Input } from "../components/Input";
 import { Button } from "../components/Button";
+import { RulesLink } from "../components/RulesLink";
 import { PageShell, CenteredContent, NarrowColumn } from "../components/Layout";
 import { useGameSocket } from "../useGameSocket";
 import { getDisplayName } from "../clerkDisplayName";
@@ -91,6 +92,9 @@ export function NewGamePage() {
                 onChange={(e) => setTurnTimer(e.target.value)}
                 options={TURN_TIMER_OPTIONS}
               />
+            </div>
+            <div className={styles.rulesLinkRow}>
+              <RulesLink />
             </div>
             {error && <div className={styles.errorText}>{error.message}</div>}
             <div className={styles.buttonRow}>

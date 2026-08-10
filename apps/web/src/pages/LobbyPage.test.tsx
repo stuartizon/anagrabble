@@ -116,6 +116,15 @@ describe("LobbyPage", () => {
     expect(screen.getByText("Waiting for the host to start the game…")).toBeInTheDocument();
   });
 
+  it("opens the rules modal from the Review the rules link", async () => {
+    mockSocket({ lobby: lobbySnapshot({ players: [HOST] }) });
+    renderAsPlayer("host-1");
+
+    await userEvent.click(screen.getByRole("button", { name: "Review the rules" }));
+
+    expect(screen.getByRole("dialog", { name: "Rules" })).toBeInTheDocument();
+  });
+
   describe("as the host", () => {
     it("shows the player list and allows starting solo, with a hint to wait for others", () => {
       mockSocket({ lobby: lobbySnapshot({ players: [HOST] }) });

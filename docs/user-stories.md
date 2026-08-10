@@ -26,11 +26,16 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
       can reuse it rather than duplicating the copy. `HomePage`'s "Read the
       full rules →" link (previously left out, see prior bullet) now
       points at it.
-- [ ] As a player, I can open the rules as an in-place modal, without
+- [x] As a player, I can open the rules as an in-place modal, without
       navigating away, while setting up or waiting on a game — New Game,
       Join Game, and Lobby all have a "Rules" link in the design system —
       reusing the same rules content as the standalone page rather than
-      duplicating it.
+      duplicating it. The design mock's link disagrees with itself on
+      copy/alignment across those three screens; normalized to one
+      consistent `RulesLink` ("Review the rules", left-justified) used on
+      `NewGamePage` and `LobbyPage` (which covers both Join Game and
+      Lobby — no separate join page exists) — see docs/decisions.md
+      "Rules modal: one consistent link, not per-page copy/alignment".
 
 ## Account & entry
 

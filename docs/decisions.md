@@ -1167,6 +1167,32 @@ of `HomePage` for now — the standalone rules page it points to is a
 separate, not-yet-built user story (see "Home & rules" in
 `docs/user-stories.md`); add the link when that page exists.
 
+## Rules modal: one consistent link, not per-page copy/alignment
+
+**Decision**: `New Game.dc.html`, `Join Game.dc.html`, and `Lobby.dc.html`
+each show a link that opens the rules as an in-place modal, but disagree
+with each other on both copy ("Rules" vs. "Review the rules while you're
+waiting") and alignment (left on New Game/Join Game, right on Lobby).
+Rather than reproduce that inconsistency, every instance is now the same
+`RulesLink` component: copy is always "Review the rules", alignment is
+always left. `RulesLink` owns its own open/closed state and renders
+`RulesModal` (reusing `RulesContent`, same as the standalone `/rules`
+page) when open, so a page just drops in `<RulesLink />` rather than
+wiring up its own modal state. Landed on `NewGamePage` and `LobbyPage` —
+the latter covers both the design's Join Game and Lobby screens, since
+there's no separate join page in the real app (see "Home page takes over
+`/`" ripple notes and `LobbyPage`'s own header comment).
+
+**Why**: the three design screens were never reconciled with each other
+before export, and copying that drift into real code would mean a player
+sees different wording/placement for the identical action depending on
+which screen they're on — worse than picking either option consistently.
+"Review the rules" was chosen over bare "Rules" as more descriptive of
+what clicking it does; left alignment was chosen because it already
+matched 2 of the 3 source screens. Encoding the decision as a shared
+component (rather than a documented convention each page must remember to
+follow) makes the inconsistency structurally impossible to reintroduce.
+
 ## Explicitly still open
 
 - **Backend HTTP framework** for the handful of non-gameplay REST routes (auth,

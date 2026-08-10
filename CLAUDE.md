@@ -349,6 +349,12 @@ mechanic without touching anything else.
   caught, unlike CATS vs. CAT) — a data-quality gap, not a code limitation;
   `isDerivedFrom` itself has no concept of position. See docs/decisions.md
   "Dictionary source and format"'s second known gap.
+- How a reconnecting/late-joining client backfills the history panel's past
+  plays (today it only accumulates events seen live, so a gap is just
+  missing) — candidate approaches (bounded or uncapped recent-history in
+  Redis state, or reading from Postgres once it exists) captured but not
+  decided between. See docs/decisions.md "Explicitly still open" ->
+  "Reconnect/mid-game-join history backfill".
 - The post-bank-empty idle timeout is hardcoded at 60s in both
   `apply_turn_tile.lua` and `apply_submit_word.lua` — this section's own
   "60–90s, configurable" isn't wired up to `GameConfig` yet. See

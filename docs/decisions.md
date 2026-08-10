@@ -508,8 +508,11 @@ Game.dc.html`'s desktop rail already specifies — history is explicitly
   some entries is an acceptable, known gap rather than something worth
   building real persistence for. Explicitly not the same problem as the
   Postgres durable-history path described in CLAUDE.md's "Core architecture"
-  — that's about Redis being able to rebuild authoritative game state after
-  a crash; this is an ephemeral, per-viewer narration convenience with no
+  — that path is stats/audit history for after a game ends, not a
+  reconstruction source for live Redis state (a Redis node dying is purely
+  Redis's own HA/persistence concern — Sentinel/cluster, still undecided per
+  "Redis hosting" below — and Postgres plays no role in it, deliberately);
+  this is an ephemeral, per-viewer narration convenience with no
   bearing on correctness. If a dropped-message gap ever needs to be visible
   to players rather than just silently possible, the suggested next step
   (not built) is narrating connect/disconnect events into the same history
@@ -1210,3 +1213,35 @@ follow) makes the inconsistency structurally impossible to reintroduce.
   history to Postgres yet at all (gameplay is Redis-only, per "Backend
   state architecture" above), so this is blocked on that landing first,
   not on identity — identity is already Clerk-based.
+- **Reconnect/mid-game-join history backfill** — the still-open "connection
+  drops and reconnects mid-game" story (`docs/user-stories.md`
+  "Non-functional / cross-cutting") covers state resync (seq-based, already
+  designed for — see "Sequencing" in CLAUDE.md), but not specifically
+  whether a reconnecting/late-joining client can see the history panel's
+  _past_ plays, not just current state. Today it can't: the history panel
+  is purely client-accumulated from events seen live (see "History panel is
+  client-side only" above) — a client that wasn't connected the whole time
+  just has a gap. Candidate approaches, not yet decided between, not yet
+  needed until that story is picked up:
+  - **Bounded recent-history in Redis state** — add a capped list (e.g.
+    last 50 events) to `GameState` itself, appended to on each accepted
+    move, so a full resync payload includes it for free (no extra round
+    trip, no Postgres involvement). Simple, cheap, but a very long game's
+    full history wouldn't be fully recoverable this way — only the most
+    recent N plays.
+  - **Uncapped growth in Redis state** — same idea, no cap, so full-game
+    history is always recoverable via resync. Avoids the truncation
+    tradeoff above, but an ever-growing per-game blob has its own cost
+    (state size, network payload per resync) that scales with game length.
+  - **Read from Postgres** (the durable-history path in CLAUDE.md's "Core
+    architecture", not yet built — see "Linking games/stats to a Clerk user
+    ID durably" just above) — full fidelity for any game, but only works
+    once that table exists and is populated in real time (its writes are
+    explicitly async/off-critical-path today, which is a different
+    latency/staleness shape than "give me the live history right now"), and
+    it's a genuinely different access pattern (occasional query) from the rest of the live
+    gameplay path.
+  - These aren't mutually exclusive — e.g. bounded-Redis for the common
+    case (short gap, recent reconnect) with Postgres as a fallback for a
+    late joiner wanting the full game so far. Worth resolving deliberately
+    when the reconnect story is actually picked up, not defaulted into.

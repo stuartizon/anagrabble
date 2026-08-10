@@ -38,7 +38,12 @@ Node/TS chosen over reviving the old Akka codebase — see "Why not Akka/Pekko" 
   defaults, not a reshape).
 - **Postgres holds durable history** (events, results) — written _after_ Redis
   accepts a move, never on the critical path of resolving a race. Use Neon (or
-  Supabase) for free-tier scale-to-zero Postgres, separate from Railway.
+  Supabase) for free-tier scale-to-zero Postgres, separate from Railway. See
+  `docs/postgres-schema.md` for the table shapes and exactly what this does
+  and doesn't cover — notably, stats/audit history only, not a mechanism for
+  reconstructing an in-progress game if Redis is lost (see that file's
+  "Scope" section and `docs/decisions.md` "Postgres scope: stats/audit
+  history, not Redis recovery").
 - **Node servers are stateless.** Any node can handle any game's command — Redis is
   the single serialization point, not node/actor placement. This is what makes
   horizontal scaling and node death low-stakes: a dead node loses nothing, because

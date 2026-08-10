@@ -1196,6 +1196,70 @@ matched 2 of the 3 source screens. Encoding the decision as a shared
 component (rather than a documented convention each page must remember to
 follow) makes the inconsistency structurally impossible to reintroduce.
 
+## Postgres scope: stats/audit history, not Redis recovery
+
+**Decision**: Postgres (`docs/postgres-schema.md`) records completed, permanent
+history for stats/lookup purposes only — `games`, `game_players`, `word_plays`,
+`player_settings`. It is explicitly not a mechanism for reconstructing an
+in-progress game if Redis is lost. Writes happen async, after Redis has
+already accepted and broadcast the move, never on the critical path — matching
+CLAUDE.md's original "written after Redis accepts a move, never on the
+critical path" framing, now made precise about what that durability buys you
+and what it doesn't.
+
+**Alternatives considered**: a recovery-capable event log — Postgres capturing
+enough per-move fidelity (full pool-state deltas, turn deadlines, commandId
+dedup state) to replay and rebuild live Redis state after a crash, closer to
+full event sourcing.
+
+**Why stats-only won**: a Redis node dying is purely Redis's own
+persistence/replication concern (AOF/RDB + restart-from-disk for the "process
+restarted" case; Sentinel/cluster for true failover — see "Redis hosting"
+above, deliberately deferred, single-instance for MVP) — the same category of
+problem as the Akka clustering question early in this doc, just solved at the
+infra layer rather than the application layer. Postgres was never part of
+that story. Making it recovery-capable would mean giving up the "never on the
+critical path" property that makes the write path cheap and simple (recovery
+needs strong write guarantees; stats/audit doesn't), for a scenario — genuine
+Redis data loss, not just a restart — judged rare enough at MVP scale (single
+Redis instance, few concurrent games) not to engineer around yet. An
+in-progress game not surviving that scenario is an accepted gap, revisit only
+if real usage makes it a real cost.
+
+**Raised by**: a sentence in this doc's older "History panel is client-side
+only" entry incorrectly implied Postgres already played this role — corrected
+alongside this entry landing.
+
+## `word_plays`, not a generic `game_events` table
+
+**Decision**: the durable per-move log (`docs/postgres-schema.md`) is named
+and shaped around word plays specifically — `word_plays`, columns for `word`,
+`clerk_user_id`, `used_words`, `used_pool_letters` — not a generic
+`type` + `payload jsonb` events table covering every Redis event type.
+
+**Alternatives considered**: a generic `game_events` table with a `type`
+column and a jsonb `payload`, able to hold any event kind (`TileTurned`,
+`PlayerJoined`, `GameStarted`, `GameEnded`, `WordPlayed`, ...) uniformly.
+
+**Why narrowed to word plays only**: walking every other event type against
+what it would actually be used for came up empty. `TileTurned` is pure
+random-reveal noise — up to 144 rows per game with no stat value.
+`PlayerJoined`/`PlayerLeft`/`GameStarted` are lobby-level, and whatever value
+they'd have (e.g. game duration) is already covered by
+`games.started_at`/`ended_at`, written at those same moments regardless.
+`GameEnded` likewise adds nothing a dedicated event row would capture beyond
+what `games.ended_at` and the final `game_players` rows already record at
+that exact moment — a row for it would be pure duplication. What's left,
+`WordPlayed`, is the one event whose detail (which prior claimed word(s) a
+play consumed, via `usedWords`) is otherwise lost the instant only the final
+`game_players.final_words` list survives — needed for steal counts and
+word-derivation chains (e.g. CAT → CAST → CASTS → FORECASTS), see
+`docs/postgres-schema.md`. With only one event type left, the `type` column
+was dropped too — it protected against nothing once there's nothing else to
+discriminate between. Revisit (re-adding `type`, or a specific new table) only
+if a concrete future stat idea actually needs one of the excluded event
+kinds — not defaulted back in speculatively.
+
 ## Explicitly still open
 
 - **Backend HTTP framework** for the handful of non-gameplay REST routes (auth,

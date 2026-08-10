@@ -872,6 +872,43 @@ the classic `{ isLoaded, signIn/signUp, setActive }` shape (used by
 
 ---
 
+## Backend Clerk session verification: plumbing only, not gating yet
+
+**Decision**: `apps/web`'s `useGameSocket` fetches the current Clerk session
+token (`useAuth().getToken()`) before opening its WebSocket and attaches it
+as `?token=`, alongside the existing `?game=`/`?player=` params. `apps/server`
+verifies it (`src/auth.ts`'s `verifySessionToken`, using `@clerk/backend`'s
+`verifyToken` against `CLERK_SECRET_KEY`) and stashes the result as
+`meta.clerkUserId` on the socket — see `src/index.ts`. This is deliberately
+just plumbing: no command is gated on it, and nothing links a game/player to
+`clerkUserId` yet. An unset `CLERK_SECRET_KEY`, a missing token, or a failed
+verification all fall back to the same "not signed in" state a socket has
+today — anonymous play via `playerIdentity.ts` is untouched.
+
+**Why split it this way**: the natural next step after "the login screen
+exists" is "the backend can tell who's signed in," but gating gameplay on it
+and deciding how games/stats key off a Clerk user ID are separate, larger
+design questions (does creating a game require sign-in? do anonymous players
+get a grace period? how does `playerIdentity.ts`'s local stub id map onto a
+Clerk id on login?). Landing verification alone first means those questions
+get answered against working plumbing instead of alongside it.
+
+**Implementation gotcha worth recording**: `@clerk/backend`'s own
+`tokens/verify.d.ts` doc comment describes `verifyToken` as returning
+`Promise<{ data, errors }>` (a non-throwing result object) — but the
+function actually re-exported from the package root (`@clerk/backend`'s
+`index.d.ts`/`index.js`) is wrapped in a "legacy" adapter
+(`withLegacyReturn`) that resolves with the JWT payload directly and
+**throws** on an invalid/expired token instead. The two coexist in the same
+package version (3.16.1) with no deprecation note on either — following the
+documented `{ data, errors }` shape against the top-level import silently
+type-checks to `unknown` (its `CustomJwtSessionClaims` index signature masks
+the mismatch) rather than erroring, so it doesn't get caught by TypeScript
+either. `verifySessionToken` just wraps the whole call in try/catch and
+returns `null` on any throw, sidestepping which shape is real.
+
+---
+
 ## Account avatar: hand-rolled circle, not Clerk's `UserButton`/`UserAvatar`
 
 **Decision**: `Header`'s signed-in avatar (round accent-green circle,
@@ -921,8 +958,9 @@ screens ourselves.
   project's actual complexity, which lives in the state machine, not routing).
 - **Turn-timer polling sweep** — see "Game rules" above.
 - **Redis HA timing** — see "Redis hosting" above.
-- **Backend Clerk session verification** — the login/signup screen talks to
-  Clerk entirely from `apps/web`; nothing on `apps/server` verifies a Clerk
-  session yet, so no gameplay/lobby command is actually gated on being
-  signed in, and games/stats aren't yet linked to a Clerk user ID. See "Auth
+- **Gating gameplay on being signed in, and linking games/stats to a Clerk
+  user ID.** `apps/server` now verifies a Clerk session on WS connect (see
+  "Backend Clerk session verification" below), but nothing reads the
+  verified id yet — every lobby/gameplay command still runs on the
+  `playerIdentity.ts` local stub regardless of auth state. See "Auth
   provider" above.

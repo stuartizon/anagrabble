@@ -1,3 +1,7 @@
+// Local dev only: populates process.env from apps/server/.env. Railway sets
+// real environment variables directly in production, where this is a no-op
+// (dotenv doesn't throw when the file is missing).
+import "dotenv/config";
 import { createServer } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import { createRedisClient } from "@anagrabble/redis";
@@ -11,9 +15,11 @@ import {
 } from "@anagrabble/protocol";
 import { createGame, joinGame, leaveGame, loadLobbySnapshot } from "./lobby.js";
 import { endGame, startGame, submitWord, turnTile } from "./game.js";
+import { verifySessionToken } from "./auth.js";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379";
+const CLERK_SECRET_KEY = process.env.CLERK_SECRET_KEY;
 const GAME_CHANNEL = "game:events";
 
 const redis = createRedisClient({ url: REDIS_URL });
@@ -147,6 +153,10 @@ const wss = new WebSocketServer({ server: httpServer });
 interface SocketMeta {
   gameId?: string;
   playerId?: string;
+  /** Set once the `token` query param (if any) verifies against Clerk.
+   * Plumbing only for now — nothing reads this yet, no command is gated on
+   * it (see CLAUDE.md "Still open": auth). */
+  clerkUserId?: string;
 }
 
 wss.on("connection", (socket, req) => {
@@ -159,6 +169,23 @@ wss.on("connection", (socket, req) => {
   const url = new URL(req.url ?? "/", "http://internal");
   const gameId = url.searchParams.get("game");
   const knownPlayerId = url.searchParams.get("player");
+  const token = url.searchParams.get("token");
+  if (token && CLERK_SECRET_KEY) {
+    verifySessionToken(token, CLERK_SECRET_KEY)
+      .then((result) => {
+        if (result) {
+          meta.clerkUserId = result.userId;
+          console.log(`[ws] verified Clerk session for user ${result.userId}`);
+        } else {
+          console.warn("[ws] Clerk session token present but failed to verify");
+        }
+      })
+      .catch((err) => console.error("[ws] error verifying session token", err));
+  } else if (token && !CLERK_SECRET_KEY) {
+    console.warn(
+      "[ws] received a Clerk token but CLERK_SECRET_KEY is not set — skipping verification",
+    );
+  }
   if (gameId) {
     loadLobbySnapshot(redis, gameId)
       .then((snapshot) => {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useAuth } from "@clerk/react";
 import {
   PROTOCOL_VERSION,
   type Command,
@@ -70,69 +71,93 @@ export function useGameSocket(gameId?: string, knownPlayerId?: string) {
   });
   const socketRef = useRef<WebSocket | null>(null);
 
+  // Read via a ref rather than depending on `getToken` directly in the
+  // effect below: Clerk doesn't guarantee its identity is stable across
+  // renders, and a reconnect should only happen on a genuine new game/player
+  // (gameId/knownPlayerId change), not whenever that identity happens to
+  // change.
+  const { getToken } = useAuth();
+  const getTokenRef = useRef(getToken);
   useEffect(() => {
+    getTokenRef.current = getToken;
+  }, [getToken]);
+
+  useEffect(() => {
+    let cancelled = false;
     setState({ status: "connecting", lobby: null, error: null, wordPlay: null, history: [] });
-    const params = new URLSearchParams();
-    if (gameId) params.set("game", gameId);
-    if (gameId && knownPlayerId) params.set("player", knownPlayerId);
-    const query = params.toString();
-    const url = query ? `${WS_URL}/?${query}` : WS_URL;
-    const socket = new WebSocket(url);
-    socketRef.current = socket;
 
-    socket.addEventListener("open", () => setState((s) => ({ ...s, status: "open" })));
-    socket.addEventListener("close", () => setState((s) => ({ ...s, status: "closed" })));
+    async function connect() {
+      const token = await getTokenRef.current().catch(() => null);
+      if (cancelled) return;
 
-    socket.addEventListener("message", (evt) => {
-      const message = JSON.parse(evt.data as string) as HandshakeMessage | Event;
+      const params = new URLSearchParams();
+      if (gameId) params.set("game", gameId);
+      if (gameId && knownPlayerId) params.set("player", knownPlayerId);
+      if (token) params.set("token", token);
+      const query = params.toString();
+      const url = query ? `${WS_URL}/?${query}` : WS_URL;
+      const socket = new WebSocket(url);
+      socketRef.current = socket;
 
-      if (message.type === "Handshake") {
-        if (message.protocolVersion !== PROTOCOL_VERSION) {
-          console.warn(
-            `[ws] server protocol version ${message.protocolVersion} differs from client ${PROTOCOL_VERSION}`,
-          );
+      socket.addEventListener("open", () => setState((s) => ({ ...s, status: "open" })));
+      socket.addEventListener("close", () => setState((s) => ({ ...s, status: "closed" })));
+
+      socket.addEventListener("message", (evt) => {
+        const message = JSON.parse(evt.data as string) as HandshakeMessage | Event;
+
+        if (message.type === "Handshake") {
+          if (message.protocolVersion !== PROTOCOL_VERSION) {
+            console.warn(
+              `[ws] server protocol version ${message.protocolVersion} differs from client ${PROTOCOL_VERSION}`,
+            );
+          }
+          return;
         }
-        return;
-      }
 
-      if (message.type === "Error") {
-        setState((s) => ({
-          ...s,
-          error: { code: message.code, message: message.message, commandId: message.commandId },
-        }));
-        return;
-      }
+        if (message.type === "Error") {
+          setState((s) => ({
+            ...s,
+            error: { code: message.code, message: message.message, commandId: message.commandId },
+          }));
+          return;
+        }
 
-      if (message.type === "WordPlayed") {
-        const narration: WordPlayNarration = {
-          seq: message.seq,
-          playerId: message.playerId,
-          word: message.word,
-          usedWords: message.usedWords,
-        };
-        setState((s) => ({
-          ...s,
-          lobby: message.lobby,
-          error: null,
-          wordPlay: narration,
-          history: [...s.history, narration],
-        }));
-        return;
-      }
+        if (message.type === "WordPlayed") {
+          const narration: WordPlayNarration = {
+            seq: message.seq,
+            playerId: message.playerId,
+            word: message.word,
+            usedWords: message.usedWords,
+          };
+          setState((s) => ({
+            ...s,
+            lobby: message.lobby,
+            error: null,
+            wordPlay: narration,
+            history: [...s.history, narration],
+          }));
+          return;
+        }
 
-      if (
-        message.type === "LobbyState" ||
-        message.type === "PlayerJoined" ||
-        message.type === "PlayerLeft" ||
-        message.type === "GameStarted" ||
-        message.type === "TileTurned" ||
-        message.type === "GameEnded"
-      ) {
-        setState((s) => ({ ...s, lobby: message.lobby, error: null }));
-      }
-    });
+        if (
+          message.type === "LobbyState" ||
+          message.type === "PlayerJoined" ||
+          message.type === "PlayerLeft" ||
+          message.type === "GameStarted" ||
+          message.type === "TileTurned" ||
+          message.type === "GameEnded"
+        ) {
+          setState((s) => ({ ...s, lobby: message.lobby, error: null }));
+        }
+      });
+    }
 
-    return () => socket.close();
+    connect();
+
+    return () => {
+      cancelled = true;
+      socketRef.current?.close();
+    };
   }, [gameId, knownPlayerId]);
 
   const send = useCallback((command: Command) => {

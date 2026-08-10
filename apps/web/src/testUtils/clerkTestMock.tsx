@@ -12,6 +12,11 @@ export function mockSignedOutClerk() {
       when === "signed-out" ? <>{children}</> : null,
     useUser: () => ({ isLoaded: true, isSignedIn: false, user: null }),
     useClerk: () => ({ signOut: vi.fn() }),
-    useAuth: () => ({ isLoaded: true, isSignedIn: false, userId: null }),
+    useAuth: () => ({
+      isLoaded: true,
+      isSignedIn: false,
+      userId: null,
+      getToken: vi.fn().mockResolvedValue(null),
+    }),
   };
 }

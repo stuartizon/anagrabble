@@ -57,6 +57,10 @@ Requires Node 22.22.2+, pnpm, and Docker.
 ```bash
 pnpm install
 
+# copy env templates, then fill them in — see "Environment variables" below
+cp apps/server/.env.example apps/server/.env
+cp apps/web/.env.example apps/web/.env
+
 # start Redis + Postgres locally
 docker compose -f infrastructure/docker-compose.yml up redis postgres -d
 
@@ -66,6 +70,28 @@ pnpm dev:server
 # run the frontend, in another terminal
 pnpm dev:web
 ```
+
+### Environment variables
+
+Each app reads local config from its own `.env` (gitignored; see
+`apps/server/.env.example` / `apps/web/.env.example` for the full list with
+comments). Most values already have a working local default — Redis URL,
+ports — and don't need editing. The one that does need a real value before
+anything will run is Clerk:
+
+- Create a free application at [clerk.com](https://clerk.com) (or reuse an
+  existing one).
+- Dashboard → API Keys → copy the **Publishable key** into `apps/web/.env`'s
+  `VITE_CLERK_PUBLISHABLE_KEY`. Not optional — the frontend throws on
+  startup without it.
+- Copy the **Secret key** into `apps/server/.env`'s `CLERK_SECRET_KEY`. This
+  one _is_ optional for local dev — the backend runs fine without it, it
+  just can't verify a signed-in session (see `docs/decisions.md` "Backend
+  Clerk session verification") — but you'll want it set if you're touching
+  anything auth-related.
+- Both keys must come from the **same** Clerk application. A mismatch fails
+  silently — the socket just never verifies — rather than erroring loudly,
+  so it's easy to mistake for a bug.
 
 Backend listens on `:8080`, frontend on `:5173`. The frontend expects
 `VITE_WS_URL` (defaults to `ws://localhost:8080`) to reach the backend.
@@ -79,6 +105,11 @@ To build and run everything via Docker instead:
 ```bash
 docker compose -f infrastructure/docker-compose.yml up
 ```
+
+Note the `server` service reads `CLERK_SECRET_KEY` from your host shell
+environment (`${CLERK_SECRET_KEY:-}` in `docker-compose.yml`), not from
+`apps/server/.env` — `export CLERK_SECRET_KEY=...` first, or put it in
+`infrastructure/.env`, if you're using this all-in-Docker path.
 
 ## Testing
 

@@ -379,14 +379,6 @@ describe("GameBoard", () => {
     ]);
   });
 
-  it("shows a game-over message and hides the word form once the game has ended", () => {
-    renderBoard({ lobby: lobbySnapshot({ status: "ended", bankCount: 0 }) });
-
-    expect(screen.getByTestId("game-over-message")).toHaveTextContent("Game over — no more moves.");
-    expect(screen.queryByPlaceholderText("Type a word…")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Play word" })).not.toBeInTheDocument();
-  });
-
   it("shows the idle countdown once the bank is empty but the game is still playing", () => {
     renderBoard({
       lobby: lobbySnapshot({

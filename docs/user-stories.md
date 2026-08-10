@@ -75,7 +75,15 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Post-game
 
-- [ ] As a player, I see a game-over summary (final scores/words).
+- [x] As a player, I see a game-over summary (final scores/words).
+      `GameOverSummary` — matches design-system/Game Over.dc.html: replaces
+      GameBoard entirely once `lobby.status === "ended"` (own screen, not an
+      overlay on the board — see LobbyPage), ranked by score with
+      competition-style ranks (a tie shows the same rank number, e.g.
+      1, 1, 3) and a "Sam wins with 8."/"Sam and Jo tie at 6." winner
+      line, each player's claimed words as tags, "New game" back to `/`.
+      Uses `PlayerState.words`/`score` already on `LobbySnapshot` — no
+      protocol change needed.
 - [ ] As a player, I can view my stats across past games.
 
 ## Settings

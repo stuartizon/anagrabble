@@ -173,12 +173,12 @@ describe("LobbyPage", () => {
   });
 
   describe("once the game has ended", () => {
-    it("keeps rendering the game board instead of falling back to the waiting-room lobby card", () => {
+    it("renders the game-over summary instead of falling back to the waiting-room lobby card", () => {
       // Regression test: this page used to gate GameBoard on
       // status === "playing" only, so an auto-ended game (CLAUDE.md
       // "Game-end condition") fell through to the pre-game waiting-room
-      // view (share link, "Start game" button) instead of GameBoard's own
-      // "Game over" message.
+      // view (share link, "Start game" button) instead of a game-over
+      // screen.
       mockSocket({
         lobby: lobbySnapshot({
           status: "ended",
@@ -188,7 +188,7 @@ describe("LobbyPage", () => {
       });
       renderAsPlayer("host-1");
 
-      expect(screen.getByTestId("game-over-message")).toBeInTheDocument();
+      expect(screen.getByText("Game over.")).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /Start game/ })).not.toBeInTheDocument();
     });
   });

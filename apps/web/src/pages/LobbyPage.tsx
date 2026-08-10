@@ -13,6 +13,7 @@ import { assignPlayerColors } from "../playerColors";
 import { useCopyLink } from "../useCopyLink";
 import { cx } from "../cx";
 import { GameBoard } from "./GameBoard";
+import { GameOverSummary } from "./GameOverSummary";
 import styles from "./LobbyPage.module.css";
 
 // Matches design-system/Lobby.dc.html — the live waiting room, and also the
@@ -89,12 +90,15 @@ export function LobbyPage() {
     );
   }
 
-  // "ended" keeps rendering GameBoard too — otherwise a game that
-  // auto-ends (CLAUDE.md "Game-end condition") would fall through to the
-  // pre-game waiting-room view below (share link, "Start game" button),
-  // which makes no sense for a game that's already over. GameBoard itself
-  // shows the "Game over" message once lobby.status === "ended".
-  if (lobby.status === "playing" || lobby.status === "ended") {
+  // "ended" renders its own summary screen rather than falling through to
+  // the pre-game waiting-room view below (share link, "Start game" button),
+  // which makes no sense for a game that's already over — see
+  // GameOverSummary, matching design-system/Game Over.dc.html.
+  if (lobby.status === "ended") {
+    return <GameOverSummary lobby={lobby} playerId={identity.id} />;
+  }
+
+  if (lobby.status === "playing") {
     return (
       <GameBoard
         lobby={lobby}

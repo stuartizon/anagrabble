@@ -457,30 +457,24 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
           )}
 
           <div className={styles.wordFormDock}>
-            {lobby.status === "ended" ? (
-              <span className={styles.turnHint} data-testid="game-over-message">
-                Game over — no more moves.
-              </span>
-            ) : (
-              <form className={styles.wordForm} onSubmit={submitWord}>
-                <div className={styles.wordFormInput}>
-                  <Input
-                    ref={wordInputRef}
-                    value={wordValue}
-                    onChange={(e) =>
-                      setWordValue(e.target.value.toUpperCase().replace(/[^A-Z]/g, ""))
-                    }
-                    placeholder="Type a word…"
-                    size="lg"
-                    mono
-                    autoFocus
-                  />
-                </div>
-                <Button type="submit" size="lg">
-                  Play word
-                </Button>
-              </form>
-            )}
+            <form className={styles.wordForm} onSubmit={submitWord}>
+              <div className={styles.wordFormInput}>
+                <Input
+                  ref={wordInputRef}
+                  value={wordValue}
+                  onChange={(e) =>
+                    setWordValue(e.target.value.toUpperCase().replace(/[^A-Z]/g, ""))
+                  }
+                  placeholder="Type a word…"
+                  size="lg"
+                  mono
+                  autoFocus
+                />
+              </div>
+              <Button type="submit" size="lg">
+                Play word
+              </Button>
+            </form>
           </div>
         </div>
       </div>

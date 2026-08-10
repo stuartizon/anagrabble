@@ -1,0 +1,83 @@
+.title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-xl);
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+
+.subtitle {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+.playerList {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 24px;
+}
+
+.playerRow {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.playerHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.rank {
+  width: 22px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.playerDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.playerName {
+  flex: 1;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: var(--text-base);
+  color: var(--ink);
+}
+
+.playerScore {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-base);
+  color: var(--gold);
+}
+
+.wordsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-left: 32px;
+}
+
+.wordTag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--ink);
+}

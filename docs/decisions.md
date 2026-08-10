@@ -791,6 +791,31 @@ revisited. Deliberately not written as a `docs/user-stories.md` entry — that
 file is player-facing feature asks, and this is a data-quality gap in
 something already built, not a new capability to request.
 
+## Game-over summary replaces GameBoard entirely, not an overlay on it
+
+**Decision**: once `lobby.status === "ended"`, `LobbyPage` renders
+`GameOverSummary` (its own centered-`Card` screen, matching design-system/
+`Game Over.dc.html`) instead of `GameBoard`. The tile pool, sidebar, and word
+form all disappear at that point rather than staying mounted with a summary
+overlaid on top. Previously `GameBoard` itself rendered an inline "Game
+over — no more moves" message in place of the word form, keeping the rest
+of the board visible — that was a deliberate stand-in for this not-yet-built
+story, not the intended end state.
+
+**Why**: the tile pool and turn/idle countdowns have nothing left to say
+once the game has ended — there's no next action they're informing. The
+design source treats game-over as its own screen, and the codebase already
+has this exact pattern (`LobbyPage`'s pre-game waiting-room card, and its
+"Game not found" card) for "swap the whole page content based on game
+status," so this isn't a new shape, just another status branch.
+
+**Ranking ties**: `GameOverSummary` uses standard competition ranking (equal
+scores get the same rank number, e.g. 1, 1, 3 — never 1, 2, 3) and a
+distinct winner line for a tie ("Sam and Jo tie at 6." vs. "Sam wins with
+8."). The design prototype's own demo data has no tied scores, so it never
+had to decide this; sequential ranking would visually imply one tied player
+beat the other, which is wrong.
+
 ## Explicitly still open
 
 - **Backend HTTP framework** for the handful of non-gameplay REST routes (auth,

@@ -1260,17 +1260,73 @@ discriminate between. Revisit (re-adding `type`, or a specific new table) only
 if a concrete future stat idea actually needs one of the excluded event
 kinds — not defaulted back in speculatively.
 
+## `packages/postgres`: Kysely for queries, hand-rolled SQL for migrations
+
+**Decision**: `packages/postgres` (the typed client for the durable-history
+writes in `docs/postgres-schema.md`) uses **Kysely** to build/run its
+queries (`insertGame`, `endGame`, `insertWordPlay`), against the documented
+schema types in `src/schema.ts`. Migrations stay a small hand-rolled runner
+(`src/migrate.ts`, applying numbered `.sql` files from `src/migrations/` and
+tracking them in a `schema_migrations` table) — not Kysely's own migrator,
+not Drizzle/Prisma.
+
+**History**: the first pass at this package (2026-08-11) picked plain `pg`
+with no query-builder at all, reasoning by analogy from this repo's existing
+minimal-tooling choices (raw `ws`, raw `http`, hand-written Lua). That
+default had been flagged to the user once by an earlier thread but was
+carried forward into implementation without actually being confirmed. When
+asked directly, the user's answer was: compile-time query safety from day
+one, yes — reused as-is, but the point of the raw-`ws`/raw-`http`/Lua
+comparisons (see "Explicitly still open" below) is under separate live
+question, not settled precedent this decision gets to assume — the lesson
+generalizes beyond this one package: a default flagged once isn't the same
+as a default confirmed.
+
+**Alternatives considered**: plain `pg` with hand-written SQL strings (the
+original pick — no compile-time check that a query's columns match the
+table schema, verified only by tests); Drizzle/Prisma (heavier — schema-file
+codegen and/or a full migration DSL, more than this package's 4-table
+surface needs).
+
+**Why Kysely specifically over Drizzle/Prisma**: Kysely wraps `pg` rather
+than replacing it — it's a query _builder_ with full TypeScript inference
+from a hand-written `Database` interface, not a schema-ownership framework.
+That fits a package whose migrations are deliberately staying hand-rolled
+SQL: the `Database` type in `src/schema.ts` is kept in sync with
+`src/migrations/*.sql` by hand (same discipline as any other schema change),
+and Kysely's job is purely making queries against that shape fail to compile
+if they drift from it — not generating or owning the schema itself.
+Drizzle's migration-generation and Prisma's schema-file-as-source-of-truth
+model would fight the "migrations are just SQL files" choice rather than
+complement it.
+
 ## Explicitly still open
 
 - **Backend HTTP framework** for the handful of non-gameplay REST routes (auth,
   lobby, stats). Current scaffold uses Node's raw `http` module for a single
-  `/health` route — sufficient for now. `ws` (raw WebSocket, no `socket.io`) is
-  confirmed for the gameplay channel specifically, since that's the hot path
-  where framework abstraction was judged to cost more than it buys. Fastify is
-  the leading candidate for the REST side once real endpoints are needed; Express
-  and NestJS were considered and set aside (Express: dated patterns, weaker
-  native TS ergonomics; NestJS: DI/decorator ceremony disproportionate to this
-  project's actual complexity, which lives in the state machine, not routing).
+  `/health` route — sufficient for now. Fastify is the leading candidate for
+  the REST side once real endpoints are needed; Express and NestJS were
+  considered and set aside (Express: dated patterns, weaker native TS
+  ergonomics; NestJS: DI/decorator ceremony disproportionate to this
+  project's actual complexity, which lives in the state machine, not
+  routing) — this framing is not itself in question. Fastify vs. staying on
+  raw `http` remains a genuine TBD, not decided either way.
+- **`ws` (raw WebSocket) vs. Socket.IO for the gameplay channel.** This file
+  previously stated flatly that raw `ws` was "confirmed" here. Struck as of
+  2026-08-11: the user flagged they don't recall that actually being
+  discussed with them. The original reasoning (framework abstraction costing
+  more than it buys on the hot path) isn't wrong on its face, but treat it
+  as a proposal to revisit,
+  not a settled fact, particularly once the reconnect/mid-game-join stories
+  (see "Reconnect/mid-game-join history backfill" below) are picked up —
+  Socket.IO's built-in reconnection/room primitives may be worth the
+  framework cost specifically for that problem in a way that wasn't as
+  salient when this was first written.
+- **Hand-written Lua vs. a query-builder/wrapper for `packages/redis`.** Not
+  yet discussed with the user at all — flagged 2026-08-11 as worth an actual
+  pros/cons conversation before treating "hand-written Lua" as settled
+  precedent for anything else (e.g. it was cited, questionably, as prior art
+  for the original plain-`pg`-no-ORM pick above).
 - **Turn-timer polling sweep** — see "Game rules" above.
 - **Redis HA timing** — see "Redis hosting" above.
 - **Linking games/stats to a Clerk user ID durably** — nothing writes

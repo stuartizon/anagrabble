@@ -6,6 +6,20 @@ Claude Code to read alongside implementation work.
 
 Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
+## Home & rules
+
+- [ ] As a visitor, I land on a home page introducing Anagrabble before I sign
+      in or start a game (design-system `Home.dc.html`) — distinct from `/`,
+      which today goes straight to the create-game form with no separate
+      landing/marketing surface.
+- [ ] As a visitor, I can read the full rules on a standalone page, linked
+      from the home page (design-system `Rules.dc.html`).
+- [ ] As a player, I can open the rules as an in-place modal, without
+      navigating away, while setting up or waiting on a game — New Game,
+      Join Game, and Lobby all have a "Rules" link in the design system —
+      reusing the same rules content as the standalone page rather than
+      duplicating it.
+
 ## Account & entry
 
 - [~] As a player, I can sign up / log in so my games and stats persist.

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@anagrabble/game": "workspace:*",
+    "@anagrabble/postgres": "workspace:*",
     "@anagrabble/protocol": "workspace:*",
     "@anagrabble/redis": "workspace:*",
     "@clerk/backend": "^3.16.1",

@@ -41,6 +41,9 @@ importers:
       '@anagrabble/game':
         specifier: workspace:*
         version: link:../../packages/game
+      '@anagrabble/postgres':
+        specifier: workspace:*
+        version: link:../../packages/postgres
       '@anagrabble/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol

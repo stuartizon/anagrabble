@@ -5,6 +5,7 @@ import "dotenv/config";
 import { createServer } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import { createRedisClient } from "@anagrabble/redis";
+import { createDb, createPostgresClient, runMigrations } from "@anagrabble/postgres";
 import {
   PROTOCOL_VERSION,
   type Command,
@@ -18,7 +19,17 @@ import { endGame, startGame, submitWord, turnTile } from "./game.js";
 import { resolveActingPlayerId, verifySessionToken } from "./auth.js";
 
 const PORT = Number(process.env.PORT ?? 8080);
-const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379";
+
+const REDIS_URL = process.env.REDIS_URL;
+if (!REDIS_URL) {
+  throw new Error("REDIS_URL is required — see apps/server/.env.example.");
+}
+
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+  throw new Error("DATABASE_URL is required — see apps/server/.env.example.");
+}
+
 const CLERK_SECRET_KEY = process.env.CLERK_SECRET_KEY;
 if (!CLERK_SECRET_KEY) {
   throw new Error(
@@ -33,6 +44,26 @@ const subscriber = redis.duplicate();
 redis.on("connect", () => console.log(`[redis] connected to ${REDIS_URL}`));
 redis.on("error", (err) => console.error("[redis] connection error", err));
 subscriber.on("error", (err) => console.error("[redis] subscriber error", err));
+
+// Postgres is durable history only, never on the critical path of a move
+// (CLAUDE.md "Core architecture") — so a migration failure is logged, not
+// fatal to startup, unlike CLERK_SECRET_KEY above. runMigrations uses
+// Kysely's own Migrator, which locks against concurrent callers (see
+// docs/decisions.md "packages/postgres: Kysely for queries and
+// migrations"), so multiple server nodes booting at once and racing here is
+// safe.
+const pgPool = createPostgresClient({ connectionString: DATABASE_URL });
+const db = createDb(pgPool);
+
+runMigrations(db)
+  .then((applied) => {
+    if (applied.length > 0) {
+      console.log(`[postgres] applied migrations: ${applied.join(", ")}`);
+    } else {
+      console.log("[postgres] schema already up to date");
+    }
+  })
+  .catch((err) => console.error("[postgres] failed to run migrations", err));
 
 // Fan-out: every event that should reach more than the sending socket is
 // PUBLISHed here and re-delivered to local sockets by every server process

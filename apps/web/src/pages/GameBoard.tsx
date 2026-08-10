@@ -6,6 +6,7 @@ import { Input } from "../components/Input";
 import { Button } from "../components/Button";
 import { InviteLinkRow } from "../components/InviteLinkRow";
 import { TurnTileButton } from "../components/TurnTileButton";
+import { EndGameCountdown } from "../components/EndGameCountdown";
 import { makeCommandId } from "../gameId";
 import { assignPlayerColors } from "../playerColors";
 import type { GameSocketError, WordPlayNarration } from "../useGameSocket";
@@ -124,6 +125,12 @@ function narrateOwnPlay(lobby: LobbySnapshot, play: WordPlayNarration): string {
 
 const MESSAGE_DISMISS_MS = 2500;
 
+// The post-bank-empty idle timeout (CLAUDE.md "Game-end condition") is
+// hardcoded server-side too (apply_turn_tile.lua / apply_submit_word.lua's
+// 60000ms) — kept in sync manually until GameConfig exposes it (see
+// CLAUDE.md "Still open").
+const IDLE_TIMEOUT_SEC = 60;
+
 /** Players/Invite/History — identical content for the desktop sidebar
  * (`<aside>`, always mounted, hidden below 840px by CSS) and the mobile
  * menu overlay (conditionally mounted, only above 840px unreachable).
@@ -236,13 +243,18 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
   // "Game-end condition"). Gated on status === "playing" so it stops firing
   // once the game has actually ended.
   const endGameDeadline = lobby.status === "playing" ? lobby.endGameDeadline : null;
+  const [endGameSecondsLeft, setEndGameSecondsLeft] = useState(() =>
+    remainingSeconds(endGameDeadline),
+  );
   const firedForEndDeadline = useRef<number | null>(null);
 
   useEffect(() => {
+    setEndGameSecondsLeft(remainingSeconds(endGameDeadline));
     firedForEndDeadline.current = null;
     if (endGameDeadline === null) return;
 
     const interval = setInterval(() => {
+      setEndGameSecondsLeft(remainingSeconds(endGameDeadline));
       if (Date.now() >= endGameDeadline && firedForEndDeadline.current !== endGameDeadline) {
         firedForEndDeadline.current = endGameDeadline;
         send({ type: "EndGame", commandId: makeCommandId(), gameId });
@@ -362,7 +374,14 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
                 <div className={styles.poolHeader}>
                   <div className={styles.poolLabel}>Upturned tiles</div>
                   {lobby.bankCount <= 0 ? (
-                    <span className={styles.turnHint}>No more tiles.</span>
+                    endGameDeadline !== null ? (
+                      <EndGameCountdown
+                        secondsLeft={endGameSecondsLeft}
+                        totalSeconds={IDLE_TIMEOUT_SEC}
+                      />
+                    ) : (
+                      <span className={styles.turnHint}>No more tiles.</span>
+                    )
                   ) : isCurrentPlayer ? (
                     <TurnTileButton
                       secondsLeft={secondsLeft}

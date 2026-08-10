@@ -387,6 +387,27 @@ describe("GameBoard", () => {
     expect(screen.queryByRole("button", { name: "Play word" })).not.toBeInTheDocument();
   });
 
+  it("shows the idle countdown once the bank is empty but the game is still playing", () => {
+    renderBoard({
+      lobby: lobbySnapshot({
+        status: "playing",
+        bankCount: 0,
+        endGameDeadline: Date.now() + 45_000,
+      }),
+    });
+
+    expect(screen.getByTestId("end-game-countdown")).toBeInTheDocument();
+    expect(screen.getByText("45s")).toBeInTheDocument();
+    expect(screen.queryByText("No more tiles.")).not.toBeInTheDocument();
+  });
+
+  it("falls back to plain 'No more tiles.' copy once the game has ended (no countdown left to show)", () => {
+    renderBoard({ lobby: lobbySnapshot({ status: "ended", bankCount: 0 }) });
+
+    expect(screen.queryByTestId("end-game-countdown")).not.toBeInTheDocument();
+    expect(screen.getByText("No more tiles.")).toBeInTheDocument();
+  });
+
   it("fires EndGame once the idle countdown deadline has passed", () => {
     vi.useFakeTimers();
     try {

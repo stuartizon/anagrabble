@@ -5,8 +5,7 @@
 
 import styles from "./TurnTileButton.module.css";
 import { cx } from "../cx";
-
-const URGENT_THRESHOLD_SEC = 5;
+import { countdownProgress } from "../countdownProgress";
 
 interface TurnTileButtonProps {
   secondsLeft: number;
@@ -15,8 +14,7 @@ interface TurnTileButtonProps {
 }
 
 export function TurnTileButton({ secondsLeft, totalSeconds, onClick }: TurnTileButtonProps) {
-  const urgent = secondsLeft <= URGENT_THRESHOLD_SEC;
-  const progress = totalSeconds > 0 ? Math.max(0, Math.min(1, secondsLeft / totalSeconds)) : 0;
+  const { progress, urgent } = countdownProgress(secondsLeft, totalSeconds);
 
   return (
     <button type="button" className={cx(styles.button, urgent && styles.urgent)} onClick={onClick}>

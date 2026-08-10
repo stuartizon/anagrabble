@@ -17,9 +17,11 @@ import styles from "./GameBoard.module.css";
 // it did something, and a running history panel. The settings modal (game
 // config + sound/haptics/language) is a separate, not-yet-built story —
 // design-system/In Game.dc.html's mobile menu also bundles a read-only
-// "Game settings" section and word-count-per-player column into the same
-// panel, both skipped here rather than quietly resolving those un-started
-// stories as a side effect of this one.
+// "Game settings" section into the same panel, skipped here rather than
+// quietly resolving that un-started story as a side effect of this one.
+// The mobile menu's per-player word-count column is skipped too, but for a
+// different reason: deliberately dropped, not deferred — see
+// docs/decisions.md "Word-count badge dropped, not deferred".
 
 interface GameBoardProps {
   lobby: LobbySnapshot;

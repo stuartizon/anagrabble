@@ -816,6 +816,23 @@ distinct winner line for a tie ("Sam and Jo tie at 6." vs. "Sam wins with
 had to decide this; sequential ranking would visually imply one tied player
 beat the other, which is wrong.
 
+## Word-count badge dropped, not deferred
+
+**Decision**: the "live score and word-count updates" user story ships with
+score only. The numeric word-count badge design-system/`In Game.dc.html`'s
+mobile menu shows next to each player's score (`p.wordCount`, see that
+file's mobile-menu `Players` block) is deliberately not built — not a
+"needs a design call" holdover, a settled no.
+
+**Why**: each player's claimed-words list is already visible — the desktop
+sidebar's word sections and the main board's "Everyone else's words"/"Your
+words" panels — so the word count is already readable by counting tags on
+screen. A redundant digit restating that count next to the score wasn't
+judged worth the extra UI. The one place it'd add real information (the
+mobile hamburger-menu overlay, where the word lists themselves aren't
+visible) was judged not to matter enough on its own to justify building
+just for that view.
+
 ## Explicitly still open
 
 - **Backend HTTP framework** for the handful of non-gameplay REST routes (auth,

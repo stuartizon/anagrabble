@@ -14,8 +14,8 @@ steal words, see a running play history (desktop-only), and the game
 auto-ends after a 60s idle period once the bank runs dry, landing on a
 ranked game-over summary — through real WebSocket/Redis state (no mocked
 data), verified in a real browser against the real backend. See
-`docs/user-stories.md` for exact scope and what's still missing (an
-explicit word-count badge, player stats across games). Auth is stubbed (a
+`docs/user-stories.md` for exact scope and what's still missing (player
+stats across games, account/settings persistence). Auth is stubbed (a
 local player-identity, not real accounts).
 
 ## Stack

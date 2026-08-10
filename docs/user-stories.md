@@ -46,12 +46,14 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
       copy deliberately; see docs/decisions.md). Mechanism fully tested at
       the Lua/wrapper layers; not separately re-verified as a live
       two-browser race in this pass.
-- [ ] As a player, I see live score and word-count updates for all players.
+- [x] As a player, I see live score and word-count updates for all players.
       Score is live (`GameBoard`'s sidebar Players list, matching
-      design-system/In Game.dc.html's desktop layout); an explicit
-      word-count badge per player isn't shown yet — the design's own
-      desktop sidebar row doesn't carry one either, so this needs a design
-      call before picking back up.
+      design-system/In Game.dc.html's desktop layout). A separate numeric
+      word-count badge was considered and deliberately dropped — see
+      docs/decisions.md "Word-count badge dropped, not deferred": each
+      player's claimed-words list is already visible (desktop sidebar and
+      the main board's word sections), so a redundant digit next to score
+      wasn't judged worth building.
 - [x] As a player, I see a running history of plays in the current game.
       `GameBoard`'s desktop-only History panel, driven by a `history` array
       `useGameSocket` accumulates from `WordPlayed` events — newest-first,

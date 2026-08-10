@@ -16,10 +16,15 @@ ranked game-over summary — through real WebSocket/Redis state (no mocked
 data), verified in a real browser against the real backend. See
 `docs/user-stories.md` for exact scope and what's still missing (player
 stats across games, account/settings persistence). Sign-up/log-in
-(email/password + Google, via Clerk) is built as its own screen, but not
-yet wired into gameplay — creating/joining a game still uses the local
-player-identity stub, not a Clerk session. See docs/decisions.md "Auth
-provider" for why Clerk over a hand-rolled `users` table.
+(email/password + Google, via Clerk, including password reset) gates
+gameplay — creating or joining a game requires being signed in, and
+player identity is the Clerk user id/account name, not a local stub. See
+docs/decisions.md "Auth provider" for why Clerk over a hand-rolled
+`users` table, and "Player identity: Clerk id, no anonymous play" for
+the identity/gating details. Not yet done: durable Postgres history
+linking games/stats to that Clerk id, and the server doesn't yet verify
+a command's `playerId`/`hostId` against the connection's verified
+session.
 
 ## Stack
 

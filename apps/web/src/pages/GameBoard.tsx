@@ -5,6 +5,7 @@ import { Header } from "../components/Header";
 import { Input } from "../components/Input";
 import { Button } from "../components/Button";
 import { InviteLinkRow } from "../components/InviteLinkRow";
+import { LetterTile } from "../components/LetterTile";
 import { TurnTileButton } from "../components/TurnTileButton";
 import { EndGameCountdown } from "../components/EndGameCountdown";
 import { makeCommandId } from "../gameId";
@@ -401,9 +402,7 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
                     <span className={styles.poolEmpty}>No tiles turned yet.</span>
                   )}
                   {lobby.pool.map((letter, i) => (
-                    <span key={i} className={styles.tile}>
-                      {letter}
-                    </span>
+                    <LetterTile key={i} letter={letter} />
                   ))}
                 </div>
               </div>

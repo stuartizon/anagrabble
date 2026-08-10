@@ -1,0 +1,153 @@
+/* nowrap is deliberate: with wrap, flexbox decides whether the image fits
+   next to the text using their raw flex-basis values (600px + 320px),
+   before either has a chance to shrink — so any viewport narrower than
+   that combined 920px, but still wider than the display:none cutoff
+   below, would wrap the image onto its own line under the text instead of
+   shrinking it. nowrap forces both to shrink together on one line, so the
+   image shrinks continuously right up to the cutoff instead of wrapping
+   partway there. */
+.hero {
+  position: relative;
+  display: flex;
+  flex-wrap: nowrap;
+  /* Only has any effect once .heroText and .heroImage have both stopped
+     growing (past .heroImage's max-width cap below) and free space remains
+     in the row — i.e. only on the widest screens. Below that point there's
+     no free space to distribute, so this is a no-op and layout is
+     unaffected. Once it does kick in, it centers the text+image pair as a
+     single block (keeping them adjacent to each other) rather than pinning
+     the image to the right edge, which at very wide viewports separated
+     the copy and the photo by an increasingly large empty gap. */
+  justify-content: center;
+  min-height: 460px;
+  background: var(--paper);
+}
+
+.heroText {
+  /* flex-grow: 0 — the text column holds at its basis once there's room for
+     it; any extra space on wide viewports goes to .heroImage instead, so
+     the image can grow toward its native width rather than the two
+     splitting leftover space evenly. */
+  flex: 0 1 min(600px, 100%);
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  padding: var(--space-7) var(--space-5);
+  box-sizing: border-box;
+}
+
+.heroTitle {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(32px, 6vw, var(--text-3xl));
+  line-height: var(--leading-tight);
+  color: var(--ink);
+  margin: 0 0 18px;
+}
+
+.heroSubtitle {
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  color: var(--text-secondary);
+  line-height: var(--leading-normal);
+  margin: 0 0 32px;
+}
+
+.heroHint {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin: 20px 0 0;
+}
+
+.heroImage {
+  display: none;
+  flex: 1 1 320px;
+  /* Cap growth at the source photo's native width (1800px) divided by a 2x
+     device pixel ratio: past this, .heroImage has no explicit height, so
+     the img's height:100% resolves against an indefinite parent and falls
+     back to the image's own aspect ratio — on an uncapped ultrawide panel
+     that pushes its natural height (and, via align-items:stretch, the
+     whole .hero row) far taller than intended, not just softening the
+     image. This is also what creates the free space that .hero's
+     justify-content:center (above) distributes as outer margin on the
+     widest screens. */
+  max-width: 900px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.heroImage img {
+  width: 100%;
+  height: 100%;
+  min-height: 460px;
+  object-fit: cover;
+  /* Anchor the crop to the right edge: the source photo's rightmost
+     subject (the reaching hand/third player) should stay visible as the
+     panel narrows, at the cost of cropping further into the left edge
+     first instead of trimming both sides evenly. */
+  object-position: right center;
+  display: block;
+}
+
+@media (min-width: 840px) {
+  .heroImage {
+    display: block;
+  }
+}
+
+.howItWorks {
+  flex: 1;
+  padding: 60px var(--space-5) 90px;
+  background: var(--surface-card);
+}
+
+.howItWorksTitle {
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-2xl);
+  color: var(--ink);
+  margin: 0 0 40px;
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+.tileRow {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.stepTitle {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-lg);
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+
+.stepBody {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  line-height: var(--leading-normal);
+}
+
+.footer {
+  padding: 28px var(--space-5);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--border);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  background: var(--paper);
+}

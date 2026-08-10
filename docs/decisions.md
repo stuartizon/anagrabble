@@ -1135,6 +1135,38 @@ step**: two separate deviations, for two separate reasons.
 
 ---
 
+## Home page takes over `/`; create-game form moves to `/new`
+
+**Decision**: `HomePage` (design-system `Home.dc.html`) is now the `/`
+route, public (no `RequireAuth`) since it's explicitly for visitors
+"before I sign in." `NewGamePage` — previously `/` — moved to `/new`,
+still gated by `RequireAuth`. Its "Create a game" button always
+`navigate("/new")` regardless of sign-in state; `RequireAuth` does the
+login redirect-and-return itself, so there's no need to reimplement the
+design mock's client-side `createHref` branching (login vs. new-game link
+depending on a fake `isLoggedIn` check) in real code.
+
+**Why**: the user story is explicit that the home page is "distinct from
+`/`, which today goes straight to the create-game form" — i.e. the
+existing behavior (root = create-game form, no separate landing surface)
+is the gap being fixed, not a shape to preserve. Since gameplay requires
+sign-in (see "Player identity: Clerk id, no anonymous play") but the home
+page must not, the two routes can't both be `/`; the create-game form had
+to move. `/new` was chosen over alternatives like `/new-game` for brevity,
+matching the existing single-word-ish path style (`/login`,
+`/sso-callback`).
+
+Ripple: `GameOverSummary`'s "New game" button and its test now target
+`/new` instead of `/` — it means "start another game," not "go to the
+marketing page." `LobbyPage`'s "Back home" (shown on `GameNotFound`)
+needed no change — it already meant, and still means, the marketing home
+page, matching `design-system/Join Game.dc.html`'s `Back home` → `Home.dc.html`.
+
+Design-system's "Read the full rules →" link on `Home.dc.html` is left out
+of `HomePage` for now — the standalone rules page it points to is a
+separate, not-yet-built user story (see "Home & rules" in
+`docs/user-stories.md`); add the link when that page exists.
+
 ## Explicitly still open
 
 - **Backend HTTP framework** for the handful of non-gameplay REST routes (auth,

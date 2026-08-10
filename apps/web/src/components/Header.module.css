@@ -7,10 +7,17 @@
   background: var(--surface-card);
 }
 
+/* min-height matches .avatarButton's 34px diameter so the header is the
+   same height whether it's rendering the avatar (signed in) or just the
+   shorter "Log in" text link (signed out) — without this, the row's
+   cross-axis size just follows whichever child happens to be tallest,
+   and the header visibly grows/shrinks by a few px depending on auth
+   state. */
 .actions {
   display: flex;
   align-items: center;
   gap: 18px;
+  min-height: 34px;
 }
 
 /* No color set here deliberately — global.css's `a`/`a:hover` (var(--accent)

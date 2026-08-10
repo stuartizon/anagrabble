@@ -8,10 +8,16 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Home & rules
 
-- [ ] As a visitor, I land on a home page introducing Anagrabble before I sign
+- [x] As a visitor, I land on a home page introducing Anagrabble before I sign
       in or start a game (design-system `Home.dc.html`) — distinct from `/`,
       which today goes straight to the create-game form with no separate
-      landing/marketing surface.
+      landing/marketing surface. `HomePage` now owns `/`; the create-game
+      form moved to `/new` (still `RequireAuth`-gated). Its "Create a game"
+      button always targets `/new` regardless of sign-in state — no
+      client-side login branching like the design mock's `createHref`, since
+      `RequireAuth` already redirects to `/login` and back. The design's
+      "Read the full rules →" link is left out until the standalone rules
+      page (next bullet) exists to link to.
 - [ ] As a visitor, I can read the full rules on a standalone page, linked
       from the home page (design-system `Rules.dc.html`).
 - [ ] As a player, I can open the rules as an in-place modal, without

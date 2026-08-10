@@ -100,7 +100,7 @@ export function GameOverSummary({ lobby, playerId }: GameOverSummaryProps) {
               ))}
             </div>
 
-            <Button size="lg" onClick={() => navigate("/")} fullWidth>
+            <Button size="lg" onClick={() => navigate("/new")} fullWidth>
               New game
             </Button>
           </Card>

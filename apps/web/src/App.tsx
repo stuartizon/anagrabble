@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { HomePage } from "./pages/HomePage";
 import { NewGamePage } from "./pages/NewGamePage";
 import { LobbyPage } from "./pages/LobbyPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -9,8 +10,9 @@ export function App() {
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
+        <Route path="/" element={<HomePage />} />
         <Route
-          path="/"
+          path="/new"
           element={
             <RequireAuth>
               <NewGamePage />

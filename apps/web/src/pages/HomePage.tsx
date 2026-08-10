@@ -1,0 +1,85 @@
+import { useNavigate } from "react-router-dom";
+import { Header } from "../components/Header";
+import { Card } from "../components/Card";
+import { Button } from "../components/Button";
+import { LetterTile } from "../components/LetterTile";
+import { Wordmark } from "../components/Wordmark";
+import { PageShell } from "../components/Layout";
+import heroImage from "../assets/lifestyle-playing.jpg";
+import styles from "./HomePage.module.css";
+
+// Matches design-system/Home.dc.html. The design's "Create a game" href
+// branches on login state client-side (the design mock has no real
+// router); here the button always targets /new and RequireAuth does that
+// branching for real, redirecting to /login and back afterwards.
+//
+// Design-system's "Read the full rules →" link is left out until the
+// standalone rules page (a separate, not-yet-built user story) exists to
+// link to.
+const HOW_IT_WORKS = [
+  {
+    tiles: ["C"],
+    title: "1. Turn a tile",
+    body: "On your turn, flip one letter from the bank face-up. Everyone can see it.",
+  },
+  {
+    tiles: ["C", "A", "T"],
+    title: "2. Play a word",
+    body: "Spot a word in the upturned tiles? Type it. If it's real and the letters are there, it's yours.",
+  },
+  {
+    tiles: ["C", "A", "S", "T"],
+    title: "3. Steal a word",
+    body: "Add letters to steal someone else's word. CAT + S = CAST, and it moves to your word list.",
+  },
+];
+
+export function HomePage() {
+  const navigate = useNavigate();
+
+  return (
+    <PageShell>
+      <Header />
+      <section className={styles.hero}>
+        <div className={styles.heroText}>
+          <div>
+            <h1 className={styles.heroTitle}>Turn a letter. Take a word.</h1>
+            <p className={styles.heroSubtitle}>
+              Spot a word, and it&rsquo;s yours — until someone else steals it. Add another letter,
+              and you can steal it right back.
+            </p>
+            <Button size="lg" onClick={() => navigate("/new")}>
+              Create a game
+            </Button>
+            <p className={styles.heroHint}>Got a link from a friend? Open it to join their game.</p>
+          </div>
+        </div>
+        <div className={styles.heroImage}>
+          <img src={heroImage} alt="" />
+        </div>
+      </section>
+
+      <section className={styles.howItWorks}>
+        <h2 className={styles.howItWorksTitle}>How it works</h2>
+        <div className={styles.cardGrid}>
+          {HOW_IT_WORKS.map((step) => (
+            <Card key={step.title}>
+              <div className={styles.tileRow}>
+                {step.tiles.map((letter, i) => (
+                  <LetterTile key={i} letter={letter} size="sm" />
+                ))}
+              </div>
+              <div className={styles.stepTitle}>{step.title}</div>
+              <div className={styles.stepBody}>{step.body}</div>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      <footer className={styles.footer}>
+        <Wordmark size="sm" />
+        <span>&copy; 2026 Anagrabble</span>
+      </footer>
+    </PageShell>
+  );
+}

@@ -68,7 +68,7 @@ describe("GameOverSummary", () => {
     expect(ranks).toEqual(["1", "1", "3"]);
   });
 
-  it("navigates home when New game is clicked", async () => {
+  it("navigates to the new-game form when New game is clicked", async () => {
     const me = player({ id: "me-1", name: "Me", score: 3 });
     render(
       <MemoryRouter>
@@ -77,6 +77,6 @@ describe("GameOverSummary", () => {
     );
 
     await userEvent.click(screen.getByRole("button", { name: "New game" }));
-    expect(navigateMock).toHaveBeenCalledWith("/");
+    expect(navigateMock).toHaveBeenCalledWith("/new");
   });
 });

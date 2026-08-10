@@ -365,12 +365,11 @@ mechanic without touching anything else.
   command payload's `playerId`/`hostId` — see docs/decisions.md "Command
   identity: derived from the Clerk session, not client-supplied".
   `CLERK_SECRET_KEY` is now required (server throws on startup without
-  it). Still open: those fields are still present on the wire (a
-  deliberate expand-phase choice, not an oversight — removing them is a
-  breaking protocol change deferred to its own contract-phase rollout).
-  Also still open: durable Postgres history isn't written at all yet, so
-  games/stats don't actually persist against that Clerk id — see the same
-  decisions.md section.
+  it). `hostId`/`playerId` have since been removed from the wire protocol
+  entirely (`PROTOCOL_VERSION` 2) — the server never reads a client-claimed
+  actor id at all now, only the verified session. Still open: durable
+  Postgres history isn't written at all yet, so games/stats don't actually
+  persist against that Clerk id — see the same decisions.md section.
 - The header avatar always shows an initial, never Clerk's `UserButton`/
   `UserAvatar` (which would give a real profile photo plus a built-in
   account-management dropdown) — a deliberate call for now, not an

@@ -22,13 +22,14 @@ import { createGame, joinGame, stateKey } from "./lobby.js";
 import { endGame, startGame, submitWord, turnTile } from "./game.js";
 
 const CONFIG = { turnTimerSec: 30, minWordLength: 3, language: "en" };
+const HOST_ID = "host-1";
+const PLAYER_ID = "player-2";
 
 function createGameCommand(overrides: Partial<CreateGameCommand> = {}): CreateGameCommand {
   return {
     type: "CreateGame",
     commandId: crypto.randomUUID(),
     gameId: "game-1",
-    hostId: "host-1",
     hostName: "Host",
     config: CONFIG,
     ...overrides,
@@ -40,7 +41,6 @@ function joinGameCommand(overrides: Partial<JoinGameCommand> = {}): JoinGameComm
     type: "JoinGame",
     commandId: crypto.randomUUID(),
     gameId: "game-1",
-    playerId: "player-2",
     playerName: "Player Two",
     ...overrides,
   };
@@ -51,7 +51,6 @@ function startGameCommand(overrides: Partial<StartGameCommand> = {}): StartGameC
     type: "StartGame",
     commandId: crypto.randomUUID(),
     gameId: "game-1",
-    hostId: "host-1",
     ...overrides,
   };
 }
@@ -61,7 +60,6 @@ function turnTileCommand(overrides: Partial<TurnTileCommand> = {}): TurnTileComm
     type: "TurnTile",
     commandId: crypto.randomUUID(),
     gameId: "game-1",
-    playerId: "host-1",
     ...overrides,
   };
 }
@@ -80,7 +78,6 @@ function submitWordCommand(overrides: Partial<SubmitWordCommand> = {}): SubmitWo
     type: "SubmitWord",
     commandId: crypto.randomUUID(),
     gameId: "game-1",
-    playerId: "host-1",
     word: "cat",
     ...overrides,
   };
@@ -105,8 +102,8 @@ describe("game", () => {
   });
 
   async function seedTwoPlayerLobby() {
-    await createGame(redis, createGameCommand());
-    await joinGame(redis, joinGameCommand());
+    await createGame(redis, createGameCommand(), HOST_ID);
+    await joinGame(redis, joinGameCommand(), PLAYER_ID);
   }
 
   /** A deterministic `playing` state (pool/claimed words as given), bypassing
@@ -133,19 +130,19 @@ describe("game", () => {
 
   describe("startGame", () => {
     it("returns GameNotFound for an unknown game", async () => {
-      const result = await startGame(redis, startGameCommand());
+      const result = await startGame(redis, startGameCommand(), HOST_ID);
       expect(result).toEqual({ error: "GameNotFound" });
     });
 
     it("rejects a non-host caller", async () => {
       await seedTwoPlayerLobby();
-      const result = await startGame(redis, startGameCommand({ hostId: "player-2" }));
+      const result = await startGame(redis, startGameCommand(), PLAYER_ID);
       expect(result).toEqual({ error: "NotHost" });
     });
 
     it("allows the host to start solo, with just one player", async () => {
-      await createGame(redis, createGameCommand());
-      const result = await startGame(redis, startGameCommand());
+      await createGame(redis, createGameCommand(), HOST_ID);
+      const result = await startGame(redis, startGameCommand(), HOST_ID);
       expect(result).not.toHaveProperty("error");
       const { snapshot } = result as { snapshot: LobbySnapshot };
       expect(snapshot.status).toBe("playing");
@@ -153,8 +150,12 @@ describe("game", () => {
 
     it("rejects starting a game that's already playing", async () => {
       await seedTwoPlayerLobby();
-      await startGame(redis, startGameCommand());
-      const result = await startGame(redis, startGameCommand({ commandId: crypto.randomUUID() }));
+      await startGame(redis, startGameCommand(), HOST_ID);
+      const result = await startGame(
+        redis,
+        startGameCommand({ commandId: crypto.randomUUID() }),
+        HOST_ID,
+      );
       expect(result).toEqual({ error: "GameAlreadyStarted" });
     });
 
@@ -162,7 +163,7 @@ describe("game", () => {
       await seedTwoPlayerLobby();
       const before = Date.now();
 
-      const result = await startGame(redis, startGameCommand());
+      const result = await startGame(redis, startGameCommand(), HOST_ID);
 
       expect(result).not.toHaveProperty("error");
       const { snapshot } = result as { snapshot: LobbySnapshot };
@@ -181,8 +182,8 @@ describe("game", () => {
       await seedTwoPlayerLobby();
       const cmd = startGameCommand();
 
-      const first = await startGame(redis, cmd);
-      const second = await startGame(redis, cmd);
+      const first = await startGame(redis, cmd, HOST_ID);
+      const second = await startGame(redis, cmd, HOST_ID);
 
       expect(second).toEqual(first);
       const bagLength = await redis.llen("game:{game-1}:bag");
@@ -193,15 +194,15 @@ describe("game", () => {
   describe("turnTile", () => {
     it("returns GameNotStarted for a game still in the lobby", async () => {
       await seedTwoPlayerLobby();
-      const result = await turnTile(redis, turnTileCommand());
+      const result = await turnTile(redis, turnTileCommand(), HOST_ID);
       expect(result).toEqual({ error: "GameNotStarted" });
     });
 
     it("lets the current player turn a tile", async () => {
       await seedTwoPlayerLobby();
-      await startGame(redis, startGameCommand());
+      await startGame(redis, startGameCommand(), HOST_ID);
 
-      const result = await turnTile(redis, turnTileCommand({ playerId: "host-1" }));
+      const result = await turnTile(redis, turnTileCommand(), HOST_ID);
 
       expect(result).not.toHaveProperty("error");
       const { snapshot } = result as { snapshot: LobbySnapshot };
@@ -212,9 +213,9 @@ describe("game", () => {
 
     it("rejects a player who isn't up before the deadline", async () => {
       await seedTwoPlayerLobby();
-      await startGame(redis, startGameCommand());
+      await startGame(redis, startGameCommand(), HOST_ID);
 
-      const result = await turnTile(redis, turnTileCommand({ playerId: "player-2" }));
+      const result = await turnTile(redis, turnTileCommand(), PLAYER_ID);
 
       expect(result).toEqual({ error: "NotYourTurn" });
     });
@@ -262,19 +263,19 @@ describe("game", () => {
     // narration fields the WordPlayed event needs.
 
     it("returns GameNotFound for an unknown game", async () => {
-      const result = await submitWord(redis, submitWordCommand());
+      const result = await submitWord(redis, submitWordCommand(), HOST_ID);
       expect(result).toEqual({ error: "GameNotFound" });
     });
 
     it("returns GameNotStarted for a game still in the lobby", async () => {
       await seedTwoPlayerLobby();
-      const result = await submitWord(redis, submitWordCommand());
+      const result = await submitWord(redis, submitWordCommand(), HOST_ID);
       expect(result).toEqual({ error: "GameNotStarted" });
     });
 
     it("returns PlayerNotFound for a player not in the game", async () => {
       await seedPlayingState();
-      const result = await submitWord(redis, submitWordCommand({ playerId: "ghost" }));
+      const result = await submitWord(redis, submitWordCommand(), "ghost");
       expect(result).toEqual({ error: "PlayerNotFound" });
     });
 
@@ -284,23 +285,20 @@ describe("game", () => {
       // pool has to actually spell "zzzzx" for this to exercise NotAWord
       // rather than NoDecomposition.
       await seedPlayingState({ pool: ["Z", "Z", "Z", "Z", "X"] });
-      const result = await submitWord(redis, submitWordCommand({ word: "zzzzx" }));
+      const result = await submitWord(redis, submitWordCommand({ word: "zzzzx" }), HOST_ID);
       expect(result).toEqual({ error: "NotAWord" });
     });
 
     it("returns NoDecomposition when the letters aren't available", async () => {
       await seedPlayingState({ pool: ["C", "A"] }); // no "T"
-      const result = await submitWord(redis, submitWordCommand({ word: "cat" }));
+      const result = await submitWord(redis, submitWordCommand({ word: "cat" }), HOST_ID);
       expect(result).toEqual({ error: "NoDecomposition" });
     });
 
     it("applies a pool-only play, stores it uppercase, and transfers the turn", async () => {
       await seedPlayingState({ pool: ["C", "A", "T"], turnPlayerIndex: 0 });
 
-      const result = await submitWord(
-        redis,
-        submitWordCommand({ playerId: "host-1", word: "cat" }),
-      );
+      const result = await submitWord(redis, submitWordCommand({ word: "cat" }), HOST_ID);
 
       expect(result).not.toHaveProperty("error");
       const success = result as Exclude<typeof result, { error: unknown }>;
@@ -321,10 +319,7 @@ describe("game", () => {
         ],
       });
 
-      const result = await submitWord(
-        redis,
-        submitWordCommand({ playerId: "host-1", word: "cast" }),
-      );
+      const result = await submitWord(redis, submitWordCommand({ word: "cast" }), HOST_ID);
 
       expect(result).not.toHaveProperty("error");
       const success = result as Exclude<typeof result, { error: unknown }>;
@@ -348,10 +343,7 @@ describe("game", () => {
           { id: "player-2", name: "Player Two", words: [], score: 0 },
         ],
       });
-      const result = await submitWord(
-        redis,
-        submitWordCommand({ playerId: "player-2", word: "cat" }),
-      );
+      const result = await submitWord(redis, submitWordCommand({ word: "cat" }), PLAYER_ID);
 
       expect(result).not.toHaveProperty("error");
       const success = result as Exclude<typeof result, { error: unknown }>;

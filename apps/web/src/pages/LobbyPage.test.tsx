@@ -144,7 +144,6 @@ describe("LobbyPage", () => {
         type: "StartGame",
         commandId: "cmd-1",
         gameId: "ABCDE",
-        hostId: "host-1",
       });
     });
   });
@@ -203,7 +202,6 @@ describe("LobbyPage", () => {
         type: "JoinGame",
         commandId: "cmd-1",
         gameId: "ABCDE",
-        playerId: "guest-1",
         playerName: "Guest",
       });
     });

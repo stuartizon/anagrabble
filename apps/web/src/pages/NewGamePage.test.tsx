@@ -78,7 +78,6 @@ describe("NewGamePage", () => {
       type: "CreateGame",
       commandId: "cmd-1",
       gameId: "FIXED1",
-      hostId: "host-1",
       hostName: "Alex",
       config: { turnTimerSec: 30, minWordLength: 3, language: "English" },
     });

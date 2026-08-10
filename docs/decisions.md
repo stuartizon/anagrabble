@@ -930,10 +930,9 @@ site. Since `apps/web` already only ever sends the signed-in user's own
 Clerk id (`useAuth().userId`) in these fields, there was never a legitimate
 case where the payload id should differ from the verified session id.
 Deriving instead of comparing collapses that to "there's nothing left to
-verify" — the field is still present on the wire (removing it is a breaking
-protocol change, see "Protocol conventions" expand/contract), but it's
-vestigial for any client that was already behaving honestly, and spoofing it
-is no longer possible.
+verify." This landed in two rollouts (see "Deferred, now landed" below):
+first the field went vestigial (server ignores it but the wire shape didn't
+change), then a follow-up removed it from the wire entirely.
 
 **A connection race had to be fixed first**: token verification
 (`verifySessionToken`) is async, but the WS `message` listener used to be
@@ -958,10 +957,24 @@ verified identity mock `@clerk/backend`'s `verifyToken` directly (same
 pattern `auth.test.ts` already used before this change), rather than relying
 on a server-side no-auth mode.
 
-**Deferred**: removing `hostId`/`playerId` from the `packages/protocol`
-command types entirely, and having `apps/web` stop sending them. That's a
-genuine breaking wire-shape change requiring its own expand/contract
-rollout, not bundled into this change.
+**Deferred, now landed**: removing `hostId`/`playerId` from the
+`packages/protocol` command types entirely, and having `apps/web` stop
+sending them, was originally deferred as its own expand/contract rollout —
+now done, as a follow-up to this decision. `PROTOCOL_VERSION` bumped 1 → 2
+to mark the wire shape change. Safe to ship immediately (not held for a
+separate deploy window) because the expand-phase server described above was
+already live on dev and already ignores these fields unconditionally, so it
+tolerates old clients (extra fields, harmless) and new clients (fields
+absent) identically — the only unsafe direction, a field-omitting client
+talking to a pre-expand server, can't happen since that server no longer
+exists anywhere. `apps/server/src/lobby.ts`'s `createGame`/`joinGame` and
+`game.ts`'s `startGame`/`turnTile`/`submitWord` take the resolved actor id
+as an explicit parameter now, rather than a command field — same pattern
+`packages/redis`'s `applyTurnTile`/`applySubmitWord` already used (a bespoke
+options object, not the raw `Command` type). The `?player=` query param
+(`useGameSocket`'s former `knownPlayerId`) was removed alongside it, having
+already gone dead server-side in the expand phase (the reconnect check
+resolves off `meta.clerkUserId` alone).
 
 ---
 
@@ -1135,14 +1148,6 @@ step**: two separate deviations, for two separate reasons.
   project's actual complexity, which lives in the state machine, not routing).
 - **Turn-timer polling sweep** — see "Game rules" above.
 - **Redis HA timing** — see "Redis hosting" above.
-- **Removing `playerId`/`hostId` from the wire protocol.** The server now
-  derives every identity-bearing command's actor from the verified Clerk
-  session rather than trusting the payload (see "Command identity: derived
-  from the Clerk session, not client-supplied" above) — but the fields
-  themselves are still present on the wire and still sent by `apps/web`,
-  just ignored server-side. Actually removing them from
-  `packages/protocol`'s command types is deferred to its own expand/contract
-  rollout.
 - **Linking games/stats to a Clerk user ID durably** — nothing writes
   history to Postgres yet at all (gameplay is Redis-only, per "Backend
   state architecture" above), so this is blocked on that landing first,

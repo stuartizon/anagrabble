@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth, useUser } from "@clerk/react";
+import { useUser } from "@clerk/react";
 import type { GameConfig } from "@anagrabble/protocol";
 import { Header } from "../components/Header";
 import { Card } from "../components/Card";
@@ -32,7 +32,6 @@ const LANGUAGE = "English";
 
 export function NewGamePage() {
   const navigate = useNavigate();
-  const { userId } = useAuth();
   const { user } = useUser();
   const hostName = getDisplayName(user);
   const [turnTimer, setTurnTimer] = useState("30");
@@ -63,7 +62,6 @@ export function NewGamePage() {
       type: "CreateGame",
       commandId: makeCommandId(),
       gameId,
-      hostId: userId!,
       hostName,
       config,
     });

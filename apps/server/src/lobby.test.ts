@@ -16,13 +16,14 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createGame, joinGame, leaveGame } from "./lobby.js";
 
 const CONFIG = { turnTimerSec: 30, minWordLength: 3, language: "en" };
+const HOST_ID = "host-1";
+const PLAYER_ID = "player-2";
 
 function createGameCommand(overrides: Partial<CreateGameCommand> = {}): CreateGameCommand {
   return {
     type: "CreateGame",
     commandId: crypto.randomUUID(),
     gameId: "game-1",
-    hostId: "host-1",
     hostName: "Host",
     config: CONFIG,
     ...overrides,
@@ -34,7 +35,6 @@ function joinGameCommand(overrides: Partial<JoinGameCommand> = {}): JoinGameComm
     type: "JoinGame",
     commandId: crypto.randomUUID(),
     gameId: "game-1",
-    playerId: "player-2",
     playerName: "Player Two",
     ...overrides,
   };
@@ -60,7 +60,7 @@ describe("lobby", () => {
 
   describe("createGame", () => {
     it("creates a lobby with the host as the sole player", async () => {
-      const result = await createGame(redis, createGameCommand());
+      const result = await createGame(redis, createGameCommand(), HOST_ID);
 
       expect(result).not.toHaveProperty("error");
       const { snapshot } = result as { snapshot: LobbySnapshot };
@@ -71,15 +71,19 @@ describe("lobby", () => {
 
     it("is idempotent when retried with the same commandId", async () => {
       const cmd = createGameCommand();
-      const first = await createGame(redis, cmd);
-      const second = await createGame(redis, cmd);
+      const first = await createGame(redis, cmd, HOST_ID);
+      const second = await createGame(redis, cmd, HOST_ID);
 
       expect(second).toEqual(first);
     });
 
     it("rejects a different commandId reusing an existing gameId", async () => {
-      await createGame(redis, createGameCommand());
-      const result = await createGame(redis, createGameCommand({ commandId: crypto.randomUUID() }));
+      await createGame(redis, createGameCommand(), HOST_ID);
+      const result = await createGame(
+        redis,
+        createGameCommand({ commandId: crypto.randomUUID() }),
+        HOST_ID,
+      );
 
       expect(result).toEqual({ error: "GameIdTaken" });
     });
@@ -87,14 +91,14 @@ describe("lobby", () => {
 
   describe("joinGame", () => {
     it("returns GameNotFound for an unknown game", async () => {
-      const result = await joinGame(redis, joinGameCommand());
+      const result = await joinGame(redis, joinGameCommand(), PLAYER_ID);
 
       expect(result).toEqual({ error: "GameNotFound" });
     });
 
     it("adds the player and bumps seq", async () => {
-      await createGame(redis, createGameCommand());
-      const result = await joinGame(redis, joinGameCommand());
+      await createGame(redis, createGameCommand(), HOST_ID);
+      const result = await joinGame(redis, joinGameCommand(), PLAYER_ID);
 
       expect(result).toMatchObject({
         isNew: true,
@@ -106,10 +110,10 @@ describe("lobby", () => {
     });
 
     it("is idempotent when retried with the same commandId, without duplicating the player", async () => {
-      await createGame(redis, createGameCommand());
+      await createGame(redis, createGameCommand(), HOST_ID);
       const cmd = joinGameCommand();
-      await joinGame(redis, cmd);
-      const result = await joinGame(redis, cmd);
+      await joinGame(redis, cmd, PLAYER_ID);
+      const result = await joinGame(redis, cmd, PLAYER_ID);
 
       expect(result).toMatchObject({ isNew: false });
       const { snapshot } = result as { snapshot: LobbySnapshot };
@@ -117,10 +121,10 @@ describe("lobby", () => {
     });
 
     it("rejects joining a game that has already started", async () => {
-      await createGame(redis, createGameCommand());
+      await createGame(redis, createGameCommand(), HOST_ID);
       await seedGameState(redis, "game-1", (state) => ({ ...state, status: "playing" }));
 
-      const result = await joinGame(redis, joinGameCommand());
+      const result = await joinGame(redis, joinGameCommand(), PLAYER_ID);
 
       expect(result).toEqual({ error: "GameAlreadyStarted" });
     });
@@ -128,8 +132,8 @@ describe("lobby", () => {
 
   describe("leaveGame", () => {
     it("removes the player and bumps seq", async () => {
-      await createGame(redis, createGameCommand());
-      await joinGame(redis, joinGameCommand());
+      await createGame(redis, createGameCommand(), HOST_ID);
+      await joinGame(redis, joinGameCommand(), PLAYER_ID);
 
       const snapshot = await leaveGame(redis, "game-1", "player-2");
 
@@ -138,7 +142,7 @@ describe("lobby", () => {
     });
 
     it("is a no-op for a player who isn't in the lobby", async () => {
-      await createGame(redis, createGameCommand());
+      await createGame(redis, createGameCommand(), HOST_ID);
 
       const snapshot = await leaveGame(redis, "game-1", "nobody");
 
@@ -146,8 +150,8 @@ describe("lobby", () => {
     });
 
     it("is a no-op once the game has started", async () => {
-      await createGame(redis, createGameCommand());
-      await joinGame(redis, joinGameCommand());
+      await createGame(redis, createGameCommand(), HOST_ID);
+      await joinGame(redis, joinGameCommand(), PLAYER_ID);
       await seedGameState(redis, "game-1", (state) => ({ ...state, status: "playing" }));
 
       const snapshot = await leaveGame(redis, "game-1", "player-2");

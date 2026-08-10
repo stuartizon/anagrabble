@@ -33,10 +33,7 @@ export function LobbyPage() {
   const [starting, setStarting] = useState(false);
   const [joining, setJoining] = useState(false);
 
-  const { status, lobby, error, wordPlay, history, send } = useGameSocket(
-    gameId,
-    userId ?? undefined,
-  );
+  const { status, lobby, error, wordPlay, history, send } = useGameSocket(gameId);
 
   const shareLink = `${window.location.origin}/${gameId}`;
   const { copied, copyLink } = useCopyLink(shareLink);
@@ -47,7 +44,6 @@ export function LobbyPage() {
       type: "JoinGame",
       commandId: makeCommandId(),
       gameId,
-      playerId: userId!,
       playerName,
     });
   };
@@ -58,7 +54,6 @@ export function LobbyPage() {
       type: "StartGame",
       commandId: makeCommandId(),
       gameId,
-      hostId: userId!,
     });
   };
 

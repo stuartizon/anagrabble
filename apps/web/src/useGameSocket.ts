@@ -56,12 +56,11 @@ interface GameSocketState {
  * page. See CLAUDE.md "Sequencing" — LobbyState/PlayerJoined/PlayerLeft all
  * carry a full snapshot, so the component never has to hand-merge deltas.
  *
- * Pass `knownPlayerId` whenever the caller already knows who it is (Lobby
- * page, Join Game preview) — it's sent as `?player=` so a page-to-page
- * reconnect gets recognized as the same player immediately, rather than
- * the server treating the old socket's close as that player leaving (see
- * apps/server's pendingLeaves debounce). */
-export function useGameSocket(gameId?: string, knownPlayerId?: string) {
+ * A page-to-page reconnect (Lobby page reload, New Game -> Lobby) is
+ * recognized as the same player via the verified Clerk session token alone
+ * — see apps/server's `resolveActingPlayerId` and `pendingLeaves` debounce —
+ * so the caller doesn't need to tell this hook who it is. */
+export function useGameSocket(gameId?: string) {
   const [state, setState] = useState<GameSocketState>({
     status: "connecting",
     lobby: null,
@@ -92,7 +91,6 @@ export function useGameSocket(gameId?: string, knownPlayerId?: string) {
 
       const params = new URLSearchParams();
       if (gameId) params.set("game", gameId);
-      if (gameId && knownPlayerId) params.set("player", knownPlayerId);
       if (token) params.set("token", token);
       const query = params.toString();
       const url = query ? `${WS_URL}/?${query}` : WS_URL;
@@ -158,7 +156,7 @@ export function useGameSocket(gameId?: string, knownPlayerId?: string) {
       cancelled = true;
       socketRef.current?.close();
     };
-  }, [gameId, knownPlayerId]);
+  }, [gameId]);
 
   const send = useCallback((command: Command) => {
     socketRef.current?.send(JSON.stringify(command));

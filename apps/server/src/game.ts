@@ -46,6 +46,7 @@ export type TurnTileError = "GameNotFound" | "GameNotStarted" | "NotYourTurn";
 export async function startGame(
   redis: Redis,
   cmd: StartGameCommand,
+  hostId: string,
 ): Promise<{ snapshot: LobbySnapshot } | { error: StartGameError }> {
   const state = await loadGameState(redis, cmd.gameId);
   if (!state) return { error: "GameNotFound" };
@@ -57,7 +58,7 @@ export async function startGame(
   }
 
   if (state.status !== "lobby") return { error: "GameAlreadyStarted" };
-  if (state.players[0]?.id !== cmd.hostId) return { error: "NotHost" };
+  if (state.players[0]?.id !== hostId) return { error: "NotHost" };
 
   const bag = createShuffledBag();
   const now = Date.now();
@@ -86,6 +87,7 @@ export async function startGame(
 export async function turnTile(
   redis: Redis,
   cmd: TurnTileCommand,
+  playerId: string,
 ): Promise<{ snapshot: LobbySnapshot } | { error: TurnTileError }> {
   const result = await applyTurnTile(redis, {
     stateKey: stateKey(cmd.gameId),
@@ -93,7 +95,7 @@ export async function turnTile(
     cmdsKey: cmdsKey(cmd.gameId),
     bagKey: bagKey(cmd.gameId),
     commandId: cmd.commandId,
-    playerId: cmd.playerId,
+    playerId,
     now: Date.now(),
     cmdsTtlSec: CMDS_TTL_SEC,
   });
@@ -143,12 +145,13 @@ export interface SubmitWordSuccess {
 export async function submitWord(
   redis: Redis,
   cmd: SubmitWordCommand,
+  playerId: string,
 ): Promise<SubmitWordSuccess | { error: SubmitWordError }> {
   const state = await loadGameState(redis, cmd.gameId);
   if (!state) return { error: "GameNotFound" };
   if (state.status !== "playing") return { error: "GameNotStarted" };
 
-  const submitter = state.players.find((p) => p.id === cmd.playerId);
+  const submitter = state.players.find((p) => p.id === playerId);
   if (!submitter) return { error: "PlayerNotFound" };
 
   const claimedWords: ClaimedWord[] = state.players.flatMap((p) =>
@@ -158,7 +161,7 @@ export async function submitWord(
 
   const resolved = resolveWordPlay({
     submittedWord: cmd.word,
-    submitterId: cmd.playerId,
+    submitterId: playerId,
     pool: state.pool,
     claimedWords,
     scores,
@@ -176,7 +179,7 @@ export async function submitWord(
     seqKey: seqKey(cmd.gameId),
     cmdsKey: cmdsKey(cmd.gameId),
     commandId: cmd.commandId,
-    submitterId: cmd.playerId,
+    submitterId: playerId,
     now: Date.now(),
     cmdsTtlSec: CMDS_TTL_SEC,
     word,

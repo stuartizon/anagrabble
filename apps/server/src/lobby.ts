@@ -82,6 +82,7 @@ export async function nextSeq(redis: Redis, gameId: string): Promise<number> {
 export async function createGame(
   redis: Redis,
   cmd: CreateGameCommand,
+  hostId: string,
 ): Promise<{ snapshot: LobbySnapshot } | { error: LobbyError }> {
   const exists = await redis.exists(stateKey(cmd.gameId));
   if (exists) {
@@ -94,7 +95,7 @@ export async function createGame(
   }
 
   const host: PlayerState = {
-    id: cmd.hostId,
+    id: hostId,
     name: cmd.hostName,
     words: [],
     score: 0,
@@ -124,6 +125,7 @@ export async function createGame(
 export async function joinGame(
   redis: Redis,
   cmd: JoinGameCommand,
+  playerId: string,
 ): Promise<
   { snapshot: LobbySnapshot; player: PlayerState; isNew: boolean } | { error: LobbyError }
 > {
@@ -131,7 +133,7 @@ export async function joinGame(
   if (!state) return { error: "GameNotFound" };
 
   const alreadySeen = await markCommandSeen(redis, cmd.gameId, cmd.commandId);
-  const existingPlayer = state.players.find((p) => p.id === cmd.playerId);
+  const existingPlayer = state.players.find((p) => p.id === playerId);
 
   if (alreadySeen || existingPlayer) {
     return {
@@ -144,7 +146,7 @@ export async function joinGame(
   if (state.status !== "lobby") return { error: "GameAlreadyStarted" };
 
   const player: PlayerState = {
-    id: cmd.playerId,
+    id: playerId,
     name: cmd.playerName,
     words: [],
     score: 0,

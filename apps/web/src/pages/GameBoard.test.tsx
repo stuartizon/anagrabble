@@ -151,7 +151,6 @@ describe("GameBoard", () => {
       type: "SubmitWord",
       commandId: "cmd-1",
       gameId: "ABCDE",
-      playerId: "me-1",
       word: "CAT",
     });
     expect(input).toHaveValue("");

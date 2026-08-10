@@ -4,7 +4,7 @@
 
 /** Bumped whenever the wire shape changes; sent in the WS handshake so the
  * server can detect a stale client instead of silently misbehaving. */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 export interface BaseCommand {
   commandId: string;
@@ -75,41 +75,41 @@ export interface LobbySnapshot extends GameState {
 
 export interface CreateGameCommand extends BaseCommand {
   type: "CreateGame";
-  hostId: string;
   hostName: string;
   config: GameConfig;
 }
 
 export interface JoinGameCommand extends BaseCommand {
   type: "JoinGame";
-  playerId: string;
   playerName: string;
 }
 
 /** Host-only, lobby -> playing. See CLAUDE.md "Tile turning is turn-based" —
- * this is what seeds the shuffled bag and opens the first turn. */
+ * this is what seeds the shuffled bag and opens the first turn. No
+ * client-supplied actor id: the server derives it from the verified Clerk
+ * session (see docs/decisions.md "Command identity: derived from the Clerk
+ * session, not client-supplied"). */
 export interface StartGameCommand extends BaseCommand {
   type: "StartGame";
-  hostId: string;
 }
 
 /** Sent by whichever client's local turn-timer state warrants it: the
  * current player turning a tile early, or (per CLAUDE.md "Turn timer
  * enforcement") any connected client once its local countdown says the
  * deadline has passed. The server is the source of truth either way — see
- * packages/redis apply_turn_tile.lua. */
+ * packages/redis apply_turn_tile.lua. No client-supplied actor id — same
+ * reasoning as StartGameCommand above. */
 export interface TurnTileCommand extends BaseCommand {
   type: "TurnTile";
-  playerId: string;
 }
 
 /** Any player, any time — see CLAUDE.md "Word submission/stealing is
  * free-for-all". The server infers *how* `word` forms (pool letters,
  * steal, combine) — the client never specifies a decomposition. See
- * packages/game resolveWordPlay and packages/redis apply_submit_word.lua. */
+ * packages/game resolveWordPlay and packages/redis apply_submit_word.lua.
+ * No client-supplied actor id — same reasoning as StartGameCommand above. */
 export interface SubmitWordCommand extends BaseCommand {
   type: "SubmitWord";
-  playerId: string;
   word: string;
 }
 

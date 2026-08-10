@@ -244,7 +244,7 @@ wss.on("connection", (socket, req) => {
             rejectUnauthorized(socket, command);
             return;
           }
-          const result = await createGame(redis, { ...command, hostId });
+          const result = await createGame(redis, command, hostId);
           if ("error" in result) {
             sendError(
               socket,
@@ -268,7 +268,7 @@ wss.on("connection", (socket, req) => {
             rejectUnauthorized(socket, command);
             return;
           }
-          const result = await joinGame(redis, { ...command, playerId });
+          const result = await joinGame(redis, command, playerId);
           if ("error" in result) {
             sendError(
               socket,
@@ -302,7 +302,7 @@ wss.on("connection", (socket, req) => {
             rejectUnauthorized(socket, command);
             return;
           }
-          const result = await startGame(redis, { ...command, hostId });
+          const result = await startGame(redis, command, hostId);
           if ("error" in result) {
             sendError(
               socket,
@@ -327,7 +327,7 @@ wss.on("connection", (socket, req) => {
             rejectUnauthorized(socket, command);
             return;
           }
-          const result = await turnTile(redis, { ...command, playerId });
+          const result = await turnTile(redis, command, playerId);
           if ("error" in result) {
             sendError(
               socket,
@@ -372,7 +372,7 @@ wss.on("connection", (socket, req) => {
             rejectUnauthorized(socket, command);
             return;
           }
-          const result = await submitWord(redis, { ...command, playerId });
+          const result = await submitWord(redis, command, playerId);
           if ("error" in result) {
             sendError(
               socket,

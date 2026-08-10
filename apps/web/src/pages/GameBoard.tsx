@@ -233,12 +233,12 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
       setSecondsLeft(remainingSeconds(turnDeadline));
       if (Date.now() >= turnDeadline && firedForDeadline.current !== turnDeadline) {
         firedForDeadline.current = turnDeadline;
-        send({ type: "TurnTile", commandId: makeCommandId(), gameId, playerId });
+        send({ type: "TurnTile", commandId: makeCommandId(), gameId });
       }
     }, 250);
 
     return () => clearInterval(interval);
-  }, [turnDeadline, gameId, playerId, send, lobby.bankCount]);
+  }, [turnDeadline, gameId, send, lobby.bankCount]);
 
   // Same client-triggered, server-verified pattern as the turnDeadline
   // effect above, but for the post-bank-empty idle countdown (CLAUDE.md
@@ -273,7 +273,7 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
   const wordInputRef = useRef<HTMLInputElement>(null);
 
   const turnTile = () => {
-    send({ type: "TurnTile", commandId: makeCommandId(), gameId, playerId });
+    send({ type: "TurnTile", commandId: makeCommandId(), gameId });
     wordInputRef.current?.focus();
   };
 
@@ -328,7 +328,7 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
     if (!word) return;
     const commandId = makeCommandId();
     pendingWordsRef.current.set(commandId, word);
-    send({ type: "SubmitWord", commandId, gameId, playerId, word });
+    send({ type: "SubmitWord", commandId, gameId, word });
     setWordValue("");
     wordInputRef.current?.focus();
   };

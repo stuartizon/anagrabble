@@ -89,14 +89,14 @@ anything will run is Clerk:
 - Dashboard → API Keys → copy the **Publishable key** into `apps/web/.env`'s
   `VITE_CLERK_PUBLISHABLE_KEY`. Not optional — the frontend throws on
   startup without it.
-- Copy the **Secret key** into `apps/server/.env`'s `CLERK_SECRET_KEY`. This
-  one _is_ optional for local dev — the backend runs fine without it, it
-  just can't verify a signed-in session (see `docs/decisions.md` "Backend
-  Clerk session verification") — but you'll want it set if you're touching
-  anything auth-related.
+- Copy the **Secret key** into `apps/server/.env`'s `CLERK_SECRET_KEY`. Also
+  not optional — the backend throws on startup without it, since every
+  identity-bearing command is authorized against a verified Clerk session
+  (see `docs/decisions.md` "Backend Clerk session verification").
 - Both keys must come from the **same** Clerk application. A mismatch fails
-  silently — the socket just never verifies — rather than erroring loudly,
-  so it's easy to mistake for a bug.
+  silently at connect time — the socket just never verifies — though it
+  surfaces immediately after: every command comes back `Unauthorized` since
+  the connection never got a verified identity.
 
 Backend listens on `:8080`, frontend on `:5173`. The frontend expects
 `VITE_WS_URL` (defaults to `ws://localhost:8080`) to reach the backend.

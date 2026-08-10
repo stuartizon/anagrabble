@@ -21,3 +21,14 @@ export async function verifySessionToken(
     return null;
   }
 }
+
+/**
+ * The id a command's actor is trusted to be — always the verified Clerk
+ * session id, never a client-claimed one. Returns null when this connection
+ * has no verified identity (missing/invalid/expired token), meaning the
+ * caller must reject the command rather than fall back to trusting the
+ * client's own claim.
+ */
+export function resolveActingPlayerId(meta: { clerkUserId?: string }): string | null {
+  return meta.clerkUserId ?? null;
+}

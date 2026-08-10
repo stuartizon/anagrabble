@@ -879,11 +879,11 @@ token (`useAuth().getToken()`) before opening its WebSocket and attaches it
 as `?token=`, alongside the existing `?game=`/`?player=` params. `apps/server`
 verifies it (`src/auth.ts`'s `verifySessionToken`, using `@clerk/backend`'s
 `verifyToken` against `CLERK_SECRET_KEY`) and stashes the result as
-`meta.clerkUserId` on the socket — see `src/index.ts`. This is deliberately
-just plumbing: no command is gated on it, and nothing links a game/player to
-`clerkUserId` yet. An unset `CLERK_SECRET_KEY`, a missing token, or a failed
-verification all fall back to the same "not signed in" state a socket has
-today — anonymous play via `playerIdentity.ts` is untouched.
+`meta.clerkUserId` on the socket — see `src/index.ts`. This was originally
+landed as pure plumbing: no command was gated on it, and nothing linked a
+game/player to `clerkUserId`. **Superseded by "Command identity: derived
+from the Clerk session, not client-supplied" below** — every
+identity-bearing command is now gated on it.
 
 **Why split it this way**: the natural next step after "the login screen
 exists" is "the backend can tell who's signed in," but gating gameplay on it
@@ -906,6 +906,62 @@ type-checks to `unknown` (its `CustomJwtSessionClaims` index signature masks
 the mismatch) rather than erroring, so it doesn't get caught by TypeScript
 either. `verifySessionToken` just wraps the whole call in try/catch and
 returns `null` on any throw, sidestepping which shape is real.
+
+---
+
+## Command identity: derived from the Clerk session, not client-supplied
+
+**Decision**: every identity-bearing command (`CreateGame`'s `hostId`,
+`JoinGame`'s `playerId`, `StartGame`'s `hostId`, `TurnTile`'s `playerId`,
+`SubmitWord`'s `playerId`) no longer trusts the id in the command payload.
+`apps/server/src/index.ts` resolves the actual actor via
+`resolveActingPlayerId` (`src/auth.ts`) — the verified `meta.clerkUserId` on
+the connection, or `null` if this connection never verified a session — and
+substitutes it before calling into `lobby.ts`/`game.ts`, ignoring whatever
+the client claimed. A `null` result rejects the command with a new
+`Unauthorized` error code rather than falling through to any trust-the-client
+path. The same substitution applies to the `?player=` reconnect check on WS
+connect.
+
+**Why derive instead of verify-and-compare**: the alternative — keep trusting
+the payload id but reject if it doesn't match `meta.clerkUserId` — still
+leaves the payload field meaningful and requires a comparison at every call
+site. Since `apps/web` already only ever sends the signed-in user's own
+Clerk id (`useAuth().userId`) in these fields, there was never a legitimate
+case where the payload id should differ from the verified session id.
+Deriving instead of comparing collapses that to "there's nothing left to
+verify" — the field is still present on the wire (removing it is a breaking
+protocol change, see "Protocol conventions" expand/contract), but it's
+vestigial for any client that was already behaving honestly, and spoofing it
+is no longer possible.
+
+**A connection race had to be fixed first**: token verification
+(`verifySessionToken`) is async, but the WS `message` listener used to be
+registered without waiting for it — a command could arrive and be processed
+before `meta.clerkUserId` was set, making even a verify-and-compare check
+racy. Every command handler now `await`s a shared `identityReady` promise
+before resolving identity, without needing to delay registering the
+`message` listener itself (which would risk dropping messages sent
+immediately after connect).
+
+**`CLERK_SECRET_KEY` is now required, not optional**: previously documented
+(here and in `apps/server/.env.example`/`README.md`) as fine to leave unset
+for local dev — "the backend runs fine without it, it just can't verify a
+signed-in session." That fallback is removed, not just unused: an unset key
+now means `resolveActingPlayerId` always returns `null`, so no
+identity-bearing command can succeed. This is a deliberate policy change
+(not merely following from the code above) — the frontend has required real
+Clerk sign-in for all gameplay since "Player identity: Clerk id, no
+anonymous play" landed, so a server that tolerates no-Clerk was already out
+of step with a client that can't reach it without one. Tests that need a
+verified identity mock `@clerk/backend`'s `verifyToken` directly (same
+pattern `auth.test.ts` already used before this change), rather than relying
+on a server-side no-auth mode.
+
+**Deferred**: removing `hostId`/`playerId` from the `packages/protocol`
+command types entirely, and having `apps/web` stop sending them. That's a
+genuine breaking wire-shape change requiring its own expand/contract
+rollout, not bundled into this change.
 
 ---
 
@@ -1079,12 +1135,14 @@ step**: two separate deviations, for two separate reasons.
   project's actual complexity, which lives in the state machine, not routing).
 - **Turn-timer polling sweep** — see "Game rules" above.
 - **Redis HA timing** — see "Redis hosting" above.
-- **Server-side identity enforcement.** Gameplay is now gated on sign-in
-  and player identity is the Clerk user id (see "Player identity: Clerk
-  id, no anonymous play" above), but the server still trusts whatever
-  `playerId`/`hostId` a command payload asserts rather than checking it
-  against the connection's verified `meta.clerkUserId`. See that section's
-  "Deferred, not forgotten" note.
+- **Removing `playerId`/`hostId` from the wire protocol.** The server now
+  derives every identity-bearing command's actor from the verified Clerk
+  session rather than trusting the payload (see "Command identity: derived
+  from the Clerk session, not client-supplied" above) — but the fields
+  themselves are still present on the wire and still sent by `apps/web`,
+  just ignored server-side. Actually removing them from
+  `packages/protocol`'s command types is deferred to its own expand/contract
+  rollout.
 - **Linking games/stats to a Clerk user ID durably** — nothing writes
   history to Postgres yet at all (gameplay is Redis-only, per "Backend
   state architecture" above), so this is blocked on that landing first,

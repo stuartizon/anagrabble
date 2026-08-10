@@ -200,7 +200,8 @@ export interface ErrorEvent {
     | "DerivationBlocked"
     | "StaleState"
     | "GameNotIdle"
-    | "InvalidCommand";
+    | "InvalidCommand"
+    | "Unauthorized";
   message: string;
   commandId?: string;
   gameId?: string;

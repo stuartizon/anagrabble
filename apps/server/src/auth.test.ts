@@ -17,7 +17,7 @@ import { describe, expect, it, vi } from "vitest";
 const verifyToken = vi.fn();
 vi.mock("@clerk/backend", () => ({ verifyToken: (...args: unknown[]) => verifyToken(...args) }));
 
-const { verifySessionToken } = await import("./auth.js");
+const { resolveActingPlayerId, verifySessionToken } = await import("./auth.js");
 
 describe("verifySessionToken", () => {
   it("returns the Clerk user id for a valid token", async () => {
@@ -43,5 +43,15 @@ describe("verifySessionToken", () => {
     const result = await verifySessionToken("some-token", "sk_test_secret");
 
     expect(result).toBeNull();
+  });
+});
+
+describe("resolveActingPlayerId", () => {
+  it("returns the verified Clerk id when one is present", () => {
+    expect(resolveActingPlayerId({ clerkUserId: "user_123" })).toBe("user_123");
+  });
+
+  it("returns null when the connection has no verified identity", () => {
+    expect(resolveActingPlayerId({})).toBeNull();
   });
 });

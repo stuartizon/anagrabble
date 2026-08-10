@@ -358,13 +358,19 @@ mechanic without touching anything else.
   table"). Gameplay now requires being signed in — no anonymous play —
   and player identity is the Clerk user id/account name, not a local
   stub (`playerIdentity.ts` is gone). See docs/decisions.md "Player
-  identity: Clerk id, no anonymous play". Still open: the server
-  verifies a Clerk session token on WS connect (`?token=`, `src/auth.ts`,
-  `meta.clerkUserId`) but never checks a command's `playerId`/`hostId`
-  against it — every handler in `game.ts`/`lobby.ts` still trusts the
-  client-supplied id verbatim. Also still open: durable Postgres
-  history isn't written at all yet, so games/stats don't actually
-  persist against that Clerk id — see the same decisions.md section.
+  identity: Clerk id, no anonymous play". Every identity-bearing command
+  (`CreateGame`/`JoinGame`/`StartGame`/`TurnTile`/`SubmitWord`) now derives
+  its actor from the connection's verified `meta.clerkUserId`
+  (`src/auth.ts`'s `resolveActingPlayerId`) rather than trusting the
+  command payload's `playerId`/`hostId` — see docs/decisions.md "Command
+  identity: derived from the Clerk session, not client-supplied".
+  `CLERK_SECRET_KEY` is now required (server throws on startup without
+  it). Still open: those fields are still present on the wire (a
+  deliberate expand-phase choice, not an oversight — removing them is a
+  breaking protocol change deferred to its own contract-phase rollout).
+  Also still open: durable Postgres history isn't written at all yet, so
+  games/stats don't actually persist against that Clerk id — see the same
+  decisions.md section.
 - The header avatar always shows an initial, never Clerk's `UserButton`/
   `UserAvatar` (which would give a real profile photo plus a built-in
   account-management dropdown) — a deliberate call for now, not an

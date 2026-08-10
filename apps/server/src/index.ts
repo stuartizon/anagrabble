@@ -15,11 +15,16 @@ import {
 } from "@anagrabble/protocol";
 import { createGame, joinGame, leaveGame, loadLobbySnapshot } from "./lobby.js";
 import { endGame, startGame, submitWord, turnTile } from "./game.js";
-import { verifySessionToken } from "./auth.js";
+import { resolveActingPlayerId, verifySessionToken } from "./auth.js";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379";
 const CLERK_SECRET_KEY = process.env.CLERK_SECRET_KEY;
+if (!CLERK_SECRET_KEY) {
+  throw new Error(
+    "CLERK_SECRET_KEY is required — every command now needs a verified Clerk session (see docs/decisions.md 'Backend Clerk session verification').",
+  );
+}
 const GAME_CHANNEL = "game:events";
 
 const redis = createRedisClient({ url: REDIS_URL });
@@ -153,10 +158,21 @@ const wss = new WebSocketServer({ server: httpServer });
 interface SocketMeta {
   gameId?: string;
   playerId?: string;
-  /** Set once the `token` query param (if any) verifies against Clerk.
-   * Plumbing only for now — nothing reads this yet, no command is gated on
-   * it (see CLAUDE.md "Still open": auth). */
+  /** Set once the `token` query param verifies against Clerk. The
+   * authoritative actor identity for every command on this connection —
+   * see `resolveActingPlayerId` (auth.ts). A client-claimed id in a command
+   * payload is never trusted, not even compared against this. */
   clerkUserId?: string;
+}
+
+function rejectUnauthorized(socket: WebSocket, command: Command) {
+  sendError(
+    socket,
+    "Unauthorized",
+    "Sign in required to do that",
+    command.gameId,
+    command.commandId,
+  );
 }
 
 wss.on("connection", (socket, req) => {
@@ -168,26 +184,28 @@ wss.on("connection", (socket, req) => {
 
   const url = new URL(req.url ?? "/", "http://internal");
   const gameId = url.searchParams.get("game");
-  const knownPlayerId = url.searchParams.get("player");
   const token = url.searchParams.get("token");
-  if (token && CLERK_SECRET_KEY) {
-    verifySessionToken(token, CLERK_SECRET_KEY)
-      .then((result) => {
-        if (result) {
-          meta.clerkUserId = result.userId;
-          console.log(`[ws] verified Clerk session for user ${result.userId}`);
-        } else {
-          console.warn("[ws] Clerk session token present but failed to verify");
-        }
-      })
-      .catch((err) => console.error("[ws] error verifying session token", err));
-  } else if (token && !CLERK_SECRET_KEY) {
-    console.warn(
-      "[ws] received a Clerk token but CLERK_SECRET_KEY is not set — skipping verification",
-    );
-  }
+
+  // Every command handler awaits this before touching `meta.clerkUserId`,
+  // so a message that arrives before verification finishes can't slip
+  // through with an unresolved identity — see docs/decisions.md "Backend
+  // Clerk session verification".
+  const identityReady: Promise<void> = token
+    ? verifySessionToken(token, CLERK_SECRET_KEY)
+        .then((result) => {
+          if (result) {
+            meta.clerkUserId = result.userId;
+            console.log(`[ws] verified Clerk session for user ${result.userId}`);
+          } else {
+            console.warn("[ws] Clerk session token present but failed to verify");
+          }
+        })
+        .catch((err) => console.error("[ws] error verifying session token", err))
+    : Promise.resolve();
+
   if (gameId) {
-    loadLobbySnapshot(redis, gameId)
+    identityReady
+      .then(() => loadLobbySnapshot(redis, gameId))
       .then((snapshot) => {
         if (!snapshot) {
           sendError(socket, "GameNotFound", `No game with id ${gameId}`, gameId);
@@ -196,11 +214,12 @@ wss.on("connection", (socket, req) => {
         meta.gameId = gameId;
         joinRoom(socket, gameId);
         // Reconnect (page navigation / reload), not a fresh viewer: only
-        // trust `player` if they're actually already seated, so a stranger
-        // can't spoof presence via a guessed id.
-        if (knownPlayerId && snapshot.players.some((p) => p.id === knownPlayerId)) {
-          meta.playerId = knownPlayerId;
-          cancelPendingLeave(gameId, knownPlayerId);
+        // seat them back if their verified identity is actually already a
+        // player in this game.
+        const reconnectingPlayerId = resolveActingPlayerId(meta);
+        if (reconnectingPlayerId && snapshot.players.some((p) => p.id === reconnectingPlayerId)) {
+          meta.playerId = reconnectingPlayerId;
+          cancelPendingLeave(gameId, reconnectingPlayerId);
         }
         send(socket, lobbyStateEvent(snapshot));
       })
@@ -215,10 +234,17 @@ wss.on("connection", (socket, req) => {
       return;
     }
 
+    await identityReady;
+
     try {
       switch (command.type) {
         case "CreateGame": {
-          const result = await createGame(redis, command);
+          const hostId = resolveActingPlayerId(meta);
+          if (!hostId) {
+            rejectUnauthorized(socket, command);
+            return;
+          }
+          const result = await createGame(redis, { ...command, hostId });
           if ("error" in result) {
             sendError(
               socket,
@@ -230,14 +256,19 @@ wss.on("connection", (socket, req) => {
             return;
           }
           meta.gameId = command.gameId;
-          meta.playerId = command.hostId;
+          meta.playerId = hostId;
           joinRoom(socket, command.gameId);
-          cancelPendingLeave(command.gameId, command.hostId);
+          cancelPendingLeave(command.gameId, hostId);
           send(socket, lobbyStateEvent(result.snapshot));
           break;
         }
         case "JoinGame": {
-          const result = await joinGame(redis, command);
+          const playerId = resolveActingPlayerId(meta);
+          if (!playerId) {
+            rejectUnauthorized(socket, command);
+            return;
+          }
+          const result = await joinGame(redis, { ...command, playerId });
           if ("error" in result) {
             sendError(
               socket,
@@ -249,9 +280,9 @@ wss.on("connection", (socket, req) => {
             return;
           }
           meta.gameId = command.gameId;
-          meta.playerId = command.playerId;
+          meta.playerId = playerId;
           joinRoom(socket, command.gameId);
-          cancelPendingLeave(command.gameId, command.playerId);
+          cancelPendingLeave(command.gameId, playerId);
           if (result.isNew) {
             await publish({
               type: "PlayerJoined",
@@ -266,7 +297,12 @@ wss.on("connection", (socket, req) => {
           break;
         }
         case "StartGame": {
-          const result = await startGame(redis, command);
+          const hostId = resolveActingPlayerId(meta);
+          if (!hostId) {
+            rejectUnauthorized(socket, command);
+            return;
+          }
+          const result = await startGame(redis, { ...command, hostId });
           if ("error" in result) {
             sendError(
               socket,
@@ -286,7 +322,12 @@ wss.on("connection", (socket, req) => {
           break;
         }
         case "TurnTile": {
-          const result = await turnTile(redis, command);
+          const playerId = resolveActingPlayerId(meta);
+          if (!playerId) {
+            rejectUnauthorized(socket, command);
+            return;
+          }
+          const result = await turnTile(redis, { ...command, playerId });
           if ("error" in result) {
             sendError(
               socket,
@@ -326,7 +367,12 @@ wss.on("connection", (socket, req) => {
           break;
         }
         case "SubmitWord": {
-          const result = await submitWord(redis, command);
+          const playerId = resolveActingPlayerId(meta);
+          if (!playerId) {
+            rejectUnauthorized(socket, command);
+            return;
+          }
+          const result = await submitWord(redis, { ...command, playerId });
           if ("error" in result) {
             sendError(
               socket,
@@ -341,7 +387,7 @@ wss.on("connection", (socket, req) => {
             type: "WordPlayed",
             seq: result.snapshot.seq,
             gameId: command.gameId,
-            playerId: command.playerId,
+            playerId,
             word: result.word,
             usedWords: result.usedWords,
             usedPoolLetters: result.usedPoolLetters,

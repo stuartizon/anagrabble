@@ -10,9 +10,8 @@ export interface CreatePostgresClientOptions {
 /** Single shared pool factory, same rationale as packages/redis's
  * createRedisClient — every caller agrees on connection settings. Postgres
  * here is durable history only, never on the critical path of a move (see
- * CLAUDE.md "Core architecture"). Migrations (src/migrate.ts) run raw SQL
- * against this pool directly; createDb below wraps the same pool for typed
- * queries. */
+ * CLAUDE.md "Core architecture"). createDb below wraps this same pool for
+ * both migrations (src/migrate.ts) and typed queries. */
 export function createPostgresClient({
   connectionString,
   poolConfig,

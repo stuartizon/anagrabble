@@ -1260,15 +1260,18 @@ discriminate between. Revisit (re-adding `type`, or a specific new table) only
 if a concrete future stat idea actually needs one of the excluded event
 kinds — not defaulted back in speculatively.
 
-## `packages/postgres`: Kysely for queries, hand-rolled SQL for migrations
+## `packages/postgres`: Kysely for queries and migrations
 
 **Decision**: `packages/postgres` (the typed client for the durable-history
 writes in `docs/postgres-schema.md`) uses **Kysely** to build/run its
 queries (`insertGame`, `endGame`, `insertWordPlay`), against the documented
-schema types in `src/schema.ts`. Migrations stay a small hand-rolled runner
-(`src/migrate.ts`, applying numbered `.sql` files from `src/migrations/` and
-tracking them in a `schema_migrations` table) — not Kysely's own migrator,
-not Drizzle/Prisma.
+schema types in `src/schema.ts`, and (as of 2026-08-11, superseding the
+original pick below) Kysely's own `Migrator` to run migrations — not
+Drizzle/Prisma. Migrations are still plain numbered `.sql` files in
+`src/migrations/` (a custom `SqlFileMigrationProvider` in `src/migrate.ts`
+reads each file and hands it to the `Migrator` as a `Migration` whose `up`
+runs the raw SQL via `sql.raw(...)`) — only the runner changed, not the "a
+migration is just a SQL file" property.
 
 **History**: the first pass at this package (2026-08-11) picked plain `pg`
 with no query-builder at all, reasoning by analogy from this repo's existing
@@ -1282,23 +1285,44 @@ question, not settled precedent this decision gets to assume — the lesson
 generalizes beyond this one package: a default flagged once isn't the same
 as a default confirmed.
 
-**Alternatives considered**: plain `pg` with hand-written SQL strings (the
-original pick — no compile-time check that a query's columns match the
-table schema, verified only by tests); Drizzle/Prisma (heavier — schema-file
-codegen and/or a full migration DSL, more than this package's 4-table
-surface needs).
+Migrations themselves started as a hand-rolled runner (`pool.query` per
+file, tracked in a `schema_migrations` table) on the same minimal-tooling
+reasoning, deliberately choosing not Kysely's own migrator either at that
+point. That reasoning didn't survive contact with a concrete design
+question later the same day: `apps/server` needs to call `runMigrations` on
+every node's startup (see "Explicitly still open" below on server-side
+Postgres wiring), and with more than one node able to boot at once, two
+nodes can race to apply the same not-yet-applied migration — the hand-rolled
+runner had no lock, so the loser's `CREATE TABLE` would fail and crash that
+node's startup. Re-examining, the original argument for avoiding Kysely's
+migrator (staying consistent with the "migrations are hand-rolled SQL"
+framing used to justify Kysely-the-query-builder over Drizzle/Prisma, see
+below) turned out to be about schema _ownership_ — Drizzle/Prisma generate
+or own the schema, which really would fight "just SQL files." Kysely's own
+`Migrator` does neither: it's a runner, not a schema-ownership layer, so
+using it doesn't reintroduce the thing that was actually being avoided, and
+it comes with exactly the concurrency-safe locking (a `kysely_migration_lock`
+table, serializing concurrent `migrateToLatest()` callers) the hand-rolled
+version lacked — for free, with a dependency already in the package.
+
+**Alternatives considered**: plain `pg` with hand-written SQL strings and a
+hand-rolled migration runner (the original pick — no compile-time query
+check, and no locking against concurrent migration runs, verified only by
+tests); Drizzle/Prisma (heavier — schema-file codegen and/or a full
+migration DSL, more than this package's 4-table surface needs, and the
+schema-ownership model the "just SQL files" choice was specifically avoiding).
 
 **Why Kysely specifically over Drizzle/Prisma**: Kysely wraps `pg` rather
 than replacing it — it's a query _builder_ with full TypeScript inference
 from a hand-written `Database` interface, not a schema-ownership framework.
-That fits a package whose migrations are deliberately staying hand-rolled
-SQL: the `Database` type in `src/schema.ts` is kept in sync with
-`src/migrations/*.sql` by hand (same discipline as any other schema change),
-and Kysely's job is purely making queries against that shape fail to compile
-if they drift from it — not generating or owning the schema itself.
-Drizzle's migration-generation and Prisma's schema-file-as-source-of-truth
-model would fight the "migrations are just SQL files" choice rather than
-complement it.
+The `Database` type in `src/schema.ts` is kept in sync with
+`src/migrations/*.sql` by hand (same discipline as any other schema change);
+Kysely's job (for both queries and, now, migrations) is purely making
+queries against that shape fail to compile if they drift from it, and
+running the SQL files that define it — not generating or owning the schema
+itself. Drizzle's migration-generation and Prisma's schema-file-as-source-
+of-truth model would fight that division of responsibility; Kysely's own
+migrator doesn't.
 
 ## Explicitly still open
 

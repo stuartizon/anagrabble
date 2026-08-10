@@ -5,17 +5,21 @@
 
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { Kysely } from "kysely";
 import type { Pool } from "pg";
-import { createPostgresClient } from "./client.js";
+import { createDb, createPostgresClient } from "./client.js";
 import { runMigrations } from "./migrate.js";
+import type { Database } from "./schema.js";
 
 describe("runMigrations", () => {
   let container: StartedPostgreSqlContainer;
   let pool: Pool;
+  let db: Kysely<Database>;
 
   beforeAll(async () => {
     container = await new PostgreSqlContainer("postgres:16-alpine").start();
     pool = createPostgresClient({ connectionString: container.getConnectionUri() });
+    db = createDb(pool);
   }, 60_000);
 
   afterAll(async () => {
@@ -24,7 +28,7 @@ describe("runMigrations", () => {
   });
 
   it("applies every migration and creates the documented tables", async () => {
-    const applied = await runMigrations(pool);
+    const applied = await runMigrations(db);
 
     expect(applied).toEqual(["0001_init.sql"]);
 
@@ -34,14 +38,15 @@ describe("runMigrations", () => {
     expect(rows.map((r) => r.table_name)).toEqual([
       "game_players",
       "games",
+      "kysely_migration",
+      "kysely_migration_lock",
       "player_settings",
-      "schema_migrations",
       "word_plays",
     ]);
   });
 
   it("is idempotent — a second run applies nothing new", async () => {
-    const applied = await runMigrations(pool);
+    const applied = await runMigrations(db);
 
     expect(applied).toEqual([]);
   });

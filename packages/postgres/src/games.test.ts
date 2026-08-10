@@ -19,7 +19,7 @@ describe("games", () => {
     container = await new PostgreSqlContainer("postgres:16-alpine").start();
     pool = createPostgresClient({ connectionString: container.getConnectionUri() });
     db = createDb(pool);
-    await runMigrations(pool);
+    await runMigrations(db);
   }, 60_000);
 
   afterAll(async () => {

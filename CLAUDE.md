@@ -343,3 +343,8 @@ mechanic without touching anything else.
   Creating/joining a game still runs on the local player-identity stub
   (`playerIdentity.ts`), not a signed-in account — gating gameplay on login
   and linking games/stats to a Clerk user id are both still open.
+- The header avatar always shows an initial, never Clerk's `UserButton`/
+  `UserAvatar` (which would give a real profile photo plus a built-in
+  account-management dropdown) — a deliberate call for now, not an
+  oversight. See docs/decisions.md "Account avatar" for why, and when it'd
+  be worth revisiting.

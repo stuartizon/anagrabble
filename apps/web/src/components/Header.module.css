@@ -13,12 +13,12 @@
   gap: 18px;
 }
 
-.accountName {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-}
-
+/* No color set here deliberately — global.css's `a`/`a:hover` (var(--accent)
+   / var(--accent-dark), copied from the design system's own link
+   convention) supplies it. A component-level color here would either
+   duplicate that or, worse, get inconsistently overridden by it: `a:hover`
+   outranks a plain class selector on specificity (an extra element-level
+   match), so a color set here would apply at rest but not on hover. */
 .accountLink {
   border: none;
   background: none;
@@ -26,6 +26,58 @@
   cursor: pointer;
   font-family: var(--font-body);
   font-weight: 600;
+  font-size: var(--text-sm);
+}
+
+.avatarWrapper {
+  position: relative;
+}
+
+.avatarButton {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatarMenu {
+  position: absolute;
+  right: 0;
+  top: 42px;
+  background: var(--surface-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  min-width: 160px;
+  z-index: 10;
+  overflow: hidden;
+}
+
+.avatarMenuName {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.avatarMenuLogout {
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-body);
   font-size: var(--text-sm);
   color: var(--ink);
 }

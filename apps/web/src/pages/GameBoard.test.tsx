@@ -367,7 +367,7 @@ describe("GameBoard", () => {
     expect(screen.queryByTestId("mobile-menu")).not.toBeInTheDocument();
   });
 
-  it("hides account status from the header while playing, showing it inside the mobile menu instead", async () => {
+  it("shows no account status anywhere while playing — not in the design's header or mobile menu", async () => {
     renderBoard({});
 
     expect(screen.queryByText("Log in")).not.toBeInTheDocument();
@@ -375,8 +375,8 @@ describe("GameBoard", () => {
     await userEvent.click(screen.getByRole("button", { name: "Menu" }));
 
     const menu = within(screen.getByTestId("mobile-menu"));
-    expect(menu.getByText("Account")).toBeInTheDocument();
-    expect(menu.getByText("Log in")).toBeInTheDocument();
+    expect(menu.queryByText("Account")).not.toBeInTheDocument();
+    expect(menu.queryByText("Log in")).not.toBeInTheDocument();
   });
 
   it("lists history entries newest-first, narrated in the third person for every player", () => {

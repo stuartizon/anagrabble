@@ -872,6 +872,42 @@ the classic `{ isLoaded, signIn/signUp, setActive }` shape (used by
 
 ---
 
+## Account avatar: hand-rolled circle, not Clerk's `UserButton`/`UserAvatar`
+
+**Decision**: `Header`'s signed-in avatar (round accent-green circle,
+initial letter, dropdown with name/email + Log out) is our own component
+(`AccountStatus` in `Header.tsx`), not Clerk's prebuilt `UserButton` (avatar
+
+- full account-management dropdown) or `UserAvatar` (avatar image only).
+  Always shows the initial, never the user's actual photo (Clerk's
+  `user.imageUrl`, e.g. their real Google profile picture) — considered and
+  deliberately skipped, not an oversight.
+
+**Alternatives considered**: Clerk's `UserButton` — same avatar-plus-dropdown
+shape we built by hand, but with a real profile photo when one exists, a
+"Manage account" screen (password/connected accounts/sessions, Clerk-hosted,
+works standalone), a `customMenuItems` prop (where "Stats"/"Settings" links
+could slot in once those pages exist), and none of it built or tested by us.
+
+**Why not**: this project has leaned hard on matching
+`design-system/New Game.dc.html`'s avatar exactly (34px, `var(--accent)`,
+IBM Plex) — `UserButton`'s default look is Clerk's own styling, and clawing
+it back to ours means fighting their `appearance` theming API instead of
+just writing CSS, with room to drift on SDK upgrades. It's also a sealed
+component: `Header.test.tsx`'s coverage (initial-letter fallback, menu
+open/close, outside-click, log out) tests our own logic directly by mocking
+Clerk's hooks; swapping to `UserButton` would mean testing "did Clerk's
+component render" instead of that. And it brings account-management surface
+(session switching, security settings) this story doesn't ask for yet.
+
+**Revisit if**: the account-management features `UserButton` bundles for
+free (profile editing, connected accounts, session management) become
+worth building — at that point `UserButton` most likely stops being "extra
+we don't need" and starts being a real shortcut over building the same
+screens ourselves.
+
+---
+
 ## Explicitly still open
 
 - **Backend HTTP framework** for the handful of non-gameplay REST routes (auth,

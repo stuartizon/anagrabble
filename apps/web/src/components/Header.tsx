@@ -1,43 +1,51 @@
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Show, useClerk, useUser } from "@clerk/react";
 import styles from "./Header.module.css";
 import { Wordmark } from "./Wordmark";
 
-// `children` renders on the right side, matching design-system/In
-// Game.dc.html's header layout (wordmark left, per-page content right —
-// there it's bank count + menu/settings icons). Pages that don't need
-// anything there (LobbyPage, NewGamePage) just omit children. AccountStatus
-// renders alongside it by default — this is the one place login state shows
-// up globally, rather than threading it through every page — except
-// GameBoard, which hides it here via `hideAccountStatus` and surfaces the
-// same <AccountStatus /> inside its mobile-only menu instead (an in-progress
-// game's header is already tight on space, and there's no desktop
-// equivalent yet — see docs/decisions.md "Auth provider").
-export function Header({
-  children,
-  hideAccountStatus,
-}: {
-  children?: ReactNode;
-  hideAccountStatus?: boolean;
-}) {
+// `children` renders on the right side, defaulting to AccountStatus (login
+// state) — this is the one place that shows up globally, rather than
+// threading it through every page. A caller that passes its own children
+// replaces the default entirely rather than appending to it: GameBoard is
+// the only current example, showing bank count + menu button instead —
+// design-system/In Game.dc.html has no account/login element anywhere in
+// its header or its mobile menu (Players/Invite/Game settings/Your
+// settings only), so an in-progress game shows no account status at all.
+export function Header({ children }: { children?: ReactNode }) {
   return (
     <header className={styles.header}>
       <Link to="/">
         <Wordmark size="md" />
       </Link>
-      <div className={styles.actions}>
-        {children}
-        {!hideAccountStatus && <AccountStatus />}
-      </div>
+      <div className={styles.actions}>{children ?? <AccountStatus />}</div>
     </header>
   );
 }
 
-export function AccountStatus() {
+// Matches design-system/New Game.dc.html's header avatar: a round
+// accent-green button showing the user's initial, opening a small dropdown
+// (name/email + Log out) on click. The design's dropdown also has Stats/
+// Settings links — left out here since neither page exists yet (both are
+// separate, not-yet-started user stories).
+function AccountStatus() {
   const { signOut } = useClerk();
   const { user } = useUser();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const displayName = (user?.unsafeMetadata as { displayName?: string } | undefined)?.displayName;
+  const label = displayName || user?.primaryEmailAddress?.emailAddress || "";
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const closeIfOutside = (e: MouseEvent) => {
+      if (!containerRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener("click", closeIfOutside);
+    return () => document.removeEventListener("click", closeIfOutside);
+  }, [menuOpen]);
 
   return (
     <>
@@ -47,12 +55,24 @@ export function AccountStatus() {
         </Link>
       </Show>
       <Show when="signed-in">
-        <span className={styles.accountName}>
-          {displayName || user?.primaryEmailAddress?.emailAddress}
-        </span>
-        <button type="button" className={styles.accountLink} onClick={() => signOut()}>
-          Log out
-        </button>
+        <div className={styles.avatarWrapper} ref={containerRef}>
+          <button
+            type="button"
+            className={styles.avatarButton}
+            aria-label="Account menu"
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            {label.charAt(0).toUpperCase()}
+          </button>
+          {menuOpen && (
+            <div className={styles.avatarMenu}>
+              <div className={styles.avatarMenuName}>{label}</div>
+              <button type="button" className={styles.avatarMenuLogout} onClick={() => signOut()}>
+                Log out
+              </button>
+            </div>
+          )}
+        </div>
       </Show>
     </>
   );

@@ -370,3 +370,14 @@ mechanic without touching anything else.
   account-management dropdown) — a deliberate call for now, not an
   oversight. See docs/decisions.md "Account avatar" for why, and when it'd
   be worth revisiting.
+- Clerk's transactional emails (verification code, password reset, etc.)
+  are still on Clerk's default unbranded copy/styling — deferred, not yet
+  started. When picked up: the brand mark (logo) is set once per Clerk
+  instance under Settings → Branding and every template inherits it
+  automatically, so it's not a per-template task; only per-template wording
+  needs individual edits. There's no official Clerk Terraform provider, and
+  the community ones (`buildwithdeck/clerk`, `bertie-technology/clerk`)
+  don't cover email templates — so IaC here means a small script against
+  Clerk's Backend API (`PUT /v1/templates/email/{slug}`, also reachable via
+  `npx clerk@latest api templates/email/<slug>`) run per environment/
+  account, not a Terraform resource.

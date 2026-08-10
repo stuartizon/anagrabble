@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SocketStatus } from "../useGameSocket";
 import type { LobbySnapshot } from "@anagrabble/protocol";
+import { mockSignedOutClerk } from "../testUtils/clerkTestMock";
 import { NewGamePage } from "./NewGamePage";
 
 const send = vi.fn();
@@ -12,6 +13,8 @@ const useGameSocketMock = vi.fn();
 vi.mock("../useGameSocket", () => ({
   useGameSocket: (...args: unknown[]) => useGameSocketMock(...args),
 }));
+
+vi.mock("@clerk/react", () => mockSignedOutClerk());
 
 // gameId is client-generated randomly; fix it so the "navigate once the
 // server confirms" test can match a specific lobby snapshot to it.

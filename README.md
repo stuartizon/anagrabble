@@ -15,8 +15,11 @@ auto-ends after a 60s idle period once the bank runs dry, landing on a
 ranked game-over summary — through real WebSocket/Redis state (no mocked
 data), verified in a real browser against the real backend. See
 `docs/user-stories.md` for exact scope and what's still missing (player
-stats across games, account/settings persistence). Auth is stubbed (a
-local player-identity, not real accounts).
+stats across games, account/settings persistence). Sign-up/log-in
+(email/password + Google, via Clerk) is built as its own screen, but not
+yet wired into gameplay — creating/joining a game still uses the local
+player-identity stub, not a Clerk session. See docs/decisions.md "Auth
+provider" for why Clerk over a hand-rolled `users` table.
 
 ## Stack
 
@@ -26,6 +29,7 @@ local player-identity, not real accounts).
 | Live game state | Redis — authoritative; see `docs/redis-schema.md` for the key/shape convention |
 | Durable history | Postgres, written after Redis accepts a move                                   |
 | Frontend        | Vite + React, `react-router-dom`                                               |
+| Auth            | Clerk (`@clerk/react`) — see `docs/decisions.md` "Auth provider"               |
 | Monorepo        | pnpm workspaces                                                                |
 | Testing         | Vitest (per-package; see `CLAUDE.md` "Testing strategy")                       |
 

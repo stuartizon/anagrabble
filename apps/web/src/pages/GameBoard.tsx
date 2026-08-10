@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Menu, X } from "lucide-react";
 import type { Command, LobbySnapshot, UsedWord } from "@anagrabble/protocol";
-import { Header } from "../components/Header";
+import { AccountStatus, Header } from "../components/Header";
 import { Input } from "../components/Input";
 import { Button } from "../components/Button";
 import { InviteLinkRow } from "../components/InviteLinkRow";
@@ -338,7 +338,7 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
 
   return (
     <div className={styles.page}>
-      <Header>
+      <Header hideAccountStatus>
         <span className={styles.bankCount}>{lobby.bankCount} tiles left</span>
         <button className={styles.menuButton} aria-label="Menu" onClick={() => setMenuOpen(true)}>
           <Menu size={20} color="var(--text-muted)" />
@@ -359,6 +359,12 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
           </div>
           <div className={styles.menuBody}>
             <PlayersAndInviteSections lobby={lobby} colors={colors} shareLink={shareLink} />
+            <div>
+              <div className={styles.poolLabel}>Account</div>
+              <div className={styles.accountRow}>
+                <AccountStatus />
+              </div>
+            </div>
           </div>
         </div>
       )}

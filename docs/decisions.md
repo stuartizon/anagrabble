@@ -833,6 +833,45 @@ mobile hamburger-menu overlay, where the word lists themselves aren't
 visible) was judged not to matter enough on its own to justify building
 just for that view.
 
+## Auth provider: Clerk, not a hand-rolled `users` table
+
+**Decision**: real accounts (the "sign up / log in" user story) go through
+Clerk rather than a Postgres `users` table with our own password hashing,
+session issuance, and OAuth handling. `apps/web` talks to Clerk directly for
+sign-up/login/session; the backend doesn't verify Clerk sessions yet (see
+"Explicitly still open" below) — this first slice is the login/signup screen
+itself, not gating gameplay or linking games/stats to an account.
+
+**Alternatives considered**: a Postgres `users` table with our own password
+hashing (bcrypt/argon2), session cookies, rate-limiting, and a hand-rolled
+Google OAuth redirect/token-exchange flow, plus a transactional-email
+pipeline for password reset (nothing like that exists in the stack today).
+
+**Why**: the same logic that picked Neon over self-hosted Postgres and
+Railway over raw compute — pay for managed infrastructure where the mistake
+cost is high and the product differentiation is zero. Password storage and
+OAuth are exactly that: getting them wrong is a real security incident, and
+neither is anything a word game needs to own. The design
+(`design-system/Log in, Sign up.dc.html`) already specifies both
+email/password and "Continue with Google," and Clerk gives us both plus
+password-reset email delivery without standing up a new email-sending
+dependency. Tradeoff accepted: identity is no longer canonical in our own
+Postgres — `stats`/game-ownership tables will need to foreign-key against a
+Clerk user ID rather than a locally-owned row, and the whole app now depends
+on Clerk's uptime for login. Reasonable at this project's scale (free tier
+covers it comfortably); revisit if Clerk's pricing tiers or an outage ever
+become a real problem.
+
+**Implementation note**: `@clerk/clerk-react` is deprecated — use
+`@clerk/react` (their Core 3 / v6 rewrite). Its default `useSignIn`/
+`useSignUp` hooks return a new signal-based "Future" API for custom flows;
+the classic `{ isLoaded, signIn/signUp, setActive }` shape (used by
+`LoginPage.tsx`) now lives at the `@clerk/react/legacy` subpath instead.
+`SignedIn`/`SignedOut` are also gone, replaced by a single
+`<Show when="signed-in">`/`<Show when="signed-out">` component.
+
+---
+
 ## Explicitly still open
 
 - **Backend HTTP framework** for the handful of non-gameplay REST routes (auth,
@@ -846,3 +885,8 @@ just for that view.
   project's actual complexity, which lives in the state machine, not routing).
 - **Turn-timer polling sweep** — see "Game rules" above.
 - **Redis HA timing** — see "Redis hosting" above.
+- **Backend Clerk session verification** — the login/signup screen talks to
+  Clerk entirely from `apps/web`; nothing on `apps/server` verifies a Clerk
+  session yet, so no gameplay/lobby command is actually gated on being
+  signed in, and games/stats aren't yet linked to a Clerk user ID. See "Auth
+  provider" above.

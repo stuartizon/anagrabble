@@ -295,6 +295,12 @@
   flex-shrink: 0;
 }
 
+.accountRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .playerRow {
   display: flex;
   align-items: center;

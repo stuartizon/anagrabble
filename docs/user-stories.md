@@ -8,7 +8,15 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Account & entry
 
-- [ ] As a player, I can sign up / log in so my games and stats persist.
+- [~] As a player, I can sign up / log in so my games and stats persist.
+  Login/signup screen built end to end against real Clerk (email/
+  password + "Continue with Google"), matching
+  design-system/`Log in, Sign up.dc.html` — see docs/decisions.md
+  "Auth provider: Clerk, not a hand-rolled `users` table". Not yet
+  done: the backend doesn't verify a Clerk session at all, so no
+  lobby/gameplay command is gated on being signed in, and games/stats
+  aren't linked to a Clerk user id — the "so my games and stats
+  persist" half of this story is still open.
 - [ ] As a player, I can reset my password.
 
 ## Starting a game

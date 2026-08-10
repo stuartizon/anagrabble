@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LobbySnapshot, PlayerState } from "@anagrabble/protocol";
 import type { SocketStatus } from "../useGameSocket";
+import { mockSignedOutClerk } from "../testUtils/clerkTestMock";
 import { LobbyPage } from "./LobbyPage";
 
 const send = vi.fn();
@@ -12,6 +13,8 @@ const useGameSocketMock = vi.fn();
 vi.mock("../useGameSocket", () => ({
   useGameSocket: (...args: unknown[]) => useGameSocketMock(...args),
 }));
+
+vi.mock("@clerk/react", () => mockSignedOutClerk());
 
 vi.mock("../gameId", () => ({
   makeCommandId: () => "cmd-1",

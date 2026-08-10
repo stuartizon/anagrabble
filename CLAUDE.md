@@ -337,3 +337,9 @@ mechanic without touching anything else.
   `apply_turn_tile.lua` and `apply_submit_word.lua` — this section's own
   "60–90s, configurable" isn't wired up to `GameConfig` yet. See
   docs/decisions.md "Game-end condition" implementation note.
+- Auth: sign-up/log-in is built against Clerk (`apps/web` only — see
+  docs/decisions.md "Auth provider: Clerk, not a hand-rolled `users`
+  table"), but nothing on `apps/server` verifies a Clerk session yet.
+  Creating/joining a game still runs on the local player-identity stub
+  (`playerIdentity.ts`), not a signed-in account — gating gameplay on login
+  and linking games/stats to a Clerk user id are both still open.

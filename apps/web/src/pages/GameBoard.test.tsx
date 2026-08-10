@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LobbySnapshot, PlayerState } from "@anagrabble/protocol";
 import type { GameSocketError, WordPlayNarration } from "../useGameSocket";
+import { mockSignedOutClerk } from "../testUtils/clerkTestMock";
 import { GameBoard } from "./GameBoard";
 
 const send = vi.fn();
@@ -12,6 +13,8 @@ const makeCommandIdMock = vi.fn(() => "cmd-1");
 vi.mock("../gameId", () => ({
   makeCommandId: () => makeCommandIdMock(),
 }));
+
+vi.mock("@clerk/react", () => mockSignedOutClerk());
 
 const ME: PlayerState = { id: "me-1", name: "Me", words: [], score: 0 };
 const OPPONENT: PlayerState = { id: "opp-1", name: "Sam", words: [], score: 0 };
@@ -362,6 +365,18 @@ describe("GameBoard", () => {
     await userEvent.click(menu.getByRole("button", { name: "Close" }));
 
     expect(screen.queryByTestId("mobile-menu")).not.toBeInTheDocument();
+  });
+
+  it("hides account status from the header while playing, showing it inside the mobile menu instead", async () => {
+    renderBoard({});
+
+    expect(screen.queryByText("Log in")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Menu" }));
+
+    const menu = within(screen.getByTestId("mobile-menu"));
+    expect(menu.getByText("Account")).toBeInTheDocument();
+    expect(menu.getByText("Log in")).toBeInTheDocument();
   });
 
   it("lists history entries newest-first, narrated in the third person for every player", () => {

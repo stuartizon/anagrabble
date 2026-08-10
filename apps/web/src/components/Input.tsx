@@ -16,10 +16,22 @@ interface InputProps {
   disabled?: boolean;
   mono?: boolean;
   autoFocus?: boolean;
+  type?: "text" | "email" | "password";
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-  { label, placeholder, value, onChange, error, size = "md", disabled, mono, autoFocus },
+  {
+    label,
+    placeholder,
+    value,
+    onChange,
+    error,
+    size = "md",
+    disabled,
+    mono,
+    autoFocus,
+    type = "text",
+  },
   ref,
 ) {
   return (
@@ -27,6 +39,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
       {label && <span className={styles.labelText}>{label}</span>}
       <input
         ref={ref}
+        type={type}
         className={cx(
           styles.input,
           size === "lg" && styles.lg,

@@ -318,6 +318,22 @@ mechanic without touching anything else.
   on changed files and calling it clean without ever running Prettier.
   That gap is exactly how a plain formatting drift once reached `main` and
   broke CI on an otherwise-passing commit.
+- **Assume local dev services (Node server, web dev server, Redis) are
+  already running, and check before starting any of them.** The happy path
+  is that they're up in a separate terminal with hot reload active, so an
+  edit under `apps/server`/`apps/web`/`packages/*` takes effect without a
+  restart — don't reflexively run `pnpm dev`/`docker compose up`/etc. as
+  part of making a change. Check first (e.g. `lsof -i` on the relevant
+  port, or `docker compose ps` for Redis/Postgres) and only start something
+  that's actually down. This isn't just tidiness: leftover processes from
+  Claude-started dev servers have previously accumulated as orphaned,
+  never-killed background processes. If you do start something because it
+  genuinely wasn't running, say so, and prefer a foreground/tracked run you
+  can cleanly stop over a fire-and-forget background one. If a running
+  service needs to be **stopped or restarted** (not started from cold) —
+  e.g. to pick up an env var change, a dependency install, or something hot
+  reload can't handle — don't kill/restart it yourself; prompt the user to
+  do so and wait, since it's their terminal/process to control.
 
 ## Still open / not yet decided
 

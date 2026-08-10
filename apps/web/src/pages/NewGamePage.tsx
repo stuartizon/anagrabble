@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth, useUser } from "@clerk/react";
 import type { GameConfig } from "@anagrabble/protocol";
 import { Header } from "../components/Header";
 import { Card } from "../components/Card";
@@ -8,14 +9,13 @@ import { Input } from "../components/Input";
 import { Button } from "../components/Button";
 import { PageShell, CenteredContent, NarrowColumn } from "../components/Layout";
 import { useGameSocket } from "../useGameSocket";
-import { getPlayerIdentity, setPlayerName } from "../playerIdentity";
+import { getDisplayName } from "../clerkDisplayName";
 import { makeCommandId, makeGameId } from "../gameId";
 import styles from "./NewGamePage.module.css";
 
-// Matches design-system/New Game.dc.html layout/copy. The dc.html prototype
-// gates this page behind a login redirect; auth is out of scope here, so
-// "Your name" is a plain editable field backed by the local player-identity
-// stub instead.
+// Matches design-system/New Game.dc.html layout/copy. RequireAuth gates
+// this route on being signed in, so "Your name" is the player's Clerk
+// account name rather than an editable field.
 
 const TURN_TIMER_OPTIONS = [
   { label: "15 seconds", value: "15" },
@@ -32,8 +32,9 @@ const LANGUAGE = "English";
 
 export function NewGamePage() {
   const navigate = useNavigate();
-  const identity = useMemo(() => getPlayerIdentity(), []);
-  const [playerName, setPlayerNameField] = useState(identity.name);
+  const { userId } = useAuth();
+  const { user } = useUser();
+  const hostName = getDisplayName(user);
   const [turnTimer, setTurnTimer] = useState("30");
   const [minWordLength, setMinWordLength] = useState("3");
   const [pendingGameId, setPendingGameId] = useState<string | null>(null);
@@ -51,8 +52,6 @@ export function NewGamePage() {
   }, [error]);
 
   const createGame = () => {
-    const name = playerName.trim() || identity.name;
-    setPlayerName(name);
     const gameId = makeGameId();
     const config: GameConfig = {
       turnTimerSec: Number(turnTimer),
@@ -64,8 +63,8 @@ export function NewGamePage() {
       type: "CreateGame",
       commandId: makeCommandId(),
       gameId,
-      hostId: identity.id,
-      hostName: name,
+      hostId: userId!,
+      hostName,
       config,
     });
   };
@@ -94,19 +93,13 @@ export function NewGamePage() {
                 onChange={(e) => setTurnTimer(e.target.value)}
                 options={TURN_TIMER_OPTIONS}
               />
-              <Input
-                label="Your name"
-                value={playerName}
-                onChange={(e) => setPlayerNameField(e.target.value)}
-                placeholder="Your name"
-              />
             </div>
             {error && <div className={styles.errorText}>{error.message}</div>}
             <div className={styles.buttonRow}>
               <Button
                 size="lg"
                 onClick={createGame}
-                disabled={!playerName.trim() || status !== "open" || !!pendingGameId}
+                disabled={status !== "open" || !!pendingGameId}
                 fullWidth
               >
                 {pendingGameId ? "Creating…" : "Create game"}

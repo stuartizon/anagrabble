@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { Show, useClerk, useUser } from "@clerk/react";
 import styles from "./Header.module.css";
 import { Wordmark } from "./Wordmark";
+import { getDisplayName } from "../clerkDisplayName";
 
 // `children` renders on the right side, defaulting to AccountStatus (login
 // state) — this is the one place that shows up globally, rather than
@@ -35,8 +36,7 @@ function AccountStatus() {
   const [menuOpen, setMenuOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const displayName = (user?.unsafeMetadata as { displayName?: string } | undefined)?.displayName;
-  const label = displayName || user?.primaryEmailAddress?.emailAddress || "";
+  const label = getDisplayName(user);
 
   useEffect(() => {
     if (!menuOpen) return;

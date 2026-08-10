@@ -1,13 +1,13 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useAuth, useUser } from "@clerk/react";
 import { Check, Copy } from "lucide-react";
 import { Header } from "../components/Header";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
-import { Input } from "../components/Input";
 import { PageShell, CenteredContent, NarrowColumn } from "../components/Layout";
 import { useGameSocket } from "../useGameSocket";
-import { getPlayerIdentity, setPlayerName } from "../playerIdentity";
+import { getDisplayName } from "../clerkDisplayName";
 import { makeCommandId } from "../gameId";
 import { assignPlayerColors } from "../playerColors";
 import { useCopyLink } from "../useCopyLink";
@@ -17,35 +17,38 @@ import { GameOverSummary } from "./GameOverSummary";
 import styles from "./LobbyPage.module.css";
 
 // Matches design-system/Lobby.dc.html — the live waiting room, and also the
-// invite-link destination for players who haven't joined yet. There's no
-// separate "preview then redirect" page: an unjoined guest sees the same
-// lobby everyone else does, with a name field + Join button in place of
-// "Waiting for the host…"; clicking Join updates this page in place once
-// the server confirms membership, no navigation involved.
+// invite-link destination for players who haven't joined yet (RequireAuth
+// sends a signed-out visitor through /login first). There's no separate
+// "preview then redirect" page: an unjoined guest sees the same lobby
+// everyone else does, with a Join button in place of "Waiting for the
+// host…"; clicking Join updates this page in place once the server
+// confirms membership, no navigation involved.
 
 export function LobbyPage() {
   const { gameId = "" } = useParams();
   const navigate = useNavigate();
-  const identity = useMemo(() => getPlayerIdentity(), []);
+  const { userId } = useAuth();
+  const { user } = useUser();
+  const playerName = getDisplayName(user);
   const [starting, setStarting] = useState(false);
   const [joining, setJoining] = useState(false);
-  const [playerName, setPlayerNameField] = useState(identity.name);
 
-  const { status, lobby, error, wordPlay, history, send } = useGameSocket(gameId, identity.id);
+  const { status, lobby, error, wordPlay, history, send } = useGameSocket(
+    gameId,
+    userId ?? undefined,
+  );
 
   const shareLink = `${window.location.origin}/${gameId}`;
   const { copied, copyLink } = useCopyLink(shareLink);
 
   const joinGame = () => {
-    const name = playerName.trim() || identity.name;
-    setPlayerName(name);
     setJoining(true);
     send({
       type: "JoinGame",
       commandId: makeCommandId(),
       gameId,
-      playerId: identity.id,
-      playerName: name,
+      playerId: userId!,
+      playerName,
     });
   };
 
@@ -55,7 +58,7 @@ export function LobbyPage() {
       type: "StartGame",
       commandId: makeCommandId(),
       gameId,
-      hostId: identity.id,
+      hostId: userId!,
     });
   };
 
@@ -95,14 +98,14 @@ export function LobbyPage() {
   // which makes no sense for a game that's already over — see
   // GameOverSummary, matching design-system/Game Over.dc.html.
   if (lobby.status === "ended") {
-    return <GameOverSummary lobby={lobby} playerId={identity.id} />;
+    return <GameOverSummary lobby={lobby} playerId={userId!} />;
   }
 
   if (lobby.status === "playing") {
     return (
       <GameBoard
         lobby={lobby}
-        playerId={identity.id}
+        playerId={userId!}
         send={send}
         error={error}
         wordPlay={wordPlay}
@@ -111,15 +114,15 @@ export function LobbyPage() {
     );
   }
 
-  const colors = assignPlayerColors(lobby.players, identity.id);
-  const isHost = identity.id === lobby.hostId;
-  const isJoined = lobby.players.some((p) => p.id === identity.id);
+  const colors = assignPlayerColors(lobby.players, userId!);
+  const isHost = userId === lobby.hostId;
+  const isJoined = lobby.players.some((p) => p.id === userId);
   const isUnjoinedGuest = !isHost && !isJoined;
   const host = lobby.players.find((p) => p.id === lobby.hostId);
   const subtitle = isHost
     ? "Send this link to whoever’s playing."
     : isUnjoinedGuest
-      ? "You’re invited — add your name and join in."
+      ? "You’re invited — join in."
       : "Waiting for more players to join.";
 
   return (
@@ -182,24 +185,14 @@ export function LobbyPage() {
               </>
             )}
             {isUnjoinedGuest && (
-              <>
-                <div className={styles.nameFieldWrap}>
-                  <Input
-                    label="Your name"
-                    value={playerName}
-                    onChange={(e) => setPlayerNameField(e.target.value)}
-                    placeholder="Your name"
-                  />
-                </div>
-                <Button
-                  size="lg"
-                  onClick={joinGame}
-                  disabled={!playerName.trim() || status !== "open" || joining}
-                  fullWidth
-                >
-                  {joining ? "Joining…" : "Join game"}
-                </Button>
-              </>
+              <Button
+                size="lg"
+                onClick={joinGame}
+                disabled={status !== "open" || joining}
+                fullWidth
+              >
+                {joining ? "Joining…" : "Join game"}
+              </Button>
             )}
             {!isHost && isJoined && (
               <div className={styles.waitingText}>Waiting for the host to start the game…</div>

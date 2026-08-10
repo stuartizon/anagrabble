@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SocketStatus } from "../useGameSocket";
 import type { LobbySnapshot } from "@anagrabble/protocol";
-import { mockSignedOutClerk } from "../testUtils/clerkTestMock";
+import { mockSignedInClerk, setMockClerkIdentity } from "../testUtils/clerkTestMock";
 import { NewGamePage } from "./NewGamePage";
 
 const send = vi.fn();
@@ -14,7 +14,7 @@ vi.mock("../useGameSocket", () => ({
   useGameSocket: (...args: unknown[]) => useGameSocketMock(...args),
 }));
 
-vi.mock("@clerk/react", () => mockSignedOutClerk());
+vi.mock("@clerk/react", () => mockSignedInClerk());
 
 // gameId is client-generated randomly; fix it so the "navigate once the
 // server confirms" test can match a specific lobby snapshot to it.
@@ -57,34 +57,19 @@ function renderPage() {
 beforeEach(() => {
   send.mockClear();
   useGameSocketMock.mockReset();
-  localStorage.clear();
+  setMockClerkIdentity({ id: "host-1", displayName: "Alex" });
   mockSocket({});
 });
 
 describe("NewGamePage", () => {
-  it("disables Create game once the name field is empty", async () => {
-    // getPlayerIdentity() always falls back to a random non-empty name, so
-    // blank starts from clearing the field rather than seeding storage.
-    renderPage();
-    const nameInput = screen.getByLabelText("Your name");
-
-    await userEvent.clear(nameInput);
-    expect(screen.getByRole("button", { name: "Create game" })).toBeDisabled();
-
-    await userEvent.type(nameInput, "Alex");
-    expect(screen.getByRole("button", { name: "Create game" })).toBeEnabled();
-  });
-
   it("disables Create game while the socket isn't open", () => {
-    localStorage.setItem("anagrabble_player", JSON.stringify({ id: "host-1", name: "Alex" }));
     mockSocket({ status: "connecting" });
     renderPage();
 
     expect(screen.getByRole("button", { name: "Create game" })).toBeDisabled();
   });
 
-  it("sends a CreateGame command with the configured rules", async () => {
-    localStorage.setItem("anagrabble_player", JSON.stringify({ id: "host-1", name: "Alex" }));
+  it("sends a CreateGame command with the configured rules and the signed-in player's identity", async () => {
     renderPage();
 
     await userEvent.click(screen.getByRole("button", { name: "Create game" }));
@@ -100,7 +85,6 @@ describe("NewGamePage", () => {
   });
 
   it("shows the server error and re-enables the button", () => {
-    localStorage.setItem("anagrabble_player", JSON.stringify({ id: "host-1", name: "Alex" }));
     mockSocket({ error: { code: "GameIdTaken", message: "That game ID is already in use." } });
     renderPage();
 
@@ -108,7 +92,6 @@ describe("NewGamePage", () => {
   });
 
   it("navigates to the lobby once the server confirms the game was created", async () => {
-    localStorage.setItem("anagrabble_player", JSON.stringify({ id: "host-1", name: "Alex" }));
     const { rerender } = renderPage();
 
     await userEvent.click(screen.getByRole("button", { name: /Create game|Creating/ }));

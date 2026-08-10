@@ -43,15 +43,18 @@ vi.mock("@clerk/react/legacy", () => ({
   }),
 }));
 
-function renderPage() {
+function renderPage(
+  initialEntries: Parameters<typeof MemoryRouter>[0]["initialEntries"] = ["/login"],
+) {
   return render(
     <MemoryRouter
-      initialEntries={["/login"]}
+      initialEntries={initialEntries}
       future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
     >
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/" element={<div>Home</div>} />
+        <Route path="/ABCDE" element={<div>The lobby</div>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -78,6 +81,17 @@ describe("LoginPage", () => {
     renderPage();
 
     expect(screen.getByText("Home")).toBeInTheDocument();
+  });
+
+  it("returns to the page RequireAuth redirected from, once signed in", async () => {
+    signInCreateMock.mockResolvedValue({ status: "complete", createdSessionId: "sess_1" });
+    renderPage([{ pathname: "/login", state: { from: { pathname: "/ABCDE" } } }]);
+
+    await userEvent.type(screen.getByLabelText("Email"), "alex@example.com");
+    await userEvent.type(screen.getByLabelText("Password"), "correct-password");
+    await userEvent.click(screen.getByRole("button", { name: "Log in" }));
+
+    expect(await screen.findByText("The lobby")).toBeInTheDocument();
   });
 
   it("requires email and password before submitting a login", async () => {

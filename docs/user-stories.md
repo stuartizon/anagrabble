@@ -12,11 +12,17 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
   Login/signup screen built end to end against real Clerk (email/
   password + "Continue with Google"), matching
   design-system/`Log in, Sign up.dc.html` — see docs/decisions.md
-  "Auth provider: Clerk, not a hand-rolled `users` table". Not yet
-  done: the backend doesn't verify a Clerk session at all, so no
-  lobby/gameplay command is gated on being signed in, and games/stats
-  aren't linked to a Clerk user id — the "so my games and stats
-  persist" half of this story is still open.
+  "Auth provider: Clerk, not a hand-rolled `users` table". Sign-in is now
+  required for gameplay (`RequireAuth` gates `/` and `/:gameId`, no
+  anonymous play) and player identity is the Clerk user id/account name,
+  not a local stub — see docs/decisions.md "Player identity: Clerk id, no
+  anonymous play". Not yet done: "games/stats persist" in the durable
+  sense still needs the Postgres-backed history writes (CLAUDE.md
+  "Postgres holds durable history") to actually link to a Clerk user id —
+  nothing writes durable history yet regardless of identity source. Also
+  still open: the server doesn't verify a command's `playerId`/`hostId`
+  against the connection's verified session (see the same decisions.md
+  entry).
 - [ ] As a player, I can reset my password.
 
 ## Starting a game

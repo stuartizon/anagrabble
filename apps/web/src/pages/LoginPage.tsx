@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import type { Location } from "react-router-dom";
 import { useAuth } from "@clerk/react";
 import { useSignIn, useSignUp } from "@clerk/react/legacy";
 import { Header } from "../components/Header";
@@ -24,7 +25,6 @@ import styles from "./LoginPage.module.css";
 type Mode = "login" | "signup";
 
 const OAUTH_REDIRECT_URL = "/sso-callback";
-const OAUTH_REDIRECT_URL_COMPLETE = "/";
 
 function errorMessage(err: unknown): string {
   const clerkError = err as { errors?: Array<{ longMessage?: string; message?: string }> };
@@ -37,6 +37,8 @@ function errorMessage(err: unknown): string {
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: Location } | null)?.from?.pathname ?? "/";
   const { isSignedIn } = useAuth();
   const { isLoaded: signInLoaded, signIn, setActive: setActiveSignIn } = useSignIn();
   const { isLoaded: signUpLoaded, signUp, setActive: setActiveSignUp } = useSignUp();
@@ -51,7 +53,7 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   if (isSignedIn) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={from} replace />;
   }
 
   const switchMode = (next: Mode) => {
@@ -64,7 +66,7 @@ export function LoginPage() {
     void signIn.authenticateWithRedirect({
       strategy: "oauth_google",
       redirectUrl: OAUTH_REDIRECT_URL,
-      redirectUrlComplete: OAUTH_REDIRECT_URL_COMPLETE,
+      redirectUrlComplete: from,
     });
   };
 
@@ -77,7 +79,7 @@ export function LoginPage() {
     });
     if (result.status === "complete") {
       await setActiveSignIn({ session: result.createdSessionId });
-      navigate("/");
+      navigate(from, { replace: true });
       return;
     }
     setFormError("Couldn't log you in — check your email and password.");
@@ -92,7 +94,7 @@ export function LoginPage() {
     });
     if (result.status === "complete") {
       await setActiveSignUp({ session: result.createdSessionId });
-      navigate("/");
+      navigate(from, { replace: true });
       return;
     }
     // Default Clerk instance config requires verifying the email address
@@ -131,7 +133,7 @@ export function LoginPage() {
       const result = await signUp.attemptEmailAddressVerification({ code: code.trim() });
       if (result.status === "complete") {
         await setActiveSignUp({ session: result.createdSessionId });
-        navigate("/");
+        navigate(from, { replace: true });
         return;
       }
       setFormError("That code didn't work — try again.");

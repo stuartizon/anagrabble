@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LobbySnapshot, PlayerState } from "@anagrabble/protocol";
 import type { SocketStatus } from "../useGameSocket";
-import { mockSignedOutClerk } from "../testUtils/clerkTestMock";
+import { mockSignedInClerk, setMockClerkIdentity } from "../testUtils/clerkTestMock";
 import { LobbyPage } from "./LobbyPage";
 
 const send = vi.fn();
@@ -14,7 +14,7 @@ vi.mock("../useGameSocket", () => ({
   useGameSocket: (...args: unknown[]) => useGameSocketMock(...args),
 }));
 
-vi.mock("@clerk/react", () => mockSignedOutClerk());
+vi.mock("@clerk/react", () => mockSignedInClerk());
 
 vi.mock("../gameId", () => ({
   makeCommandId: () => "cmd-1",
@@ -66,13 +66,7 @@ function mockSocket(overrides: {
 }
 
 function renderAsPlayer(playerId: string) {
-  // getPlayerIdentity() regenerates a fresh (random-id) identity whenever
-  // the stored name is falsy, so the seeded name must be non-empty for the
-  // seeded id to stick.
-  localStorage.setItem(
-    "anagrabble_player",
-    JSON.stringify({ id: playerId, name: playerId === "guest-1" ? "Guest" : "Host" }),
-  );
+  setMockClerkIdentity({ id: playerId, displayName: playerId === "guest-1" ? "Guest" : "Host" });
   return render(
     <MemoryRouter
       initialEntries={["/ABCDE"]}
@@ -89,7 +83,6 @@ function renderAsPlayer(playerId: string) {
 beforeEach(() => {
   send.mockClear();
   useGameSocketMock.mockReset();
-  localStorage.clear();
   mockSocket({});
 });
 
@@ -197,17 +190,11 @@ describe("LobbyPage", () => {
   });
 
   describe("as an unjoined guest", () => {
-    it("disables Join until a name is entered, then sends JoinGame", async () => {
+    it("sends JoinGame with the signed-in player's identity when Join is clicked", async () => {
       mockSocket({ lobby: lobbySnapshot({ players: [HOST] }) });
       renderAsPlayer("guest-1");
 
-      const nameInput = screen.getByLabelText("Your name");
       const joinButton = screen.getByRole("button", { name: "Join game" });
-
-      await userEvent.clear(nameInput);
-      expect(joinButton).toBeDisabled();
-
-      await userEvent.type(nameInput, "Guest");
       expect(joinButton).toBeEnabled();
 
       await userEvent.click(joinButton);

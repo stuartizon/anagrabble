@@ -945,6 +945,50 @@ screens ourselves.
 
 ---
 
+## Player identity: Clerk id, no anonymous play
+
+**Decision**: three related calls, made together once "Backend Clerk
+session verification" (above) landed as inert plumbing:
+
+1. **No anonymous play.** `/` and `/:gameId` are gated on being signed in
+   (`apps/web/src/components/RequireAuth.tsx`), redirecting to `/login` and
+   back via `location.state.from` once the visitor signs in. Creating or
+   joining a game is no longer possible without a Clerk session.
+2. **Player identity is the Clerk user id**, not a locally-generated one.
+   `apps/web/src/playerIdentity.ts` (a localStorage stub: random UUID +
+   editable nickname, predating auth entirely) is deleted. `hostId`/
+   `playerId` in `CreateGame`/`JoinGame`/`StartGame` commands are now
+   `useAuth().userId`. Redis stores `players[].id` as an unconstrained
+   opaque string (see docs/redis-schema.md), so this is a value-format
+   change only — no server or schema change was needed.
+3. **The editable per-game nickname is dropped.** The player's name is
+   now always their Clerk account name (`unsafeMetadata.displayName`,
+   falling back to their email — the same source `Header`'s
+   `AccountStatus` already used, now extracted into
+   `apps/web/src/clerkDisplayName.ts`'s `getDisplayName`). The "Your name"
+   input on New Game / Join Game is gone.
+
+**Why**: gating and identity-linking were the two questions "Backend Clerk
+session verification" explicitly deferred. Dropping the editable nickname
+was a judgment call made alongside them — once identity is
+account-backed, letting someone type a different display name per game
+adds a spoofing-adjacent surface (impersonating another player by name)
+for no real benefit.
+
+**Deferred, not forgotten — server-side identity enforcement.** This
+change only swaps _where the client gets its id from_. The server still
+never checks a command's `playerId`/`hostId` against the connection's
+verified identity: `apps/server/src/index.ts` sets `meta.clerkUserId` from
+the verified session but every command handler in `game.ts`/`lobby.ts`
+trusts whatever id string the payload asserts, regardless of who's
+actually connected. A client can still claim to be any player id in a
+command payload. Closing this requires synchronous verification before
+command handling (currently fire-and-forget in `index.ts`) and touches
+every handler in both files — deliberately out of scope for this change,
+tracked here so it isn't lost.
+
+---
+
 ## Explicitly still open
 
 - **Backend HTTP framework** for the handful of non-gameplay REST routes (auth,
@@ -958,9 +1002,13 @@ screens ourselves.
   project's actual complexity, which lives in the state machine, not routing).
 - **Turn-timer polling sweep** — see "Game rules" above.
 - **Redis HA timing** — see "Redis hosting" above.
-- **Gating gameplay on being signed in, and linking games/stats to a Clerk
-  user ID.** `apps/server` now verifies a Clerk session on WS connect (see
-  "Backend Clerk session verification" below), but nothing reads the
-  verified id yet — every lobby/gameplay command still runs on the
-  `playerIdentity.ts` local stub regardless of auth state. See "Auth
-  provider" above.
+- **Server-side identity enforcement.** Gameplay is now gated on sign-in
+  and player identity is the Clerk user id (see "Player identity: Clerk
+  id, no anonymous play" above), but the server still trusts whatever
+  `playerId`/`hostId` a command payload asserts rather than checking it
+  against the connection's verified `meta.clerkUserId`. See that section's
+  "Deferred, not forgotten" note.
+- **Linking games/stats to a Clerk user ID durably** — nothing writes
+  history to Postgres yet at all (gameplay is Redis-only, per "Backend
+  state architecture" above), so this is blocked on that landing first,
+  not on identity — identity is already Clerk-based.

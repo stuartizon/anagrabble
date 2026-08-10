@@ -20,3 +20,49 @@ export function mockSignedOutClerk() {
     }),
   };
 }
+
+export interface MockClerkIdentity {
+  id: string;
+  displayName?: string;
+  email?: string;
+}
+
+let signedInAs: MockClerkIdentity = {
+  id: "user_test123",
+  displayName: "Test Player",
+  email: "test@example.com",
+};
+
+// Lets a test change who's "signed in" between renders — the functions
+// below read this mutable value on every call, so calling this before
+// render() (e.g. inside a per-test renderAsPlayer helper) is enough,
+// even though the vi.mock("@clerk/react", () => mockSignedInClerk())
+// factory itself only runs once per file.
+export function setMockClerkIdentity(overrides: Partial<MockClerkIdentity>) {
+  signedInAs = { ...signedInAs, ...overrides };
+}
+
+// Shared "signed in" stand-in for @clerk/react — used by pages that are
+// gated on sign-in (RequireAuth) and derive the player id/name straight
+// from useAuth()/useUser() rather than any client-side stub.
+export function mockSignedInClerk() {
+  return {
+    Show: ({ when, children }: { when: "signed-in" | "signed-out"; children: ReactNode }) =>
+      when === "signed-in" ? <>{children}</> : null,
+    useUser: () => ({
+      isLoaded: true,
+      isSignedIn: true,
+      user: {
+        unsafeMetadata: { displayName: signedInAs.displayName },
+        primaryEmailAddress: signedInAs.email ? { emailAddress: signedInAs.email } : null,
+      },
+    }),
+    useClerk: () => ({ signOut: vi.fn() }),
+    useAuth: () => ({
+      isLoaded: true,
+      isSignedIn: true,
+      userId: signedInAs.id,
+      getToken: vi.fn().mockResolvedValue("test-token"),
+    }),
+  };
+}

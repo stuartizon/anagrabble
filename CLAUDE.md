@@ -355,13 +355,16 @@ mechanic without touching anything else.
   docs/decisions.md "Game-end condition" implementation note.
 - Auth: sign-up/log-in is built against Clerk (`apps/web` only — see
   docs/decisions.md "Auth provider: Clerk, not a hand-rolled `users`
-  table"). `apps/server` now verifies a Clerk session token on WS connect
-  (`?token=`, `src/auth.ts`) — see docs/decisions.md "Backend Clerk session
-  verification: plumbing only, not gating yet" — but nothing reads the
-  verified id yet. Creating/joining a game still runs on the local
-  player-identity stub (`playerIdentity.ts`), not a signed-in account —
-  gating gameplay on login and linking games/stats to a Clerk user id are
-  both still open.
+  table"). Gameplay now requires being signed in — no anonymous play —
+  and player identity is the Clerk user id/account name, not a local
+  stub (`playerIdentity.ts` is gone). See docs/decisions.md "Player
+  identity: Clerk id, no anonymous play". Still open: the server
+  verifies a Clerk session token on WS connect (`?token=`, `src/auth.ts`,
+  `meta.clerkUserId`) but never checks a command's `playerId`/`hostId`
+  against it — every handler in `game.ts`/`lobby.ts` still trusts the
+  client-supplied id verbatim. Also still open: durable Postgres
+  history isn't written at all yet, so games/stats don't actually
+  persist against that Clerk id — see the same decisions.md section.
 - The header avatar always shows an initial, never Clerk's `UserButton`/
   `UserAvatar` (which would give a real profile photo plus a built-in
   account-management dropdown) — a deliberate call for now, not an

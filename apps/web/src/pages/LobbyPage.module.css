@@ -132,10 +132,6 @@
   color: var(--ink);
 }
 
-.nameFieldWrap {
-  margin-bottom: 16px;
-}
-
 .waitingText {
   text-align: center;
   font-family: var(--font-body);

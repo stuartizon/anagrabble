@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { HomePage } from "./pages/HomePage";
+import { RulesPage } from "./pages/RulesPage";
 import { NewGamePage } from "./pages/NewGamePage";
 import { LobbyPage } from "./pages/LobbyPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -11,6 +12,7 @@ export function App() {
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/rules" element={<RulesPage />} />
         <Route
           path="/new"
           element={

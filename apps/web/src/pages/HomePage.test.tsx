@@ -33,6 +33,15 @@ describe("HomePage", () => {
     expect(screen.getByRole("link", { name: "Log in" })).toBeInTheDocument();
   });
 
+  it("links to the standalone rules page", () => {
+    renderPage();
+
+    expect(screen.getByRole("link", { name: /Read the full rules/ })).toHaveAttribute(
+      "href",
+      "/rules",
+    );
+  });
+
   it("sends Create a game to the new-game form, leaving the login gate to RequireAuth", async () => {
     renderPage();
 

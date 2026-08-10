@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Header } from "../components/Header";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
@@ -13,9 +13,6 @@ import styles from "./HomePage.module.css";
 // router); here the button always targets /new and RequireAuth does that
 // branching for real, redirecting to /login and back afterwards.
 //
-// Design-system's "Read the full rules →" link is left out until the
-// standalone rules page (a separate, not-yet-built user story) exists to
-// link to.
 const HOW_IT_WORKS = [
   {
     tiles: ["C"],
@@ -73,6 +70,11 @@ export function HomePage() {
               <div className={styles.stepBody}>{step.body}</div>
             </Card>
           ))}
+        </div>
+        <div className={styles.rulesLinkRow}>
+          <Link to="/rules" className={styles.rulesLink}>
+            Read the full rules &rarr;
+          </Link>
         </div>
       </section>
 

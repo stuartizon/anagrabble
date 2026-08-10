@@ -140,6 +140,17 @@
   line-height: var(--leading-normal);
 }
 
+.rulesLinkRow {
+  text-align: center;
+  margin-top: 32px;
+}
+
+.rulesLink {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
 .footer {
   padding: 28px var(--space-5);
   display: flex;

@@ -18,8 +18,14 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
       `RequireAuth` already redirects to `/login` and back. The design's
       "Read the full rules →" link is left out until the standalone rules
       page (next bullet) exists to link to.
-- [ ] As a visitor, I can read the full rules on a standalone page, linked
-      from the home page (design-system `Rules.dc.html`).
+- [x] As a visitor, I can read the full rules on a standalone page, linked
+      from the home page (design-system `Rules.dc.html`). `RulesPage` at
+      `/rules`, not `RequireAuth`-gated. Content lives in its own
+      `RulesContent` component (design-system `RulesContent.dc.html`),
+      separate from the page chrome, so the next bullet's in-place modal
+      can reuse it rather than duplicating the copy. `HomePage`'s "Read the
+      full rules →" link (previously left out, see prior bullet) now
+      points at it.
 - [ ] As a player, I can open the rules as an in-place modal, without
       navigating away, while setting up or waiting on a game — New Game,
       Join Game, and Lobby all have a "Rules" link in the design system —

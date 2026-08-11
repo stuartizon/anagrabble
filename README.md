@@ -21,10 +21,11 @@ gameplay — creating or joining a game requires being signed in, and
 player identity is the Clerk user id/account name, not a local stub. See
 docs/decisions.md "Auth provider" for why Clerk over a hand-rolled
 `users` table, and "Player identity: Clerk id, no anonymous play" for
-the identity/gating details. Not yet done: durable Postgres history
-linking games/stats to that Clerk id, and the server doesn't yet verify
-a command's `playerId`/`hostId` against the connection's verified
-session.
+the identity/gating details. Durable Postgres history (games, word
+plays, final scores) is now written after every accepted `StartGame`/
+`SubmitWord`/`EndGame`, linked to that Clerk id — see
+`docs/postgres-schema.md`. Not yet built: a UI to actually view that
+history/stats across games (`docs/user-stories.md`).
 
 ## Stack
 

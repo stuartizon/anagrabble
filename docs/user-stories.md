@@ -39,23 +39,21 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Account & entry
 
-- [~] As a player, I can sign up / log in so my games and stats persist.
-  Login/signup screen built end to end against real Clerk (email/
-  password + "Continue with Google"), matching
-  design-system/`Log in, Sign up.dc.html` — see docs/decisions.md
-  "Auth provider: Clerk, not a hand-rolled `users` table". Sign-in is now
-  required for gameplay (`RequireAuth` gates `/` and `/:gameId`, no
-  anonymous play) and player identity is the Clerk user id/account name,
-  not a local stub — see docs/decisions.md "Player identity: Clerk id, no
-  anonymous play". Not yet done: "games/stats persist" in the durable
-  sense still needs the Postgres-backed history writes (CLAUDE.md
-  "Postgres holds durable history") to actually link to a Clerk user id —
-  `StartGame` now inserts a `games` row (`apps/server/src/index.ts`, fire-
-  and-forget per docs/postgres-schema.md), but `WordPlayed`/`GameEnded`
-  still write nothing, so no game's history is actually queryable end to
-  end yet. Also still open: the server doesn't verify a command's
-  `playerId`/`hostId` against the connection's verified session (see the
-  same decisions.md entry).
+- [x] As a player, I can sign up / log in so my games and stats persist.
+      Login/signup screen built end to end against real Clerk (email/
+      password + "Continue with Google"), matching
+      design-system/`Log in, Sign up.dc.html` — see docs/decisions.md
+      "Auth provider: Clerk, not a hand-rolled `users` table". Sign-in is now
+      required for gameplay (`RequireAuth` gates `/` and `/:gameId`, no
+      anonymous play) and player identity is the Clerk user id/account name,
+      not a local stub — see docs/decisions.md "Player identity: Clerk id, no
+      anonymous play". "games/stats persist" in the durable sense is now
+      wired end to end: `apps/server/src/index.ts` inserts a `games` row on
+      `StartGame`, a `word_plays` row on `SubmitWord`, and updates
+      `games.ended_at`/inserts final `game_players` rows on `EndGame` — all
+      fire-and-forget per docs/postgres-schema.md, all linked to the Clerk
+      user id. Viewing that history is a separate, not-yet-started story
+      (below, "As a player, I can view my stats across past games").
 - [x] As a player, I can reset my password.
       `LoginPage`'s "Forgot password?" link swaps the card into a third
       mode: enter your email, enter the emailed code alongside a new

@@ -8,6 +8,7 @@ import { createRedisClient } from "@anagrabble/redis";
 import {
   createDb,
   createPostgresClient,
+  endGame as recordGameEnded,
   insertGame,
   insertWordPlay,
   runMigrations,
@@ -404,6 +405,21 @@ wss.on("connection", (socket, req) => {
             );
             return;
           }
+          // Durable history, async/off-critical-path per docs/postgres-schema.md
+          // "Writes are async, after Redis" — never awaited/gated on, a failed
+          // write is logged and otherwise accepted-lost (MVP scope, same doc's
+          // "Known limitations").
+          recordGameEnded(db, {
+            gameId: command.gameId,
+            endedAt: new Date(),
+            players: result.snapshot.players.map((player, playerIndex) => ({
+              clerkUserId: player.id,
+              name: player.name,
+              playerIndex,
+              finalScore: player.score,
+              finalWords: player.words,
+            })),
+          }).catch((err) => console.error("[postgres] failed to record game end", err));
           await publish({
             type: "GameEnded",
             seq: result.snapshot.seq,

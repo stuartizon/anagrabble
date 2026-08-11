@@ -11,3 +11,12 @@ export {
   type EndGamePlayer,
 } from "./games.js";
 export { insertWordPlay, type InsertWordPlayArgs } from "./wordPlays.js";
+export {
+  getCompletedGamesForPlayer,
+  getLongestWordPlayed,
+  getLifetimeWordsPlayed,
+  getPlayerStats,
+  type CompletedGameForPlayer,
+  type PlayerStats,
+  type GetPlayerStatsOptions,
+} from "./stats.js";

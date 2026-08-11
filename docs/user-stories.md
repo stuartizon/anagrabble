@@ -50,10 +50,12 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
   anonymous play". Not yet done: "games/stats persist" in the durable
   sense still needs the Postgres-backed history writes (CLAUDE.md
   "Postgres holds durable history") to actually link to a Clerk user id —
-  nothing writes durable history yet regardless of identity source. Also
-  still open: the server doesn't verify a command's `playerId`/`hostId`
-  against the connection's verified session (see the same decisions.md
-  entry).
+  `StartGame` now inserts a `games` row (`apps/server/src/index.ts`, fire-
+  and-forget per docs/postgres-schema.md), but `WordPlayed`/`GameEnded`
+  still write nothing, so no game's history is actually queryable end to
+  end yet. Also still open: the server doesn't verify a command's
+  `playerId`/`hostId` against the connection's verified session (see the
+  same decisions.md entry).
 - [x] As a player, I can reset my password.
       `LoginPage`'s "Forgot password?" link swaps the card into a third
       mode: enter your email, enter the emailed code alongside a new

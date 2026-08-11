@@ -5,7 +5,7 @@ import "dotenv/config";
 import { createServer } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import { createRedisClient } from "@anagrabble/redis";
-import { createDb, createPostgresClient, runMigrations } from "@anagrabble/postgres";
+import { createDb, createPostgresClient, insertGame, runMigrations } from "@anagrabble/postgres";
 import {
   PROTOCOL_VERSION,
   type Command,
@@ -344,6 +344,15 @@ wss.on("connection", (socket, req) => {
             );
             return;
           }
+          // Durable history, async/off-critical-path per docs/postgres-schema.md
+          // "Writes are async, after Redis" — never awaited/gated on, a failed
+          // write is logged and otherwise accepted-lost (MVP scope, same doc's
+          // "Known limitations").
+          insertGame(db, {
+            id: command.gameId,
+            config: result.snapshot.config,
+            startedAt: new Date(),
+          }).catch((err) => console.error("[postgres] failed to insert game", err));
           await publish({
             type: "GameStarted",
             seq: result.snapshot.seq,

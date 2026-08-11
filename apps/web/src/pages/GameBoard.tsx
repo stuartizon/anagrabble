@@ -11,6 +11,7 @@ import { EndGameCountdown } from "../components/EndGameCountdown";
 import { makeCommandId } from "../gameId";
 import { assignPlayerColors } from "../playerColors";
 import type { GameSocketError, WordPlayNarration } from "../useGameSocket";
+import { useVisualViewportHeight } from "../useVisualViewportHeight";
 import styles from "./GameBoard.module.css";
 
 // Minimal slice of design-system/In Game.dc.html: tile-turning, word
@@ -267,15 +268,30 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
     return () => clearInterval(interval);
   }, [endGameDeadline, gameId, send]);
 
-  // Turning a tile is meant to be a quick side-action mid-typing, not a
-  // context switch — a native <button> otherwise steals focus on click
-  // (Chrome/Edge; not Safari), forcing a re-click into the word box to
-  // keep typing. Word submission clears+refocuses for the same reason.
+  // See GameBoard.module.css's .page, which consumes this via
+  // var(--app-height, 100dvh) — without it, focusing the word input on
+  // mobile hides the header/tile pool above the fold until the keyboard
+  // closes again.
+  useVisualViewportHeight("--app-height");
+
+  // Turning a tile and playing a word are both meant to be quick side-actions
+  // mid-typing on desktop, not a context switch — a native <button>
+  // otherwise steals focus on click (Chrome/Edge; not Safari), forcing a
+  // re-click into the word box to keep typing. On a touch device, though,
+  // focusing the input opens the on-screen keyboard, and forcing that open
+  // after every tile turn/word play (rather than only when the player
+  // deliberately taps the input themselves) is exactly the jerk-around-the-
+  // screen behavior this is avoiding — so this only refocuses on devices
+  // with a real pointer, and explicitly blurs (closing the keyboard) on
+  // touch devices instead once a word's been played.
   const wordInputRef = useRef<HTMLInputElement>(null);
+  const canRefocusWithoutKeyboard = () =>
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(hover: hover) and (pointer: fine)").matches;
 
   const turnTile = () => {
     send({ type: "TurnTile", commandId: makeCommandId(), gameId });
-    wordInputRef.current?.focus();
+    if (canRefocusWithoutKeyboard()) wordInputRef.current?.focus();
   };
 
   const shareLink = `${window.location.origin}/${gameId}`;
@@ -331,7 +347,11 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
     pendingWordsRef.current.set(commandId, word);
     send({ type: "SubmitWord", commandId, gameId, word });
     setWordValue("");
-    wordInputRef.current?.focus();
+    if (canRefocusWithoutKeyboard()) {
+      wordInputRef.current?.focus();
+    } else {
+      wordInputRef.current?.blur();
+    }
   };
 
   const me = lobby.players.find((p) => p.id === playerId);
@@ -469,7 +489,6 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
                   placeholder="Type a word…"
                   size="lg"
                   mono
-                  autoFocus
                 />
               </div>
               <Button type="submit" size="lg">

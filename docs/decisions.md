@@ -769,12 +769,13 @@ Verified against the source data: 0 cycles, max chain depth 2 hops.
   which matters given the dictionary is expected to need manual refinement
   later (see "known gap" below).
 
-**Known gap, accepted for now**: the source data's root annotations are
-incomplete/inconsistent (e.g. `abaser` has no recorded root, though it plausibly
-derives from `abase`) — noted by Stuart as a known limitation of the POC
-dictionary, not something this transform can fix. Refine the source data later
-if derivation blocking turns out to be too permissive in practice; the
-build script requires no changes to pick up a corrected source file.
+**Known gap, largely addressed 2026-08-12**: the source data's root annotations
+were incomplete/inconsistent (e.g. `abaser` had no recorded root, though it
+plausibly derives from `abase`) — noted by Stuart as a known limitation of the
+POC dictionary. See "Root-word enrichment: WordNet + Wiktionary" below for the
+fix. ~34,815 of the ~133,260 previously-blank roots now have one; the
+remainder are either genuine root words (correctly blank) or words neither
+source had etymology data for.
 
 **Second known gap, found while designing `DerivationBlocked` copy**: the
 derivation data appears to be suffix-only — checked several classic
@@ -793,6 +794,152 @@ first gap. Not fixed here; flagged for whenever the dictionary itself gets
 revisited. Deliberately not written as a `docs/user-stories.md` entry — that
 file is player-facing feature asks, and this is a data-quality gap in
 something already built, not a new capability to request.
+
+### Root-word enrichment: WordNet + Wiktionary
+
+**Decision**: fill the gap above with two layered, rerunnable scripts rather
+than a better stemmer — `packages/game/scripts/fetch-wordnet-roots.mjs`
+(Princeton WordNet 3.0's explicit "derivationally related form" pointers,
+e.g. ABASE↔ABASEMENT — a curated relation, not a guess) and
+`fetch-wiktionary-roots.mjs` (Wiktionary's etymology data via the
+Wiktextract/kaikki.org structured dump, needed because WordNet's ~155k-word
+vocabulary is smaller than this dictionary's ~279k and simply doesn't contain
+many Scrabble-legal words at all — e.g. ABASER isn't in WordNet). Both write
+a candidate `(word, root)` CSV to `packages/game/data/generated/`;
+`merge-dictionary-roots.mjs` then applies them to
+`data/dictionary-source.csv` in that priority order (WordNet first), only
+ever filling a currently-blank root, never overwriting existing data — so
+reviewing a rerun is just a normal `git diff`, and the change is naturally
+bounded no matter how the upstream sources drift. `pnpm enrich:dictionary`
+runs the whole chain (both fetches, the merge, and the existing
+`build:dictionary` flatten). Not run on any schedule — re-run by hand
+whenever there's reason to think WordNet/Wiktionary have improved, per
+Stuart: regenerating this file is invasive enough that it doesn't want a
+cadence, just the tooling to do it on demand.
+
+**Measured results** (2026-08-12 run): WordNet filled 7,068 of the then
+133,260 blank roots; Wiktionary filled a further 27,747 that WordNet's
+smaller vocabulary missed (33,397 raw Wiktionary candidates, minus overlap
+with what WordNet already filled). 31 candidates were found and discarded by
+validation (root not itself a claimable dictionary word, or not a valid
+prefix relationship). Both pipelines were spot-checked against known-bad
+control pairs (e.g. `danger`/`dang`, `aspic`/`asp` — coincidental letter
+overlap, not real derivations) with zero false positives before being
+trusted at full scale.
+
+**A real bug found and fixed along the way**: the first Wiktionary pass
+(49,684 raw candidates) wrongly picked short _prefix_ fragments as roots
+whenever they happened to also be valid standalone words — e.g. it recorded
+`abactinal,ab` and `unhappy,un`, because "is a literal string prefix" (the
+existing suffix-derivation convention's whole test) can't distinguish "AB is
+the root, -ACTINAL is a suffix" (false) from "AB- is a prefix, ACTINAL is the
+real root" (true, and irrelevant here since ACTINAL isn't a literal prefix of
+ABACTINAL either way). Left unfixed, this would have wrongly blocked
+extending a short word like AB into a much longer one as a "trivial"
+derivation extension. Fixed in `scripts/lib/wiktionary-parse.mjs` by reading
+the affix _role_ Wiktionary's own data already encodes — arg position for
+named `prefix`/`pre` templates, hyphen position (`"un-"` vs `"-er"`) for the
+generic `affix`/`ety` templates — and never treating a piece marked as a
+prefix as a root candidate. This dropped the Wiktionary candidate count from
+49,684 to the 33,397 above. WordNet's data isn't susceptible to the same
+failure mode: its "+" pointers link two independently-headworded lemmas, not
+affixes Wiktionary documents as pseudo-words.
+
+**A real gameplay consequence, not just a data nicety**: filling in a root
+for a genuine compound (e.g. `catnap,cat`) means a previously-legal play can
+become illegal — combining claimed words CAT + NAP into CATNAP is now
+correctly rejected as `DerivationBlocked`, per the existing "however the
+extra letters would be sourced" rule (CLAUDE.md "Word formability"), because
+CATNAP is now correctly known to be CAT's derivative. This isn't a bug in
+the enrichment; it's the already-designed blocking rule finally able to fire
+because the data it depends on is more complete. `resolution.test.ts`'s
+"combining multiple claimed words" fixtures moved off CAT/NAP (which
+happened to only work because of the data gap) onto ARM + SET → MASTER,
+chosen because it combines via a genuine letter-multiset anagram rather than
+literal concatenation, so neither claimed word can ever become a recorded
+prefix-root of the result.
+
+**Chain-flattening (`build-dictionary.mjs`) is more load-bearing after this,
+not less** — checked directly rather than assumed, since it would have been
+reasonable to guess two independently-computed root layers might only ever
+add single, terminal hops. They don't: 38,040 words now have a root whose own
+root is itself further recorded (up from the "max chain depth 2 hops, 0
+cycles" verified for the original data), and max chain depth is now 5
+(`editorializers → editorializer → editorialize → editorial → editor →
+edit`, a genuine, correct chain). More significantly, the enrichment
+surfaced one real **cycle**: the original data already had `neuroptera`
+(the taxonomic order) listed with root `neuropteran` (backwards — the real
+etymology is the reverse, `neuropteran` = `neuroptera` + `-an`), harmless
+before only because `neuropteran`'s root was blank so the chain dead-ended.
+Wiktionary correctly found and filled `neuropteran,neuroptera`, which turned
+the pre-existing backwards entry into an actual 2-cycle. Fixed by blanking
+the erroneous original `neuroptera,neuropteran` entry (verified: 0 cycles
+across the whole dictionary afterward). `build-dictionary.mjs`'s existing
+cycle guard (`if (seen.has(next)) break`) meant this was never a crash or
+hang risk, just a wrong/arbitrary resolved root for whichever word the walk
+happened to bail out on - worth knowing that a future rerun could in
+principle reintroduce a similar case if the source data has other
+undiscovered backwards entries; the merge pipeline validates each candidate
+in isolation and has no cross-candidate cycle check.
+
+**Sources considered and rejected**: Wikidata's Lexeme data groups inflected
+forms (CATS under the same lexeme as CAT) cleanly, but — checked directly
+against its `abase` lexeme — records no derivational link at all to
+`abasement`/`abaser`; it's solved-already inflection, not the derivation gap
+this addresses. NLTK's Morphy and spaCy's lemmatizer are likewise
+inflection-only (cats→cat, ran→run) — checked against the existing data and
+those relations were already mostly present — and applying either to
+_derivational_ morphology (the actual gap) produces false positives the same
+shape as a naive suffix-stripper (e.g. `danger`→`dang`). A GitHub mirror of
+the official TWL06/Collins Scrabble Words tournament lists
+(`kaikki.org/dictionary/English` via `kamilmielnik/scrabble-dictionaries`)
+was also evaluated for the _word-validity_ half of the dictionary (a
+separate question from roots) — turned out largely moot, since the existing
+word list already matches SOWPODS/Collins to within ~12k words of edition
+drift; refreshing it against a current Collins edition remains a deferred,
+lower-priority follow-up (Stuart: "feel free to defer" if the root work was
+more valuable, which it was).
+
+**Licensing, scoped precisely**: WordNet's license is simple and
+permissive — free commercial use and redistribution, provided its copyright
+notice is retained (not a copyleft/share-alike obligation). Wiktionary
+(via Wiktextract) is CC BY-SA 4.0, which _is_ share-alike — but that
+obligation is scoped to `data/generated/wiktionary-roots.csv` and its
+contribution to `dictionary-source.csv`, not the rest of the codebase:
+Creative Commons' share-alike only propagates within an adapted work itself,
+not to independently-authored code merely bundled alongside it (CC's
+"collection" vs. "adaptation" distinction), and a bare `(word, root)` fact
+pair arguably isn't copyrightable expression in the first place (facts
+aren't protectable; only original expression is — the same reasoning that
+lets word-game word _lists_ be freely extracted from copyrighted
+dictionaries). Not a substitute for real legal advice if this becomes
+commercially significant; no NOTICE/THIRD_PARTY file exists in this repo yet
+to formalize the attribution — worth adding before wider distribution, not
+done here since nothing currently requires it.
+
+**Alternatives considered**:
+
+- **A better stemmer instead of curated relation data** — rejected: stemmers
+  (Porter, Snowball, Morphy/lemmatizers) target search/IR use cases and
+  conventionally only handle inflectional morphology; pointed at
+  derivational morphology (the actual gap) they produce false positives
+  (`danger`→`dang`) with no way to distinguish a real relation from
+  coincidental letter overlap. Curated relation data (WordNet's pointers,
+  Wiktionary's etymology templates) encodes that a source editor asserted
+  the relationship is real.
+- **Trusting the "candidate root" without validating it's itself a claimable
+  dictionary word** — rejected: the game's `isDerivedFrom` check only makes
+  sense against a word players could actually have claimed; a root absent
+  from the dictionary would create a derivation rule referencing an
+  unclaimable word, an incoherent state. `merge-dictionary-roots.mjs`
+  validates this explicitly (31 candidates dropped for exactly this in the
+  2026-08-12 run).
+- **Overwriting existing (possibly-wrong) roots when a source disagrees** —
+  rejected: only 8 words in WordNet's output disagreed with existing data at
+  all (and those turned out to be same-answer, different chain-hop-depth,
+  not real conflicts — see `scripts/lib/merge-roots.mjs`'s fill-blanks-only
+  design), and silently overwriting curated/reviewed data on every rerun
+  would make the diff on a rerun unpredictable instead of strictly additive.
 
 ## Game-over summary replaces GameBoard entirely, not an overlay on it
 

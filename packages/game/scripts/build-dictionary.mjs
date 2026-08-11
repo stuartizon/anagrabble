@@ -22,6 +22,14 @@ for (const line of lines) {
 
 /** @type {Map<string, string>} word -> ultimate root (memoized) */
 const ultimate = new Map();
+// Source data should never contain a root cycle (A -> B -> A) - it's
+// structurally impossible for a genuine derivation chain, since each hop
+// must add material. One slipped through 2026-08-12 (see docs/decisions.md
+// "Root-word enrichment: WordNet + Wiktionary") when a newly-filled correct
+// root combined with a pre-existing backwards entry; this bailed out
+// silently instead of failing loudly. Collected here so a future rerun
+// can't reintroduce the same silent failure mode.
+const cycleWords = [];
 
 function resolveUltimateRoot(word) {
   if (ultimate.has(word)) return ultimate.get(word);
@@ -31,7 +39,10 @@ function resolveUltimateRoot(word) {
   while (true) {
     const next = parent.get(current);
     if (!next) break; // no further root recorded
-    if (seen.has(next)) break; // cycle in source data, bail out where we are
+    if (seen.has(next)) {
+      cycleWords.push(word);
+      break; // cycle in source data, bail out where we are
+    }
     seen.add(current);
     current = next;
   }
@@ -49,3 +60,11 @@ for (const word of parent.keys()) {
 
 writeFileSync(outPath, out.join("\n") + "\n");
 console.log(`Wrote ${out.length} words to ${path.relative(process.cwd(), outPath)}`);
+if (cycleWords.length > 0) {
+  console.warn(
+    `WARNING: ${cycleWords.length} word(s) hit a root cycle in dictionary-source.csv ` +
+      `and resolved to an arbitrary point in the loop, not a real ultimate root: ` +
+      `${cycleWords.join(", ")}. Fix the source data (a root cycle means at least one ` +
+      `recorded root is backwards) and re-run.`,
+  );
+}

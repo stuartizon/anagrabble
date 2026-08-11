@@ -8,7 +8,11 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "build:dictionary": "node scripts/build-dictionary.mjs"
+    "build:dictionary": "node scripts/build-dictionary.mjs",
+    "fetch:wordnet-roots": "node scripts/fetch-wordnet-roots.mjs",
+    "fetch:wiktionary-roots": "node scripts/fetch-wiktionary-roots.mjs",
+    "merge:dictionary-roots": "node scripts/merge-dictionary-roots.mjs",
+    "enrich:dictionary": "pnpm fetch:wordnet-roots && pnpm fetch:wiktionary-roots && pnpm merge:dictionary-roots && pnpm build:dictionary"
   },
   "dependencies": {
     "@anagrabble/protocol": "workspace:*"

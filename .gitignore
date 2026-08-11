@@ -7,3 +7,4 @@ dist/
 *.tsbuildinfo
 playwright-report/
 test-results/
+packages/game/data/.cache/

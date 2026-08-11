@@ -356,8 +356,14 @@ mechanic without touching anything else.
   fuller reasoning and the two candidate fixes.
 - Dictionary derivation data is suffix-only (e.g. UNHAPPY vs. HAPPY isn't
   caught, unlike CATS vs. CAT) — a data-quality gap, not a code limitation;
-  `isDerivedFrom` itself has no concept of position. See docs/decisions.md
-  "Dictionary source and format"'s second known gap.
+  `isDerivedFrom` itself has no concept of position. Root _coverage_ within
+  that suffix-only scope substantially improved 2026-08-12 (WordNet +
+  Wiktionary enrichment, ~34,815 previously-blank roots filled, rerunnable
+  via `pnpm enrich:dictionary` in `packages/game`) — see docs/decisions.md
+  "Root-word enrichment: WordNet + Wiktionary". The prefix-derivation gap
+  itself (UNHAPPY/HAPPY) is unchanged: the enrichment deliberately stuck to
+  the existing suffix-only convention rather than expanding scope. See
+  docs/decisions.md "Dictionary source and format"'s second known gap.
 - How a reconnecting/late-joining client backfills the history panel's past
   plays (today it only accumulates events seen live, so a gap is just
   missing) — candidate approaches (bounded or uncapped recent-history in

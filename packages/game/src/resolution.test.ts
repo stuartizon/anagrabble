@@ -156,38 +156,45 @@ describe("resolveWordPlay: single-word steal/extend", () => {
 });
 
 describe("resolveWordPlay: combining multiple claimed words", () => {
+  // ARM + SET -> MASTER combines via letter multiset (an anagram, not literal
+  // concatenation) specifically so neither claimed word is a recorded
+  // dictionary root of the combined word - CAT + NAP -> CATNAP used to serve
+  // this but CATNAP is a genuine recorded derivation of CAT (see
+  // scripts/lib/wiktionary-parse.mjs and CLAUDE.md "Word formability" on
+  // derivation blocking applying "however the extra letters would be
+  // sourced"), so it now correctly hits DerivationBlocked instead.
   it("combines two of the submitter's own claimed words with no pool letters needed", () => {
-    const cat: ClaimedWord = { word: "cat", ownerId: "p1" };
-    const nap: ClaimedWord = { word: "nap", ownerId: "p1" };
+    const arm: ClaimedWord = { word: "arm", ownerId: "p1" };
+    const set: ClaimedWord = { word: "set", ownerId: "p1" };
     const result = resolveWordPlay({
-      submittedWord: "catnap",
+      submittedWord: "master",
       submitterId: "p1",
       pool: [],
-      claimedWords: [cat, nap],
+      claimedWords: [arm, set],
       scores: {},
       minWordLength,
     });
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.plan.usedWords).toEqual(expect.arrayContaining([cat, nap]));
+      expect(result.plan.usedWords).toEqual(expect.arrayContaining([arm, set]));
       expect(result.plan.usedPoolLetters).toEqual([]);
     }
   });
 
   it("counts a combine involving any opponent's word as a steal", () => {
-    const cat: ClaimedWord = { word: "cat", ownerId: "p1" };
-    const nap: ClaimedWord = { word: "nap", ownerId: "p2" };
+    const arm: ClaimedWord = { word: "arm", ownerId: "p1" };
+    const set: ClaimedWord = { word: "set", ownerId: "p2" };
     const result = resolveWordPlay({
-      submittedWord: "catnap",
+      submittedWord: "master",
       submitterId: "p1",
       pool: [],
-      claimedWords: [cat, nap],
+      claimedWords: [arm, set],
       scores: {},
       minWordLength,
     });
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.plan.usedWords).toEqual(expect.arrayContaining([cat, nap]));
+      expect(result.plan.usedWords).toEqual(expect.arrayContaining([arm, set]));
     }
   });
 });

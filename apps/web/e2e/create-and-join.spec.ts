@@ -12,8 +12,12 @@ test("host creates a game and a guest joins via the invite link, live", async ({
   const hostContext = await browser.newContext();
   const hostPage = await hostContext.newPage();
 
-  await hostPage.goto("/");
-  await hostPage.getByLabel("Your name").fill("Host Player");
+  // Gameplay requires being signed in (RequireAuth) — "Your name" is gone
+  // from these pages now, the player's name is their account name, picked
+  // via the mock-auth persona roster on /login (see docs/decisions.md
+  // "Local dev auth: mock provider, not a Clerk sandbox").
+  await hostPage.goto("/new");
+  await hostPage.getByRole("button", { name: "Alice" }).click();
   await hostPage.getByRole("button", { name: "Create game" }).click();
 
   await expect(hostPage).toHaveURL(/\/[A-Z0-9]{5}$/);
@@ -24,8 +28,8 @@ test("host creates a game and a guest joins via the invite link, live", async ({
   const guestContext = await browser.newContext();
   const guestPage = await guestContext.newPage();
   await guestPage.goto(inviteUrl);
+  await guestPage.getByRole("button", { name: "Bob" }).click();
 
-  await guestPage.getByLabel("Your name").fill("Guest Player");
   await guestPage.getByRole("button", { name: "Join game" }).click();
 
   await expect(guestPage.getByText("Waiting for the host to start the game…")).toBeVisible();
@@ -33,7 +37,7 @@ test("host creates a game and a guest joins via the invite link, live", async ({
   // No reload on the host's page — this only passes if the server actually
   // published PlayerJoined and the host's own socket received it.
   await expect(hostPage.getByText("2 players at the table")).toBeVisible();
-  await expect(hostPage.getByText("Guest Player")).toBeVisible();
+  await expect(hostPage.getByText("Bob")).toBeVisible();
 
   await hostContext.close();
   await guestContext.close();

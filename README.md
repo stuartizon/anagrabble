@@ -151,9 +151,22 @@ cd apps/web && pnpm test:e2e
 
 Runs the Playwright end-to-end suite against the real backend + Redis +
 browser (create a game, join via the invite link, see it live) — not part
-of `pnpm test` since it needs the stack already running (`docker compose up
--d`) and downloaded browser binaries (`pnpm --filter @anagrabble/web exec
-playwright install chromium`).
+of `pnpm test`, and not currently run in CI either (`.github/workflows/
+ci.yml` only runs `pnpm test`, which doesn't include this). Playwright's
+own `webServer` config starts the backend and frontend itself
+(`pnpm --filter @anagrabble/server dev` / `... @anagrabble/web dev`,
+reusing them if already running), independent of the `server` container in
+`docker-compose.yml` — so this needs:
+
+- Just `docker compose up redis postgres -d` (the dockerized `server`,
+  `seed-mock-stats`, and `adminer` aren't used by this path, no need to
+  bring them up).
+- `apps/server/.env` set up (`cp apps/server/.env.example apps/server/.env`,
+  then set `AUTH_MODE=mock` in it — blank by default in the template),
+  since Playwright's spawned server reads its config from that file, not
+  from `docker-compose.yml`.
+- Downloaded browser binaries: `pnpm --filter @anagrabble/web exec
+playwright install chromium`.
 
 See `CLAUDE.md` "Testing strategy" for the framework chosen per layer, and
 "Test-driven development" for the red-green-refactor convention this repo

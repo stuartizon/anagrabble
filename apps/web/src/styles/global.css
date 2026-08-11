@@ -1,5 +1,14 @@
 @import "./tokens.css";
 
+/* Mobile WebKit/Chrome flash a default blue-gray overlay on tap for any
+   link/button (most visible on the header's avatar/wordmark links) —
+   suppressed here rather than per-component since it's a browser default,
+   not anything this codebase set. Doesn't affect keyboard focus, which is
+   a separate outline mechanism. */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
 * {
   box-sizing: border-box;
 }

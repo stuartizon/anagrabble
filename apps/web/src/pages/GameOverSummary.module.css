@@ -70,8 +70,11 @@
 
 .actions {
   display: flex;
-  flex-direction: column;
   gap: 10px;
+}
+
+.actions > * {
+  flex: 1;
 }
 
 .wordTag {

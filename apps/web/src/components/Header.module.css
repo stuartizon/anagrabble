@@ -77,12 +77,23 @@
   color: var(--text-secondary);
 }
 
+/* .avatarMenuLink is an <a> (via <Link>), so global.css's `a:hover` would
+   otherwise override its color on hover despite the resting color set here
+   (`a:hover`'s specificity beats a plain class — see .accountLink above) —
+   pinned back to --ink explicitly so it matches .avatarMenuLogout's
+   (a <button>, unaffected by `a:hover`) same shared hover treatment below,
+   rather than the two menu items looking inconsistent. */
 .avatarMenuLink {
   display: block;
   padding: 10px 14px;
   font-family: var(--font-body);
   font-size: var(--text-sm);
   color: var(--ink);
+}
+
+.avatarMenuLink:hover {
+  color: var(--ink);
+  background: var(--surface-sunken);
 }
 
 .avatarMenuLogout {
@@ -95,4 +106,8 @@
   font-family: var(--font-body);
   font-size: var(--text-sm);
   color: var(--ink);
+}
+
+.avatarMenuLogout:hover {
+  background: var(--surface-sunken);
 }

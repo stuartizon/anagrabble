@@ -18,6 +18,17 @@
   margin-bottom: 24px;
 }
 
+/* Grid items stretch to the tallest card in their row by default (grid's
+   own align-items: stretch) — this fills that height and pins the value to
+   the bottom via margin-top: auto below, so values line up on one visual
+   baseline across a row regardless of label wrapping or value font size
+   (e.g. .summaryValueCompact) differences. */
+.summaryCardBody {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
 .summaryLabel {
   font-family: var(--font-body);
   font-size: var(--text-sm);
@@ -30,6 +41,7 @@
   font-weight: 700;
   font-size: var(--text-2xl);
   color: var(--ink);
+  margin-top: auto;
 }
 
 .summaryValueGold {
@@ -37,6 +49,11 @@
   font-weight: 700;
   font-size: var(--text-2xl);
   color: var(--gold);
+  margin-top: auto;
+}
+
+.summaryValueCompact {
+  font-size: var(--text-xl);
 }
 
 .sectionLabel {
@@ -46,12 +63,38 @@
   margin-bottom: 10px;
 }
 
-.longestWord {
+.longestWordTiles {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.longestWordText {
+  display: none;
   font-family: var(--font-display);
   font-weight: 700;
   font-size: var(--text-xl);
   letter-spacing: var(--tracking-wider);
   color: var(--ink);
+}
+
+/* Deliberately NOT GameBoard.module.css's 840px desktop/mobile breakpoint
+   — that one's tuned to a sidebar layout concern, unrelated to how wide a
+   row of tiles is. This one's sized to the actual content: at width W, the
+   tile row has ~W-88px available (40px CenteredContent padding + 48px Card
+   padding), and n tiles at md size (48px + 6px gap) need 54n-6px. 640px
+   comfortably fits a 10-letter word (534px needed) with room to spare;
+   below it, plain text wraps as a whole word instead of stacking an
+   orphaned tile onto its own line (see the comment above these elements
+   in StatsPage.tsx). */
+@media (max-width: 639px) {
+  .longestWordTiles {
+    display: none;
+  }
+
+  .longestWordText {
+    display: block;
+  }
 }
 
 .recentGamesLabel {

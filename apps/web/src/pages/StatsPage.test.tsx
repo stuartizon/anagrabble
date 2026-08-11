@@ -56,7 +56,10 @@ describe("StatsPage", () => {
     expect(await screen.findByText("Your stats")).toBeInTheDocument();
     expect(screen.getByText("2")).toBeInTheDocument(); // games played
     expect(screen.getByText("50%")).toBeInTheDocument(); // win rate
-    expect(screen.getByText("CASTS")).toBeInTheDocument(); // longest word
+    // Longest word renders both as tiles (one LetterTile per letter) and as
+    // plain text, CSS-toggled between them — see StatsPage.module.css.
+    expect(screen.getByTestId("longest-word-tiles")).toHaveTextContent("CASTS");
+    expect(screen.getByTestId("longest-word-text")).toHaveTextContent("CASTS");
     expect(screen.getByText("1st place")).toBeInTheDocument();
   });
 

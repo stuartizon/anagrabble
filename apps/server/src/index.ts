@@ -25,6 +25,7 @@ import {
 import { createGame, joinGame, leaveGame, loadLobbySnapshot } from "./lobby.js";
 import { endGame, startGame, submitWord, turnTile } from "./game.js";
 import { resolveActingPlayerId, verifySessionToken } from "./auth.js";
+import { handleStatsRequest } from "./stats.js";
 
 const PORT = Number(process.env.PORT ?? 8080);
 
@@ -196,6 +197,11 @@ fastify.get("/health", async (request, reply) => {
   } catch (err) {
     return reply.code(503).send({ status: "degraded", redis: "error", error: String(err) });
   }
+});
+
+fastify.get("/stats", async (request, reply) => {
+  const result = await handleStatsRequest(db, CLERK_SECRET_KEY, request.headers.authorization);
+  return reply.code(result.status).send(result.body);
 });
 
 // Raw `ws` attaches directly to the underlying node http.Server's native

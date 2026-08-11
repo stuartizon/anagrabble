@@ -89,8 +89,8 @@ export function GameOverSummary({ lobby, playerId }: GameOverSummaryProps) {
                   </div>
                   {p.words.length > 0 && (
                     <div className={styles.wordsList}>
-                      {p.words.map((w) => (
-                        <span key={w} className={styles.wordTag}>
+                      {p.words.map((w, i) => (
+                        <span key={`${i}-${w}`} className={styles.wordTag}>
                           {w}
                         </span>
                       ))}

@@ -415,8 +415,8 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
                       <span className={styles.wordsEmpty}>No words yet</span>
                     ) : (
                       others.flatMap((p) =>
-                        p.words.map((w) => (
-                          <span key={`${p.id}-${w}`} className={styles.wordTag}>
+                        p.words.map((w, i) => (
+                          <span key={`${p.id}-${i}-${w}`} className={styles.wordTag}>
                             <span
                               className={styles.wordTagDot}
                               style={{ background: colors.get(p.id) }}
@@ -436,8 +436,8 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
                   {!me || me.words.length === 0 ? (
                     <span className={styles.wordsEmpty}>No words yet</span>
                   ) : (
-                    me.words.map((w) => (
-                      <span key={w} className={styles.wordTag}>
+                    me.words.map((w, i) => (
+                      <span key={`${i}-${w}`} className={styles.wordTag}>
                         <span
                           className={styles.wordTagDot}
                           style={{ background: colors.get(playerId) }}

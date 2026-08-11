@@ -81,11 +81,14 @@ create table player_settings (
 
 ### `games` / `game_players`
 
-One row per completed-or-in-progress game, one row per player in it. Enough
-for the common-case stats query (games played, final score per game, win
-rate) without touching `word_plays` at all. `clerk_user_id` is a bare
-foreign key to Clerk's identity, not a local `users` table — see
-`docs/decisions.md` "Auth provider: Clerk, not a hand-rolled `users` table."
+One `games` row per game that started, whether or not it's finished yet.
+`game_players` rows, by contrast, are written only once (on `GameEnded` —
+see the event table above), so an in-progress or abandoned game has a
+`games` row but no `game_players` rows at all yet. This turns out to be
+exactly what the per-player stats query wants — see "Player stats" below —
+without touching `word_plays` at all. `clerk_user_id` is a bare foreign key
+to Clerk's identity, not a local `users` table — see `docs/decisions.md`
+"Auth provider: Clerk, not a hand-rolled `users` table."
 
 ### `word_plays`
 
@@ -106,6 +109,45 @@ for now — chain reconstruction happens by walking it in application code
 a SQL recursive CTE. Simpler to write, fine at this scale; revisit as a
 normalized `word_play_sources(word_play_id, source_word_play_id)` table only
 if chains ever need to be queried in pure SQL.
+
+### Player stats (`packages/postgres/src/stats.ts`)
+
+Backs `GET /stats` (`apps/server/src/stats.ts`) — games played, wins, win
+rate, average/highest score, longest word, win streak, lifetime totals,
+average game length, all scoped to one `clerk_user_id`. A few scope
+decisions worth recording here rather than only in code comments:
+
+- **"Games played" is completed games only, by construction.** Falls
+  straight out of the `games`/`game_players` shape above — a
+  `game_players` row only exists once `GameEnded` is accepted, so an
+  abandoned game is excluded without an extra `WHERE ended_at IS NOT NULL`
+  to get wrong. Considered writing a roster row earlier (at `StartGame`/
+  lobby join) so abandoned games show up too — rejected for now: it's not
+  obviously what "games played" should mean (a game joined and immediately
+  abandoned without a word played arguably shouldn't count), and
+  `final_score`/`final_words` are `not null` today specifically because a
+  row only ever represents a _finished_ result — supporting an in-progress
+  row would mean a nullable `final_score` or a status column, and every
+  stats query that currently gets "completed-only" for free via
+  row-existence would need an explicit filter instead. Worth its own
+  decision if "abandoned games" ever becomes a wanted stat.
+- **Win streak, and every other summary figure, is derived in JS from one
+  fetched roster query**, not one SQL aggregate per figure — win streak in
+  particular is a sequential reset-on-loss fold, awkward in SQL
+  (`LAG`/recursive CTE) and trivial as a loop; keeping the rest consistent
+  with it means one source of truth for "what counts."
+- **Longest word played / lifetime words played query `word_plays`
+  directly, across ALL games including abandoned ones** — unlike the
+  score-based figures above, a `word_plays` row exists the moment a word
+  is accepted, independent of whether the game later ended.
+- **Average/highest score are not comparable across games with different
+  `minWordLength` configs** (CLAUDE.md's scoring formula gives a
+  3-letter-minimum game higher raw scores than a 4-letter-minimum game for
+  equivalent play) — kept anyway as "your own history over time," not
+  presented as an apples-to-apples number. A score-over-time chart was
+  considered and dropped for the same reason, more sharply: a chart makes
+  the comparison implicit and visual, which is actively misleading rather
+  than just imprecise.
 
 ### `player_settings`
 
@@ -137,3 +179,11 @@ decided — see "Known limitations" below.
   value they'd have (e.g. game duration) is already covered by
   `games.started_at`/`ended_at`. Revisit only if a concrete stat idea
   actually needs one of these.
+- **Abandoned games have no recorded roster at all — not even who was in
+  them.** Since `game_players` rows only exist once `GameEnded` is
+  accepted (see "`games` / `game_players`" above), a game that was started
+  but never finished has a `games` row and nothing else — no way to know
+  which players were part of it. Fine for today's only consumer (the stats
+  query, which deliberately wants completed-only — see "Player stats"
+  above), but would block anything that ever wants to reason about
+  abandoned games specifically (e.g. an "abandon rate" stat).

@@ -14,8 +14,8 @@ steal words, see a running play history (desktop-only), and the game
 auto-ends after a 60s idle period once the bank runs dry, landing on a
 ranked game-over summary — through real WebSocket/Redis state (no mocked
 data), verified in a real browser against the real backend. See
-`docs/user-stories.md` for exact scope and what's still missing (player
-stats across games, account/settings persistence). Sign-up/log-in
+`docs/user-stories.md` for exact scope and what's still missing (settings
+persistence). Sign-up/log-in
 (email/password + Google, via Clerk, including password reset) gates
 gameplay — creating or joining a game requires being signed in, and
 player identity is the Clerk user id/account name, not a local stub. See
@@ -24,14 +24,16 @@ docs/decisions.md "Auth provider" for why Clerk over a hand-rolled
 the identity/gating details. Durable Postgres history (games, word
 plays, final scores) is now written after every accepted `StartGame`/
 `SubmitWord`/`EndGame`, linked to that Clerk id — see
-`docs/postgres-schema.md`. Not yet built: a UI to actually view that
-history/stats across games (`docs/user-stories.md`).
+`docs/postgres-schema.md`. A player can view their own stats across past
+games at `/stats` (games played, wins, win rate, average/highest score,
+longest word, win streak, lifetime totals, average game length),
+computed from that same durable history — see `docs/user-stories.md`.
 
 ## Stack
 
 |                 |                                                                                |
 | --------------- | ------------------------------------------------------------------------------ |
-| Backend         | Node.js + TypeScript, `ws` (WebSocket), Redis (`ioredis`)                      |
+| Backend         | Node.js + TypeScript, Fastify (REST) + `ws` (WebSocket), Redis (`ioredis`)     |
 | Live game state | Redis — authoritative; see `docs/redis-schema.md` for the key/shape convention |
 | Durable history | Postgres, written after Redis accepts a move                                   |
 | Frontend        | Vite + React, `react-router-dom`                                               |
@@ -100,7 +102,11 @@ anything will run is Clerk:
   the connection never got a verified identity.
 
 Backend listens on `:8080`, frontend on `:5173`. The frontend expects
-`VITE_WS_URL` (defaults to `ws://localhost:8080`) to reach the backend.
+`VITE_WS_URL` (defaults to `ws://localhost:8080`) to reach the backend's
+WebSocket, and `VITE_API_URL` (defaults to `http://localhost:8080`) for
+its REST endpoints (`/stats` and beyond). The backend's REST surface also
+needs `WEB_ORIGIN` (defaults to `http://localhost:5173` in
+`apps/server/.env.example`) for CORS.
 
 Open `http://localhost:5173`, create a game, then open the invite link
 (shown in the lobby) in a second tab/browser to join it — players should

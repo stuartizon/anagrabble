@@ -1324,17 +1324,132 @@ itself. Drizzle's migration-generation and Prisma's schema-file-as-source-
 of-truth model would fight that division of responsibility; Kysely's own
 migrator doesn't.
 
+## Backend HTTP framework: Fastify, not raw `http`
+
+**Decision**: adopt Fastify for `apps/server`'s REST surface, migrating the
+existing raw-`node:http` scaffold. Landed alongside `GET /stats` — the
+second real REST endpoint (after `/health`), with a third (Settings,
+`docs/user-stories.md`) already queued.
+
+**Alternatives considered**: staying on raw `http` (the status quo — a
+single `if (req.url === ...)` branch inside `createServer`'s callback);
+Express (dated patterns, weaker native TS ergonomics); NestJS (DI/decorator
+ceremony disproportionate to this project's actual complexity, which lives
+in the state machine, not routing). Express/NestJS were ruled out earlier
+and aren't reopened here.
+
+**Why now, not earlier**: this was left an explicit TBD (see the old
+"Explicitly still open" entry this replaces) precisely because one route
+(`/health`) didn't justify a framework. A second endpoint needing real
+auth/CORS/response-shape handling, with a third already in the backlog, is
+the point past which hand-rolling that plumbing per-route stops being
+free — `/stats` needed CORS preflight handling in particular (see "REST
+endpoints beyond `/health`" below), which is where `@fastify/cors`
+concretely earns its keep over hand-written header logic.
+
+**Why this doesn't reopen `ws` vs. Socket.IO**: raw `ws` still attaches
+directly to the underlying `http.Server`'s native `upgrade` event
+(`new WebSocketServer({ server: fastify.server })`) — Fastify exposes that
+server immediately at construction, not just after `.listen()`. Socket.IO
+would attach the same way (`new Server(fastify.server)` / `io.attach(...)`),
+so this migration is orthogonal to that still-open question either way; see
+its own entry below.
+
+## REST endpoints beyond `/health`: plain HTTP/JSON, not a WS command/event pair
+
+**Decision**: `GET /stats` (and the REST surface generally) is plain
+HTTP/JSON — a stateless pull — rather than a new WS `Command`/`Event` pair
+routed through the existing gameplay channel.
+
+**Why**: stats are a one-shot read with no live/real-time requirement —
+round-tripping through Redis pub/sub for something that never changes
+mid-request would add machinery (a command type, an event type, protocol
+version bumping) for nothing the WS path is actually good at. Plain HTTP is
+the right tool for "fetch this once when the page loads."
+
+**CORS**: `apps/web` (Vercel/localhost) and `apps/server` (Railway/
+localhost) are different origins, and unlike the WS path (browsers don't
+apply fetch-style CORS to WebSocket handshakes), a plain `fetch()` does —
+this is the first thing in the app that actually needs it. Handled via
+`@fastify/cors` with a new required env var `WEB_ORIGIN` (same
+required-with-throw pattern as `REDIS_URL`/`DATABASE_URL`/
+`CLERK_SECRET_KEY`) — an explicit single origin, not `*`, per the intent
+already flagged in "Frontend hosting: Vercel/Cloudflare Pages" above.
+
+**Response type: hand-duplicated, not shared via `packages/protocol`.**
+`packages/protocol` is scoped explicitly to the WS wire protocol, versioned
+via `PROTOCOL_VERSION` under CLAUDE.md's expand/contract rules — a plain
+GET response is neither a `Command` nor an `Event` and shouldn't
+participate in that versioning discipline. Separately, `apps/web` has no
+dependency on `@anagrabble/postgres` (which pulls in `pg`/`kysely`) and
+shouldn't gain one just for a type. `PlayerStatsResponse` is defined once in
+`apps/server/src/stats.ts` as canonical and hand-duplicated in
+`apps/web/src/fetchPlayerStats.ts`, each copy commented pointing at the
+other. Revisit only if a second/third HTTP endpoint makes the duplication
+actually hurt — not preemptively.
+
+**`VITE_API_URL`/`VITE_WS_URL`**: added `VITE_API_URL` (new, additive) for
+`apps/web`'s REST calls rather than deriving it from `VITE_WS_URL` in
+either direction yet. Long-term, `VITE_API_URL` should become canonical
+with the WS URL derived from it (same backend service, different scheme —
+`http:`/`https:` vs `ws:`/`wss:`; two independently-set env vars that must
+always agree is a real drift risk). Not done in this pass — see
+"Explicitly still open" below; sequenced there rather than cut over
+immediately since `VITE_WS_URL` is presumably already configured in
+deployed environments.
+
+**Score-over-time chart: dropped, not deferred**, and **average/highest
+score kept despite the same caveat**. Raw score isn't comparable across
+games with different `minWordLength` configs — CLAUDE.md's scoring formula
+(1 point at `minWordLength`, +1 per letter beyond it) means a 3-letter-
+minimum game scores higher than a 4-letter-minimum game for equivalent
+play. A chart plotting that across a player's history makes the comparison
+implicit and visual — actively misleading, not just imprecise — so it's
+out entirely pending either per-config normalization or a per-ruleset
+breakdown (not designed here). Average/highest score have the identical
+bias but are kept anyway: they're still meaningful as "your own history
+over time," just not an apples-to-apples number between players with
+different game preferences — noted in code comments and
+`docs/postgres-schema.md`, not silently presented as comparable.
+
+## Postgres reaffirmed against graph/document alternatives for stats
+
+**Raised by**: the user, while scoping the stats feature — Postgres was
+chosen for durable history as a relational store; does that still hold once
+the actual stats queries (some involving cycles/self-joins, like word
+derivation chains) are known?
+
+**Decision**: stay on Postgres. No new alternative adopted; this entry
+exists so the question isn't silently re-asked later.
+
+**Why**: the actual query shapes needed — counts/sums/averages, joins on
+`game_id`/`clerk_user_id`, one per-game roster comparison for placement —
+are standard relational work, not graph traversal. The one feature that
+sounds graph-shaped, longest word derivation chain (CAT → CAST → CASTS →
+FORECASTS), is explicitly deferred (see `docs/user-stories.md`) and was
+already scoped in `docs/postgres-schema.md` to be walked in application
+code over a single game's bounded `word_plays` set (at most 144 tiles),
+not queried via SQL recursion or a graph database's traversal engine —
+graph databases earn their keep on deep, unknown-depth traversal at real
+scale (social graphs, fraud rings), which this isn't. Win streak's
+sequential-fold "trickiness" is an algorithm-shape issue, solved by doing
+it in JS (see "Player stats" in `docs/postgres-schema.md`) — equally
+awkward as a SQL recursive CTE or a Mongo aggregation pipeline, so it isn't
+an argument for either. Mongo's actual strength (schema-flexible,
+denormalized, deeply nested documents) doesn't match this domain's clean,
+uniform, foreign-keyed entities (`games`/`game_players`/`word_plays`);
+moving to it would mean either denormalizing (fighting the "sum across a
+player's games" queries this feature needs) or reinventing joins via an
+aggregation pipeline, more awkwardly than SQL already does natively.
+
 ## Explicitly still open
 
-- **Backend HTTP framework** for the handful of non-gameplay REST routes (auth,
-  lobby, stats). Current scaffold uses Node's raw `http` module for a single
-  `/health` route — sufficient for now. Fastify is the leading candidate for
-  the REST side once real endpoints are needed; Express and NestJS were
-  considered and set aside (Express: dated patterns, weaker native TS
-  ergonomics; NestJS: DI/decorator ceremony disproportionate to this
-  project's actual complexity, which lives in the state machine, not
-  routing) — this framing is not itself in question. Fastify vs. staying on
-  raw `http` remains a genuine TBD, not decided either way.
+- **`VITE_API_URL` becoming canonical, `VITE_WS_URL` derived from it.** See
+  "REST endpoints beyond `/health`" above for the full reasoning. Do this
+  once `VITE_API_URL` is confirmed set in every deployed environment: (1)
+  refactor `useGameSocket.ts` to derive its WS URL from `VITE_API_URL`
+  (scheme swap: `http:`→`ws:`, `https:`→`wss:`); (2) remove the standalone
+  `VITE_WS_URL` var.
 - **`ws` (raw WebSocket) vs. Socket.IO for the gameplay channel.** This file
   previously stated flatly that raw `ws` was "confirmed" here. Struck as of
   2026-08-11: the user flagged they don't recall that actually being

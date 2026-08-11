@@ -52,8 +52,8 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
       `StartGame`, a `word_plays` row on `SubmitWord`, and updates
       `games.ended_at`/inserts final `game_players` rows on `EndGame` — all
       fire-and-forget per docs/postgres-schema.md, all linked to the Clerk
-      user id. Viewing that history is a separate, not-yet-started story
-      (below, "As a player, I can view my stats across past games").
+      user id. Viewing that history is a separate story (below, "As a
+      player, I can view my stats across past games").
 - [x] As a player, I can reset my password.
       `LoginPage`'s "Forgot password?" link swaps the card into a third
       mode: enter your email, enter the emailed code alongside a new
@@ -139,7 +139,27 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
       line, each player's claimed words as tags, "New game" back to `/`.
       Uses `PlayerState.words`/`score` already on `LobbySnapshot` — no
       protocol change needed.
-- [ ] As a player, I can view my stats across past games.
+- [x] As a player, I can view my stats across past games.
+      `StatsPage` at `/stats` (`RequireAuth`-gated), reachable from the
+      header account dropdown and from `GameOverSummary`'s "View your
+      stats" button. Backed by a new `GET /stats` endpoint (apps/server's
+      first REST endpoint beyond `/health`) and a new
+      `packages/postgres` query layer computed from `games`/`game_players`/
+      `word_plays`: games played, wins, win rate, average/highest score,
+      longest word played, win streak (current + best), lifetime totals
+      (words played, score), and average game length. Scoped down from
+      design-system/`Stats.dc.html`'s full mock, which was a kitchen-sink
+      example, not a spec — deliberately left out: the score-over-time bar
+      chart (dropped, not deferred: raw score isn't comparable across games
+      with different `minWordLength` configs, so a chart of it is
+      misleading, not just imprecise — same caveat noted on average/highest
+      score, which are kept anyway as "your own history over time"), and
+      the whole "Play style" section (words stolen/lost, steal ratio,
+      most-stolen-from, longest word chain, avg letters per steal, fastest
+      tile-to-word, head-to-head vs opponent) — some need data not
+      currently persisted (e.g. tile-turn timestamps), others have fuzzy
+      semantics worth designing separately. See docs/decisions.md for the
+      REST-endpoint/CORS/Fastify decisions this story prompted.
 
 ## Settings
 

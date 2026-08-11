@@ -234,14 +234,44 @@
   flex-shrink: 0;
 }
 
+/* Zero-height positioning anchor sitting between .scrollArea and
+   .wordFormDock, exactly matching design-system/In Game.dc.html's own
+   `hasMessage` wrapper (`position:relative` around an absolutely-positioned
+   toast). Zero height because its only child is taken out of flow, so
+   inserting/removing it never changes .scrollArea's size — the toast floats
+   over the bottom of the scrollable content instead of displacing it, so
+   nothing left/right/behind it ever gets pushed or hidden by a reflow. */
+.messageAnchor {
+  position: relative;
+}
+
+/* Positioned/pointer-events per design-system/In Game.dc.html's `hasMessage`
+   block, adapted to sit flush (bottom: 0, not that source's 8px gap) with
+   .messageAnchor's bottom edge — i.e. flush with the top of .wordFormDock,
+   right where the scrollable content ends. Full-width but `pointer-events:
+   none` and no background of its own — this row is purely a centering
+   container, so it's never the thing obscuring content, only .messagePill
+   (its one child) is. */
+.message {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
 /* Matches design-system Toast's dark/ink background + white text — same
    treatment for every tone, since these are routine play-by-play messages,
    not alarms, even the rejection ones (design-system's components/feedback/
    Toast.jsx). Skips that component's tone-colored dot — flat black/white
-   only. */
-.message {
-  align-self: center;
-  margin-bottom: 16px;
+   only. `pointer-events: auto` re-enables interaction on just the pill
+   itself (role="status" lives here) since its transparent .message parent
+   opts everything out by default. */
+.messagePill {
+  pointer-events: auto;
   font-family: var(--font-body);
   font-size: var(--text-sm);
   padding: 11px 16px;

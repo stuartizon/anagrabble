@@ -472,8 +472,12 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
           </div>
 
           {message && (
-            <div role="status" className={styles.message}>
-              {message}
+            <div className={styles.messageAnchor}>
+              <div className={styles.message}>
+                <span role="status" className={styles.messagePill}>
+                  {message}
+                </span>
+              </div>
             </div>
           )}
 

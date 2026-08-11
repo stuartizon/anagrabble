@@ -68,10 +68,12 @@ services:
     # apps/server's own workspace dependency graph, not the whole repo
     # (e.g. apps/web's React/Vite toolchain, which this container never
     # touches).
-    command: [
-      "sh", "-c",
-      "pnpm install --frozen-lockfile --store-dir /pnpm-store --filter @anagrabble/server... && pnpm --filter @anagrabble/server dev",
-    ]
+    command:
+      [
+        "sh",
+        "-c",
+        "pnpm install --frozen-lockfile --store-dir /pnpm-store --filter @anagrabble/server... && pnpm --filter @anagrabble/server dev",
+      ]
     environment:
       # Makes pnpm (and anything else that checks this convention) skip
       # interactive prompts and take the non-interactive default instead —
@@ -121,10 +123,12 @@ services:
       - seed_postgres_node_modules:/repo/packages/postgres/node_modules
       - seed_protocol_node_modules:/repo/packages/protocol/node_modules
       - pnpm-store:/pnpm-store
-    command: [
-      "sh", "-c",
-      "pnpm install --frozen-lockfile --store-dir /pnpm-store --filter @anagrabble/postgres... && pnpm --filter @anagrabble/postgres seed:mock",
-    ]
+    command:
+      [
+        "sh",
+        "-c",
+        "pnpm install --frozen-lockfile --store-dir /pnpm-store --filter @anagrabble/postgres... && pnpm --filter @anagrabble/postgres seed:mock",
+      ]
     environment:
       # See the same var on the server service above — no TTY here either.
       CI: "1"

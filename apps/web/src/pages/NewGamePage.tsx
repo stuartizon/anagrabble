@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useUser } from "@clerk/react";
+import { useUser } from "../auth";
 import type { GameConfig } from "@anagrabble/protocol";
 import { Header } from "../components/Header";
 import { Card } from "../components/Card";

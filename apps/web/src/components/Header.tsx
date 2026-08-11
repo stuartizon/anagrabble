@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Show, useClerk, useUser } from "@clerk/react";
+import { Show, useClerk, useUser } from "../auth";
 import styles from "./Header.module.css";
 import { Wordmark } from "./Wordmark";
 import { getDisplayName } from "../clerkDisplayName";

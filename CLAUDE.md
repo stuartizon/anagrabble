@@ -381,6 +381,12 @@ mechanic without touching anything else.
   actor id at all now, only the verified session. Still open: durable
   Postgres history isn't written at all yet, so games/stats don't actually
   persist against that Clerk id — see the same decisions.md section.
+  `apps/web` never imports `@clerk/react` directly — it goes through
+  `src/auth/`, which swaps in a fully offline mock provider for local dev
+  (`VITE_AUTH_MODE=mock`) so `pnpm dev` needs no internet connection.
+  `apps/server` has a matching `AUTH_MODE=mock` counterpart so gameplay
+  commands work end to end without reaching real Clerk. See
+  docs/decisions.md "Local dev auth: mock provider, not a Clerk sandbox".
 - The header avatar always shows an initial, never Clerk's `UserButton`/
   `UserAvatar` (which would give a real profile photo plus a built-in
   account-management dropdown) — a deliberate call for now, not an

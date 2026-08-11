@@ -19,15 +19,12 @@ let isSignedIn = false;
 // Header (always rendered) pulls SignedIn/SignedOut/useUser/useClerk from
 // the same module — this test only exercises the sign-in/sign-up flow, not
 // the header's account indicator, so those get simple stand-ins.
-vi.mock("@clerk/react", () => ({
+vi.mock("../auth", () => ({
   useAuth: () => ({ isLoaded: true, isSignedIn }),
   Show: ({ when, children }: { when: "signed-in" | "signed-out"; children: ReactNode }) =>
     when === "signed-out" ? <>{children}</> : null,
   useUser: () => ({ isLoaded: true, isSignedIn: false, user: null }),
   useClerk: () => ({ signOut: vi.fn() }),
-}));
-
-vi.mock("@clerk/react/legacy", () => ({
   useSignIn: () => ({
     isLoaded: true,
     signIn: {
@@ -46,6 +43,8 @@ vi.mock("@clerk/react/legacy", () => ({
     },
     setActive: setActiveSignUpMock,
   }),
+  mockUsers: [],
+  quickSignIn: null,
 }));
 
 function renderPage(

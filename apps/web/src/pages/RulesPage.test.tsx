@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { mockSignedOutClerk } from "../testUtils/clerkTestMock";
 import { RulesPage } from "./RulesPage";
 
-vi.mock("@clerk/react", () => mockSignedOutClerk());
+vi.mock("../auth", () => mockSignedOutClerk());
 
 function renderPage() {
   return render(

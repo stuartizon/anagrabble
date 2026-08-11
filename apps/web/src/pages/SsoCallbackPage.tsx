@@ -1,4 +1,4 @@
-import { AuthenticateWithRedirectCallback } from "@clerk/react";
+import { AuthenticateWithRedirectCallback } from "../auth";
 import { PageShell, CenteredContent } from "../components/Layout";
 
 // Clerk redirects here mid-flow after "Continue with Google" (see

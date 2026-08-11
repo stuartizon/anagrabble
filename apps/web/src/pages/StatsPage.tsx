@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useAuth } from "@clerk/react";
+import { useAuth } from "../auth";
 import { Header } from "../components/Header";
 import { Card } from "../components/Card";
 import { LetterTile } from "../components/LetterTile";

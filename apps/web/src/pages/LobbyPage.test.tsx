@@ -14,7 +14,7 @@ vi.mock("../useGameSocket", () => ({
   useGameSocket: (...args: unknown[]) => useGameSocketMock(...args),
 }));
 
-vi.mock("@clerk/react", () => mockSignedInClerk());
+vi.mock("../auth", () => mockSignedInClerk());
 
 vi.mock("../gameId", () => ({
   makeCommandId: () => "cmd-1",

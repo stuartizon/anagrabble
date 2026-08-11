@@ -7,7 +7,7 @@ import { RequireAuth } from "./RequireAuth";
 let isLoaded = true;
 let isSignedIn = false;
 
-vi.mock("@clerk/react", () => ({
+vi.mock("../auth", () => ({
   Show: ({ when, children }: { when: "signed-in" | "signed-out"; children: ReactNode }) =>
     (when === "signed-in") === isSignedIn ? <>{children}</> : null,
   useUser: () => ({ isLoaded, isSignedIn, user: null }),

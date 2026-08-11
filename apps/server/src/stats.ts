@@ -1,5 +1,5 @@
 import { getPlayerStats, type Database, type Kysely, type PlayerStats } from "@anagrabble/postgres";
-import { verifySessionToken } from "./auth.js";
+import { verifyMockSessionToken, verifySessionToken } from "./auth.js";
 
 // Canonical response shape for GET /stats — hand-duplicated (not shared via
 // packages/protocol) in apps/web's fetchPlayerStats.ts. packages/protocol
@@ -78,9 +78,14 @@ export async function handleStatsRequest(
   db: Kysely<Database>,
   clerkSecretKey: string,
   authorizationHeader: string | undefined,
+  authMode?: string,
 ): Promise<StatsRequestResult> {
   const token = parseBearerToken(authorizationHeader);
-  const auth = token ? await verifySessionToken(token, clerkSecretKey) : null;
+  const auth = token
+    ? authMode === "mock"
+      ? verifyMockSessionToken(token)
+      : await verifySessionToken(token, clerkSecretKey)
+    : null;
   if (!auth) {
     return { status: 401, body: { error: "Unauthorized" } };
   }

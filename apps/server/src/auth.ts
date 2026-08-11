@@ -23,6 +23,20 @@ export async function verifySessionToken(
 }
 
 /**
+ * Local-dev/testing counterpart to verifySessionToken, used when
+ * AUTH_MODE=mock (see docs/decisions.md "Local dev auth: mock provider,
+ * not a Clerk sandbox"). No signature check, no network call — trusts the
+ * token string as the user id directly, matching what apps/web's mockAuth
+ * sends as a "token" (its mock `useAuth().getToken()` just returns the
+ * mock session's id). Only ever reachable when a developer explicitly sets
+ * AUTH_MODE=mock locally — never set in Railway, mirroring how
+ * VITE_AUTH_MODE=mock is never set in Vercel.
+ */
+export function verifyMockSessionToken(token: string): AuthResult | null {
+  return token ? { userId: token } : null;
+}
+
+/**
  * The id a command's actor is trusted to be — always the verified Clerk
  * session id, never a client-claimed one. Returns null when this connection
  * has no verified identity (missing/invalid/expired token), meaning the

@@ -1,11 +1,10 @@
 import type { ReactNode } from "react";
 import { vi } from "vitest";
 
-// Shared "signed out" stand-in for @clerk/react, used by page tests that
-// render Header (which always renders AccountStatus, see Header.tsx) but
-// aren't themselves testing auth state. LoginPage.test.tsx mocks
-// @clerk/react and @clerk/react/legacy directly instead, since it exercises
-// the sign-in/sign-up flows those hooks drive.
+// Shared "signed out" stand-in for ../auth, used by page tests that render
+// Header (which always renders AccountStatus, see Header.tsx) but aren't
+// themselves testing auth state. LoginPage.test.tsx mocks ../auth directly
+// instead, since it exercises the sign-in/sign-up flows those hooks drive.
 export function mockSignedOutClerk() {
   return {
     Show: ({ when, children }: { when: "signed-in" | "signed-out"; children: ReactNode }) =>
@@ -36,13 +35,13 @@ let signedInAs: MockClerkIdentity = {
 // Lets a test change who's "signed in" between renders — the functions
 // below read this mutable value on every call, so calling this before
 // render() (e.g. inside a per-test renderAsPlayer helper) is enough,
-// even though the vi.mock("@clerk/react", () => mockSignedInClerk())
+// even though the vi.mock("../auth", () => mockSignedInClerk())
 // factory itself only runs once per file.
 export function setMockClerkIdentity(overrides: Partial<MockClerkIdentity>) {
   signedInAs = { ...signedInAs, ...overrides };
 }
 
-// Shared "signed in" stand-in for @clerk/react — used by pages that are
+// Shared "signed in" stand-in for ../auth — used by pages that are
 // gated on sign-in (RequireAuth) and derive the player id/name straight
 // from useAuth()/useUser() rather than any client-side stub.
 export function mockSignedInClerk() {

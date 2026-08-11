@@ -12,7 +12,7 @@ let user: {
   primaryEmailAddress?: { emailAddress: string } | null;
 } | null = null;
 
-vi.mock("@clerk/react", () => ({
+vi.mock("../auth", () => ({
   Show: ({ when, children }: { when: "signed-in" | "signed-out"; children: ReactNode }) =>
     (when === "signed-in") === isSignedIn ? <>{children}</> : null,
   useUser: () => ({ isLoaded: true, isSignedIn, user }),

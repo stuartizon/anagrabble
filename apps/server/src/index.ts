@@ -24,7 +24,7 @@ import {
 } from "@anagrabble/protocol";
 import { createGame, joinGame, leaveGame, loadLobbySnapshot } from "./lobby.js";
 import { endGame, startGame, submitWord, turnTile } from "./game.js";
-import { resolveActingPlayerId, verifySessionToken } from "./auth.js";
+import { resolveActingPlayerId, verifyMockSessionToken, verifySessionToken } from "./auth.js";
 import { handleStatsRequest } from "./stats.js";
 
 const PORT = Number(process.env.PORT ?? 8080);
@@ -39,10 +39,14 @@ if (!DATABASE_URL) {
   throw new Error("DATABASE_URL is required — see apps/server/.env.example.");
 }
 
+// AUTH_MODE=mock is a local dev/testing-only bypass mirroring apps/web's
+// VITE_AUTH_MODE=mock — never set in Railway. See docs/decisions.md "Local
+// dev auth: mock provider, not a Clerk sandbox".
+const AUTH_MODE = process.env.AUTH_MODE;
 const CLERK_SECRET_KEY = process.env.CLERK_SECRET_KEY;
-if (!CLERK_SECRET_KEY) {
+if (AUTH_MODE !== "mock" && !CLERK_SECRET_KEY) {
   throw new Error(
-    "CLERK_SECRET_KEY is required — every command now needs a verified Clerk session (see docs/decisions.md 'Backend Clerk session verification').",
+    "CLERK_SECRET_KEY is required unless AUTH_MODE=mock — every command now needs a verified Clerk session (see docs/decisions.md 'Backend Clerk session verification').",
   );
 }
 
@@ -200,7 +204,12 @@ fastify.get("/health", async (request, reply) => {
 });
 
 fastify.get("/stats", async (request, reply) => {
-  const result = await handleStatsRequest(db, CLERK_SECRET_KEY, request.headers.authorization);
+  const result = await handleStatsRequest(
+    db,
+    CLERK_SECRET_KEY ?? "",
+    request.headers.authorization,
+    AUTH_MODE,
+  );
   return reply.code(result.status).send(result.body);
 });
 
@@ -246,7 +255,11 @@ wss.on("connection", (socket, req) => {
   // through with an unresolved identity — see docs/decisions.md "Backend
   // Clerk session verification".
   const identityReady: Promise<void> = token
-    ? verifySessionToken(token, CLERK_SECRET_KEY)
+    ? (AUTH_MODE === "mock"
+        ? Promise.resolve(verifyMockSessionToken(token))
+        : // Guaranteed set here: startup throws above unless AUTH_MODE=mock.
+          verifySessionToken(token, CLERK_SECRET_KEY as string)
+      )
         .then((result) => {
           if (result) {
             meta.clerkUserId = result.userId;

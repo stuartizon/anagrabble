@@ -84,22 +84,35 @@ pnpm dev:web
 Each app reads local config from its own `.env` (gitignored; see
 `apps/server/.env.example` / `apps/web/.env.example` for the full list with
 comments). Most values already have a working local default — Redis URL,
-ports — and don't need editing. The one that does need a real value before
-anything will run is Clerk:
+ports — and don't need editing.
+
+**Auth defaults to a fully offline mock** — set `VITE_AUTH_MODE=mock` in
+`apps/web/.env` and `AUTH_MODE=mock` in `apps/server/.env` (both blank by
+default in `.env.example`) and the whole create/join/play loop works with
+zero calls to real Clerk on either side, no Clerk application needed. See
+`docs/decisions.md` "Local dev auth: mock provider, not a Clerk sandbox".
+This is the normal way to run locally.
+
+To instead run against a real (dev) Clerk instance — e.g. to sanity-check
+something mock auth can't exercise, like actual sign-up/password-reset
+flows — blank out both `_MODE` vars and fill in real keys:
 
 - Create a free application at [clerk.com](https://clerk.com) (or reuse an
   existing one).
 - Dashboard → API Keys → copy the **Publishable key** into `apps/web/.env`'s
-  `VITE_CLERK_PUBLISHABLE_KEY`. Not optional — the frontend throws on
-  startup without it.
+  `VITE_CLERK_PUBLISHABLE_KEY`. Required whenever `VITE_AUTH_MODE` isn't
+  `mock` — the frontend throws on startup without it.
 - Copy the **Secret key** into `apps/server/.env`'s `CLERK_SECRET_KEY`. Also
-  not optional — the backend throws on startup without it, since every
-  identity-bearing command is authorized against a verified Clerk session
-  (see `docs/decisions.md` "Backend Clerk session verification").
+  required outside mock mode — the backend throws on startup without it,
+  since every identity-bearing command is authorized against a verified
+  Clerk session (see `docs/decisions.md` "Backend Clerk session
+  verification").
 - Both keys must come from the **same** Clerk application. A mismatch fails
   silently at connect time — the socket just never verifies — though it
   surfaces immediately after: every command comes back `Unauthorized` since
   the connection never got a verified identity.
+- Restart both dev servers after changing any of these — env var changes
+  aren't picked up by hot reload.
 
 Backend listens on `:8080`, frontend on `:5173`. The frontend requires
 `VITE_WS_URL` (`ws://localhost:8080` for local dev) to reach the backend's

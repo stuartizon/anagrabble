@@ -35,6 +35,20 @@
   background: var(--surface-sunken);
 }
 
+.devUsers {
+  margin-bottom: 18px;
+}
+
+.devUserRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.devUserItem {
+  flex: 1;
+}
+
 .divider {
   display: flex;
   align-items: center;

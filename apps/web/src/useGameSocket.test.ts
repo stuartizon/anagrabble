@@ -12,7 +12,7 @@ import { useGameSocket } from "./useGameSocket";
 
 const getTokenMock = vi.fn();
 
-vi.mock("@clerk/react", () => ({
+vi.mock("./auth", () => ({
   useAuth: () => ({ isLoaded: true, isSignedIn: true, userId: "user_1", getToken: getTokenMock }),
 }));
 

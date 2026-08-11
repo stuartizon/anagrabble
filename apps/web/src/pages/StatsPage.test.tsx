@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { mockSignedInClerk } from "../testUtils/clerkTestMock";
 import type { PlayerStatsResponse } from "../fetchPlayerStats";
 
-vi.mock("@clerk/react", () => mockSignedInClerk());
+vi.mock("../auth", () => mockSignedInClerk());
 
 const fetchPlayerStats = vi.fn();
 vi.mock("../fetchPlayerStats", () => ({

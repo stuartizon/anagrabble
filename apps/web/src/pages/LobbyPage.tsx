@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useAuth, useUser } from "@clerk/react";
+import { useAuth, useUser } from "../auth";
 import { Check, Copy } from "lucide-react";
 import { Header } from "../components/Header";
 import { Card } from "../components/Card";

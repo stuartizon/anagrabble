@@ -14,7 +14,7 @@ vi.mock("../gameId", () => ({
   makeCommandId: () => makeCommandIdMock(),
 }));
 
-vi.mock("@clerk/react", () => mockSignedOutClerk());
+vi.mock("../auth", () => mockSignedOutClerk());
 
 const ME: PlayerState = { id: "me-1", name: "Me", words: [], score: 0 };
 const OPPONENT: PlayerState = { id: "opp-1", name: "Sam", words: [], score: 0 };

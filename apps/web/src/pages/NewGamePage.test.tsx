@@ -14,7 +14,7 @@ vi.mock("../useGameSocket", () => ({
   useGameSocket: (...args: unknown[]) => useGameSocketMock(...args),
 }));
 
-vi.mock("@clerk/react", () => mockSignedInClerk());
+vi.mock("../auth", () => mockSignedInClerk());
 
 // gameId is client-generated randomly; fix it so the "navigate once the
 // server confirms" test can match a specific lobby snapshot to it.

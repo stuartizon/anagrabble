@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useAuth } from "@clerk/react";
+import { useAuth } from "./auth";
 import {
   PROTOCOL_VERSION,
   type Command,

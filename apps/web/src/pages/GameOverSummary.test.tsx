@@ -13,7 +13,7 @@ vi.mock("react-router-dom", async () => {
   return { ...actual, useNavigate: () => navigateMock };
 });
 
-vi.mock("@clerk/react", () => mockSignedOutClerk());
+vi.mock("../auth", () => mockSignedOutClerk());
 
 function player(overrides: Partial<PlayerState>): PlayerState {
   return { id: "p", name: "Player", words: [], score: 0, ...overrides };

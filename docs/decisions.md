@@ -1454,6 +1454,101 @@ moving to it would mean either denormalizing (fighting the "sum across a
 player's games" queries this feature needs) or reinventing joins via an
 aggregation pipeline, more awkwardly than SQL already does natively.
 
+## Local dev auth: mock provider, not a Clerk sandbox
+
+**Decision**: `apps/web` never imports `@clerk/react` (or `/legacy`)
+directly — every consumer (`Header.tsx`, `LoginPage.tsx`,
+`SsoCallbackPage.tsx`, `main.tsx`, `RequireAuth.tsx`, `LobbyPage.tsx`,
+`NewGamePage.tsx`, `StatsPage.tsx`, `useGameSocket.ts`,
+`clerkDisplayName.ts`) goes through `src/auth/index.tsx`, which switches at
+build time between `clerkAuth.tsx` (a thin pass-through to real Clerk) and
+`mockAuth.tsx` (a self-contained fake backed by a localStorage-persisted,
+module-level session store) based on `VITE_AUTH_MODE`. Local dev sets
+`VITE_AUTH_MODE=mock` in `apps/web/.env` (gitignored, per-developer);
+deployed environments (Vercel) leave it unset and get real Clerk, unchanged
+from before this existed. Both sides are typed against a hand-rolled
+`AuthModule` interface (`src/auth/types.ts`) covering only the fields this
+app actually touches, rather than Clerk's own types — needed because TS
+can't emit a portable type once Clerk's inferred hook types are unioned
+with a plain mock object (`TS2742`), and it also means the mock never has
+to fake Clerk's full surface, only the corner used here.
+
+`apps/server` has a matching `AUTH_MODE=mock` env var (`src/index.ts`,
+`src/auth.ts`'s `verifyMockSessionToken`), never set in Railway. In that
+mode the server trusts any non-empty session token as its own user id, no
+signature check, no network call — the token is exactly what the mock
+frontend's `useAuth().getToken()` sends (the mock user's id), so a full
+create/join/play loop works end to end with zero calls to real Clerk on
+either side. Without this half, the frontend mock alone wouldn't be enough
+to actually play a game: every identity-bearing command is independently
+re-verified server-side against a real Clerk session (see "Command
+identity: derived from the Clerk session, not client-supplied"), so a fake
+frontend session with no real Clerk JWT would just get every gameplay
+command rejected.
+
+**Context**: local dev started requiring an internet connection once Clerk
+sign-in landed (it didn't before) — every page render now needs to reach
+Clerk's real endpoints just to determine signed-in/out state, and every
+gameplay command needs the server to reach Clerk to verify it. That's a
+regression in dev ergonomics, not something inherent to using Clerk in
+production. It also blocked automated browser-driven testing of any
+signed-in flow (creating/joining/playing a game) without a human standing
+in to complete a real Clerk sign-in first.
+
+**Alternatives considered**: switching the whole app to a self-hostable
+open-source auth provider (Zitadel, Logto, Hanko) so local dev could run a
+real auth server on localhost with no internet. Rejected — that trades a
+dev-only annoyance for a permanent ops burden (running/maintaining an auth
+server in every environment) just to fix local dev, and re-opens the
+"managed vs. self-hosted" tradeoff the Clerk decision above already settled
+deliberately. Also considered a Clerk "sandbox"/test-mode instance — still
+requires network access, so it wouldn't have fixed the actual complaint.
+For the server-side half specifically, a dedicated auth-mock container in
+`infrastructure/docker-compose.yml` (a small fake IdP other services could
+point at) was also considered and rejected on the same grounds: it adds a
+service to run/maintain for no functional gain over a trivial in-process
+token check, since neither side of this design ever talks to a real auth
+server anyway.
+
+**Why this shape**: the mock's `create()`/`authenticateWithRedirect()` calls
+always succeed immediately (no password check, no email verification step)
+— it's exercising `LoginPage`'s UI and interaction flow, not simulating
+Clerk's validation logic. Session state is a module-level singleton
+(mirroring how Clerk's own store works) rather than React context, so every
+consumer sees the same signed-in state without a provider wrapper beyond
+the no-op `AuthProvider` mock — that's what let `main.tsx`,
+`Header.tsx`, etc. stay structurally identical between the two modes.
+
+**Seed user roster** (`src/auth/mockUsers.ts`): a small checked-in list of
+named dev identities (Alice, Bob, Carla, Dev), each just `{ id, email,
+displayName }`. `LoginPage.tsx` renders a one-click "sign in as…" list from
+it (only when non-empty, i.e. only in mock mode) alongside the normal
+form. This exists because this app's interesting flows are multiplayer —
+two or more players in the same lobby/game — and testing that locally
+needs two distinct, recognizable, _stable_ identities available across
+separate browser contexts/tabs, not a fresh randomly-typed email each
+time. A checked-in file rather than any runtime-generated list because
+adding a dev user should be a one-line, PR-reviewable diff, no local state
+to manage; it's plain fixture data, not a secret. Free-form email entry
+(typed into the normal sign-up form) still works alongside it and remains
+deterministic — `mockAuth.tsx`'s `userFromIdentifier` resolves a seeded
+roster email to its fixed identity and derives an ad-hoc one from anything
+else — so two contexts typing the same non-roster email also reliably land
+on the same player, useful for edge cases the fixed roster doesn't cover
+(e.g. a user with no display name).
+
+**Test impact**: `Header.test.tsx`, `LoginPage.test.tsx`, and every page
+test that renders `Header` incidentally, plus `RequireAuth.test.tsx`,
+`useGameSocket.test.ts`, `StatsPage.test.tsx`, `HomePage.test.tsx`,
+`RulesPage.test.tsx` — now `vi.mock("../auth", …)` (or `"./auth"`, per
+relative depth) instead of mocking `@clerk/react`/`@clerk/react/legacy`
+directly. They were already mocking at the module-import boundary, that
+boundary just moved. `apps/server/src/auth.test.ts` covers
+`verifyMockSessionToken` the same way it already covered
+`verifySessionToken` — a pure mapping, no I/O, unit-tested directly.
+
+---
+
 ## Explicitly still open
 
 - **`VITE_API_URL` becoming canonical, `VITE_WS_URL` derived from it.** See

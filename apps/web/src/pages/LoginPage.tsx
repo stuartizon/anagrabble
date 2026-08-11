@@ -2,8 +2,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import type { Location } from "react-router-dom";
-import { useAuth } from "@clerk/react";
-import { useSignIn, useSignUp } from "@clerk/react/legacy";
+import { useAuth, useSignIn, useSignUp, mockUsers, quickSignIn } from "../auth";
 import { Header } from "../components/Header";
 import { Card } from "../components/Card";
 import { Input } from "../components/Input";
@@ -90,13 +89,23 @@ export function LoginPage() {
     setFormError("");
   };
 
-  const signInWithGoogle = () => {
+  const signInWithGoogle = async () => {
     if (!signInLoaded) return;
-    void signIn.authenticateWithRedirect({
-      strategy: "oauth_google",
-      redirectUrl: OAUTH_REDIRECT_URL,
-      redirectUrlComplete: from,
-    });
+    setFormError("");
+    try {
+      await signIn.authenticateWithRedirect({
+        strategy: "oauth_google",
+        redirectUrl: OAUTH_REDIRECT_URL,
+        redirectUrlComplete: from,
+      });
+    } catch (err) {
+      setFormError(errorMessage(err));
+    }
+  };
+
+  const signInAsDevUser = (user: (typeof mockUsers)[number]) => {
+    quickSignIn?.(user);
+    navigate(from, { replace: true });
   };
 
   const submitLogin = async () => {
@@ -354,6 +363,33 @@ export function LoginPage() {
       <CenteredContent>
         <NarrowColumn>
           <Card>
+            {mockUsers.length > 0 && (
+              <>
+                <div className={styles.devUsers}>
+                  <div className={styles.dividerText}>Sign in as (dev)</div>
+                  <div className={styles.devUserRow}>
+                    {mockUsers.map((user) => (
+                      <div key={user.id} className={styles.devUserItem}>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          fullWidth
+                          onClick={() => signInAsDevUser(user)}
+                        >
+                          {user.displayName}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className={styles.divider}>
+                  <span className={styles.dividerLine} />
+                  <span className={styles.dividerText}>or</span>
+                  <span className={styles.dividerLine} />
+                </div>
+              </>
+            )}
             <button type="button" className={styles.googleButton} onClick={signInWithGoogle}>
               <GoogleIcon />
               Continue with Google

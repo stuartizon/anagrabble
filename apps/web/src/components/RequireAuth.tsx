@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { useAuth } from "@clerk/react";
+import { useAuth } from "../auth";
 import { PageShell } from "./Layout";
 import { Header } from "./Header";
 

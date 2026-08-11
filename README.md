@@ -5,6 +5,17 @@ rotating turn timer; any player, at any time, can claim a word formable from the
 revealed tiles, or steal existing claimed words by extending or combining them
 (CAT + S → CAST).
 
+## Environments
+
+| Environment | Frontend                                          | Server / API                                              | Postgres (Neon)                                                                                      | Backend + Redis (Railway)                                                                                                      |
+| ----------- | ------------------------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Dev         | [dev.anagrabble.com](https://dev.anagrabble.com/) | [api-dev.anagrabble.com](https://api-dev.anagrabble.com/) | [console](https://console.neon.tech/app/projects/broad-snow-98083442/branches/br-mute-rain-b2i73gf5) | [console](https://railway.com/project/e8a1a8d9-0c14-4245-ba2c-55542c4793b5?environmentId=8d2e81c0-82fe-4524-b308-28f0a7a5d0f4) |
+| Production  | —                                                 | —                                                         | —                                                                                                    | —                                                                                                                              |
+
+Connection secrets (passwords, API keys) live outside this file — the Neon
+and Railway console links above are auth-gated rather than printing raw
+connection properties, since this repo is public.
+
 ## Status
 
 Lobby, tile-turning, and word submission/stealing are all done end to end:

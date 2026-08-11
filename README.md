@@ -93,6 +93,13 @@ zero calls to real Clerk on either side, no Clerk application needed. See
 `docs/decisions.md` "Local dev auth: mock provider, not a Clerk sandbox".
 This is the normal way to run locally.
 
+The mock roster (Alice/Bob/Charlie/Diana) starts with no history, so
+`/stats` is empty for all of them against a fresh local Postgres. Run
+`pnpm --filter @anagrabble/postgres seed:mock` to backfill a handful of
+completed games for Alice, Bob, and Charlie (Diana is left with none on
+purpose, to check the empty state) — see
+`packages/postgres/scripts/seed-mock-stats.ts`. Safe to re-run.
+
 To instead run against a real (dev) Clerk instance — e.g. to sanity-check
 something mock auth can't exercise, like actual sign-up/password-reset
 flows — blank out both `_MODE` vars and fill in real keys:

@@ -60,5 +60,26 @@ services:
       postgres:
         condition: service_healthy
 
+  # Local dev only, one-shot: seeds mock-alice/bob/charlie with completed
+  # game history so /stats has something to show against a fresh database
+  # (see packages/postgres/scripts/seed-mock-stats.ts) — mock-diana is left
+  # alone on purpose, to check the empty state. Exits once seeding is done;
+  # idempotent, so a rerun on every `docker compose up` just no-ops.
+  # Deliberately its own service rather than something the server service
+  # runs on startup — that binary also runs in production, and this is
+  # dev-only, mock-roster-only data that should never be one conditional
+  # away from running there.
+  seed-mock-stats:
+    build:
+      context: ..
+      dockerfile: apps/server/Dockerfile
+    working_dir: /repo/packages/postgres
+    command: ["pnpm", "seed:mock"]
+    environment:
+      DATABASE_URL: postgres://anagrabble:anagrabble@postgres:5432/anagrabble
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres-data:

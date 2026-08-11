@@ -7,7 +7,8 @@
   "types": "src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "seed:mock": "tsx scripts/seed-mock-stats.ts"
   },
   "dependencies": {
     "@anagrabble/protocol": "workspace:*",
@@ -17,6 +18,7 @@
   "devDependencies": {
     "@testcontainers/postgresql": "^12.1.0",
     "@types/pg": "^8.11.10",
+    "tsx": "^4.19.1",
     "typescript": "^5.6.3",
     "vitest": "^3.2.7"
   }

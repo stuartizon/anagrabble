@@ -28,6 +28,19 @@ services:
       timeout: 3s
       retries: 5
 
+  # Local dev only, for visually inspecting the postgres service's tables —
+  # not part of the deployed stack. Login form at ADMINER_DEFAULT_SERVER,
+  # credentials same as the postgres service above (user/pass/db: anagrabble).
+  adminer:
+    image: adminer
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    ports:
+      - "8081:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   server:
     build:
       context: ..

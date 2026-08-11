@@ -85,14 +85,14 @@ function errorText(
 ): string | null {
   switch (code) {
     case "NotAWord":
-      return `${attemptedWord.toUpperCase()} isn't in the dictionary.`;
+      return `${attemptedWord.toUpperCase()} isn't in the dictionary`;
     case "TooShort":
-      return `Words need to be at least ${minWordLength} letters.`;
+      return `Words need to be at least ${minWordLength} letters`;
     case "NoDecomposition":
     case "StaleState":
-      return "That's not a legal move right now.";
+      return "That's not a legal move";
     case "DerivationBlocked":
-      return "You have to change the root.";
+      return "You have to change the root";
     case "NotYourTurn":
       return null;
     default:
@@ -108,17 +108,30 @@ function playerName(lobby: LobbySnapshot, playerId: string): string {
  * from Sam -> CAST") — `actorLabel` is "You" for the toast (only ever fires
  * for the player who just played, see the gating on its one call site
  * below) and the actual player name for the history panel, since that list
- * is shared and must read correctly for any viewer. Only called a steal
- * when the used word actually belonged to someone else; extending your own
- * word or a fresh pool play both just say "played". */
+ * is shared and must read correctly for any viewer. A play can combine more
+ * than one claimed word (CLAUDE.md: "two or more existing claimed words
+ * combined"), so a steal can pull from multiple opponents at once, or mix
+ * a stolen word with one of the submitter's own — each usedWords entry gets
+ * its own "WORD from Owner" (own words just show the bare word) and the
+ * whole play is called a steal if *any* entry belonged to someone else.
+ * Extending only your own word(s) shows the same "-> result" styling
+ * without "stole"/"from" (e.g. "You played BAD -> BADGE"); a fresh
+ * pool-only play with no prior word just says "played". */
 function describePlay(
   actorLabel: string,
   lobby: LobbySnapshot,
   play: { playerId: string; word: string; usedWords: UsedWord[] },
 ): string {
-  const stolen = play.usedWords.find((w) => w.ownerId !== play.playerId);
-  if (stolen) {
-    return `${actorLabel} stole ${stolen.word} from ${playerName(lobby, stolen.ownerId)} → ${play.word}`;
+  const isSteal = play.usedWords.some((w) => w.ownerId !== play.playerId);
+  if (isSteal) {
+    const parts = play.usedWords.map((w) =>
+      w.ownerId === play.playerId ? w.word : `${w.word} from ${playerName(lobby, w.ownerId)}`,
+    );
+    return `${actorLabel} stole ${parts.join(" + ")} → ${play.word}`;
+  }
+  if (play.usedWords.length > 0) {
+    const origin = play.usedWords.map((w) => w.word).join(" + ");
+    return `${actorLabel} played ${origin} → ${play.word}`;
   }
   return `${actorLabel} played ${play.word}`;
 }

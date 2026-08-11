@@ -203,6 +203,54 @@ describe("GameBoard", () => {
     expect(screen.getByText("You played TAR")).toBeInTheDocument();
   });
 
+  it("narrates the viewer extending their own word, not just the result", () => {
+    renderBoard({
+      wordPlay: {
+        seq: 2,
+        playerId: "me-1",
+        word: "BADGE",
+        usedWords: [{ word: "BAD", ownerId: "me-1" }],
+      },
+    });
+
+    expect(screen.getByText("You played BAD → BADGE")).toBeInTheDocument();
+  });
+
+  it("narrates a steal that combines words from two different opponents", () => {
+    renderBoard({
+      lobby: lobbySnapshot({
+        players: [ME, OPPONENT, { id: "third-1", name: "Ash", words: [], score: 0 }],
+      }),
+      wordPlay: {
+        seq: 2,
+        playerId: "me-1",
+        word: "CATDOG",
+        usedWords: [
+          { word: "CAT", ownerId: "opp-1" },
+          { word: "DOG", ownerId: "third-1" },
+        ],
+      },
+    });
+
+    expect(screen.getByText("You stole CAT from Sam + DOG from Ash → CATDOG")).toBeInTheDocument();
+  });
+
+  it("narrates a steal that combines an opponent's word with the viewer's own", () => {
+    renderBoard({
+      wordPlay: {
+        seq: 2,
+        playerId: "me-1",
+        word: "CATBAD",
+        usedWords: [
+          { word: "CAT", ownerId: "opp-1" },
+          { word: "BAD", ownerId: "me-1" },
+        ],
+      },
+    });
+
+    expect(screen.getByText("You stole CAT from Sam + BAD → CATBAD")).toBeInTheDocument();
+  });
+
   it("does not resurrect a dismissed toast when the lobby snapshot updates afterward (e.g. a tile turn)", () => {
     // Regression test: the toast effect used to depend on the whole `lobby`
     // object, which gets a new reference on every snapshot update (not just
@@ -269,7 +317,7 @@ describe("GameBoard", () => {
       }),
     );
 
-    expect(screen.getByText("XYZZY isn't in the dictionary.")).toBeInTheDocument();
+    expect(screen.getByText("XYZZY isn't in the dictionary")).toBeInTheDocument();
   });
 
   it("correlates a rejection to the word that actually caused it, not whichever was typed most recently", async () => {
@@ -293,8 +341,8 @@ describe("GameBoard", () => {
       }),
     );
 
-    expect(screen.getByText("FIRST isn't in the dictionary.")).toBeInTheDocument();
-    expect(screen.queryByText("SECOND isn't in the dictionary.")).not.toBeInTheDocument();
+    expect(screen.getByText("FIRST isn't in the dictionary")).toBeInTheDocument();
+    expect(screen.queryByText("SECOND isn't in the dictionary")).not.toBeInTheDocument();
   });
 
   it("includes this game's minWordLength in the TooShort message", () => {
@@ -303,7 +351,7 @@ describe("GameBoard", () => {
       error: { code: "TooShort", message: "raw server message" },
     });
 
-    expect(screen.getByText("Words need to be at least 5 letters.")).toBeInTheDocument();
+    expect(screen.getByText("Words need to be at least 5 letters")).toBeInTheDocument();
   });
 
   it("never shows a message for NotYourTurn (only reachable via the background auto-fire race, not a player action)", () => {
@@ -318,14 +366,14 @@ describe("GameBoard", () => {
     // doc comment.
     renderBoard({ error: { code: "StaleState", message: "raw server message" } });
 
-    expect(screen.getByText("That's not a legal move right now.")).toBeInTheDocument();
+    expect(screen.getByText("That's not a legal move")).toBeInTheDocument();
   });
 
   it("shows distinct copy for DerivationBlocked, not the generic 'not a legal move' text", () => {
     renderBoard({ error: { code: "DerivationBlocked", message: "raw server message" } });
 
-    expect(screen.getByText("You have to change the root.")).toBeInTheDocument();
-    expect(screen.queryByText("That's not a legal move right now.")).not.toBeInTheDocument();
+    expect(screen.getByText("You have to change the root")).toBeInTheDocument();
+    expect(screen.queryByText("That's not a legal move")).not.toBeInTheDocument();
   });
 
   it("falls back to the server's message for an unmapped error code", () => {

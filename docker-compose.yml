@@ -92,9 +92,8 @@ services:
       # VITE_AUTH_MODE=mock default. Never set this in a deployed
       # environment.
       AUTH_MODE: mock
-      # CORS origin for the REST surface (/stats and beyond). The web app
-      # normally runs on the host via `pnpm dev:web`, not in this compose
-      # file, so this is the Vite dev server's default port.
+      # CORS origin for the REST surface (/stats and beyond) — the `web`
+      # service below, published on the Vite dev server's default port.
       WEB_ORIGIN: http://localhost:5173
     ports:
       - "8080:8080"
@@ -103,6 +102,37 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: infrastructure/dev.Dockerfile
+    # Same bind-mount + per-workspace node_modules volume pattern as
+    # `server` above, for the same reason — Vite picks up host edits live,
+    # no rebuild needed. Measured before adopting this (see docs/decisions.md
+    # "Dockerizing the frontend dev server"): the old "Docker bind mounts
+    # can't deliver fs events on macOS, so Vite HMR degrades to slow
+    # polling" concern didn't hold on this Docker Desktop version (VirtioFS
+    # bind mounts forward host writes into the container's inotify
+    # promptly) — dockerized HMR-detection latency measured lower than
+    # native macOS FSEvents, not higher.
+    volumes:
+      - .:/repo
+      - web_root_node_modules:/repo/node_modules
+      - web_app_node_modules:/repo/apps/web/node_modules
+      - web_protocol_node_modules:/repo/packages/protocol/node_modules
+      - pnpm-store:/pnpm-store
+    command:
+      [
+        "sh",
+        "-c",
+        "pnpm install --frozen-lockfile --store-dir /pnpm-store --filter @anagrabble/web... && pnpm --filter @anagrabble/web dev",
+      ]
+    environment:
+      # See the same var on the server service above — no TTY here either.
+      CI: "1"
+    ports:
+      - "5173:5173"
 
   # Local dev only, one-shot: seeds mock-alice/bob/charlie with completed
   # game history so /stats has something to show against a fresh database
@@ -146,6 +176,9 @@ volumes:
   server_postgres_node_modules:
   server_protocol_node_modules:
   server_redis_node_modules:
+  web_root_node_modules:
+  web_app_node_modules:
+  web_protocol_node_modules:
   seed_root_node_modules:
   seed_postgres_node_modules:
   seed_protocol_node_modules:

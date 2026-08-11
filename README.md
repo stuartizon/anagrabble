@@ -82,18 +82,17 @@ pnpm install
 # "Environment variables" below
 cp apps/web/.env.example apps/web/.env
 
-# start everything else — Redis, Postgres, and the backend server, already
-# wired to a mock auth mode that needs no real Clerk account — via Docker
+# start everything — Redis, Postgres, the backend server, and the frontend
+# dev server, already wired to a mock auth mode that needs no real Clerk
+# account — via Docker
 docker compose up -d
-
-# run the frontend, in another terminal
-pnpm dev:web
 ```
 
-The `server` container bind-mounts this checkout and runs `tsx watch`, so
-editing `apps/server` or `packages/*` reloads it live — no rebuild needed.
-Only rebuild (`docker compose up -d --build`) when the toolchain itself
-changes (Node/pnpm version, or `infrastructure/dev.Dockerfile`).
+The `server` and `web` containers bind-mount this checkout and run `tsx
+watch`/`vite` respectively, so editing `apps/server`, `apps/web`, or
+`packages/*` reloads live — no rebuild needed. Only rebuild (`docker compose
+up -d --build`) when the toolchain itself changes (Node/pnpm version, or
+`infrastructure/dev.Dockerfile`).
 
 ### Environment variables
 
@@ -136,8 +135,8 @@ file for the `server` service:
   silently at connect time — the socket just never verifies — though it
   surfaces immediately after: every command comes back `Unauthorized` since
   the connection never got a verified identity.
-- Restart `pnpm dev:web` and `docker compose up -d --build server` after
-  changing any of these.
+- Restart both (`docker compose up -d --build web server`) after changing
+  any of these.
 
 Open `http://localhost:5173`, create a game, then open the invite link
 (shown in the lobby) in a second tab/browser to join it — players should

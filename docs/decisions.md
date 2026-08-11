@@ -1549,6 +1549,76 @@ boundary just moved. `apps/server/src/auth.test.ts` covers
 
 ---
 
+## Dockerizing the frontend dev server
+
+**Decision**: `apps/web`'s Vite dev server now runs as a `web` service in
+`docker-compose.yml`, mirroring the `server` service's pattern exactly —
+bind-mounts the checkout, a named volume per workspace member on its
+dependency graph (`web_root_node_modules`, `web_app_node_modules`,
+`web_protocol_node_modules`) so the container's own Linux-installed
+`node_modules` shadow the host's, `pnpm install --filter @anagrabble/web...`
+on every start rather than baked into the image, and publishes port 5173.
+`vite.config.ts`'s `server.host` is now `true` (binds `0.0.0.0` rather than
+the default `localhost`) — required for Docker's port publishing to reach
+the process inside the container at all; harmless for a plain host run,
+just additionally reachable on the LAN. `pnpm dev:web` still works as a
+manual alternative (same as `dev:server` remaining after that service moved
+into Docker) but is no longer the documented path — README's "Getting
+started" is now a single `docker compose up -d` for the whole stack.
+
+**Context**: raised as "we did this for the backend, why not the frontend
+too" — for the backend the answer was structural (needs to be on the same
+Docker network as Redis/Postgres, no real choice). The frontend has no such
+dependency; it only talks to the backend over `localhost:8080`, which works
+identically whether or not that's dockerized. So the only live question was
+whether Docker's bind-mount filesystem layer degrades Vite's HMR badly
+enough on macOS to matter — the standard folklore (osxfs-era Docker Desktop
+couldn't deliver native fs events into a Linux container at all, forcing a
+slow polling fallback) would make this a bad trade.
+
+**Measured, not assumed**: rather than accept or reject that folklore
+secondhand, timed how long a host-side file write took to reach the dev
+server's own change-detected log line (`[vite] hmr update …`), 6 trials
+each, comparing a plain host-run Vite instance against a throwaway
+dockerized one on this machine (Docker Desktop 29.6, VirtioFS bind-mount
+backend — the default since ~4.6, not the old osxfs/gRPC-FUSE backend the
+folklore is about):
+
+|                              | avg    | min    | max    |
+| ---------------------------- | ------ | ------ | ------ |
+| Native Vite (host)           | 116 ms | 100 ms | 134 ms |
+| Dockerized Vite (bind mount) | 22 ms  | 14 ms  | 31 ms  |
+
+The dockerized instance was consistently _faster_, not slower. Best
+explanation: VirtioFS forwards host writes into the container's Linux
+**inotify**, a cheap kernel-level primitive with no inherent batching;
+native macOS file watching goes through **FSEvents**, which is a
+batching/coalescing API by design and isn't built for sub-10ms delivery —
+so the ~100ms native figure isn't Docker-related overhead at all, it's
+roughly FSEvents' normal character. This doesn't mean Docker is
+categorically faster in general — it means the specific "bind mounts can't
+deliver fs events on Mac" objection is stale advice for this Docker Desktop
+version, on this machine. Caveats: single run, 6 trials, one machine, and
+this measures server-side detection+processing latency (log line
+timestamp), not full browser-side HMR (websocket delivery + module
+re-execution, which is identical in both cases since it happens after the
+update is already computed) — treat as a strong signal, not a certified
+benchmark. Worth re-checking if this ever regresses (e.g. a livelier-feeling
+HMR loop reported as sluggish) rather than assuming Docker as the culprit
+by default.
+
+**Alternatives considered**: leaving it host-only (the status quo before
+this decision) — rejected once the latency objection didn't hold up, since
+the remaining upside (one `docker compose up -d` for the entire stack
+instead of a Docker command plus a separate `pnpm dev:web`) was worth
+taking. Also considered: a `docker-compose.override.yml` making it
+optional/toggleable rather than folding it into the base file — rejected as
+unneeded complexity; nothing about running it in Docker is worse than the
+host path now, so there's no real reason to keep both documented as
+first-class options.
+
+---
+
 ## Explicitly still open
 
 - **`VITE_API_URL` becoming canonical, `VITE_WS_URL` derived from it.** See

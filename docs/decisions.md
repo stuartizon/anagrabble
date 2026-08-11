@@ -1398,6 +1398,18 @@ always agree is a real drift risk). Not done in this pass — see
 immediately since `VITE_WS_URL` is presumably already configured in
 deployed environments.
 
+**Both made mandatory (2026-08-11), no localhost default.** Originally
+`VITE_WS_URL`/`VITE_API_URL` silently defaulted to `ws://localhost:8080`/
+`http://localhost:8080` when unset, unlike `VITE_CLERK_PUBLISHABLE_KEY`
+(always throw-on-startup) and every backend var (`REDIS_URL`/
+`DATABASE_URL`/`CLERK_SECRET_KEY`/`WEB_ORIGIN`, same throw-on-startup
+pattern). Raised by the user, who noticed the asymmetry. Changed to
+throw-on-startup like the others: a deployed environment missing the var
+now fails immediately and legibly at boot instead of building a bundle
+that quietly points at `localhost:8080` and only fails once a WS/fetch
+call is attempted at runtime. `apps/web/.env` (local dev) now sets both
+explicitly rather than relying on the removed default.
+
 **Score-over-time chart: dropped, not deferred**, and **average/highest
 score kept despite the same caveat**. Raw score isn't comparable across
 games with different `minWordLength` configs — CLAUDE.md's scoring formula

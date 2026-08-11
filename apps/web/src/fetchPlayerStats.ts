@@ -28,7 +28,8 @@ export interface PlayerStatsResponse {
   recentGames: RecentGame[];
 }
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
+const API_URL = import.meta.env.VITE_API_URL;
+if (!API_URL) throw new Error("VITE_API_URL is not set");
 
 export async function fetchPlayerStats(token: string): Promise<PlayerStatsResponse> {
   const res = await fetch(`${API_URL}/stats`, { headers: { Authorization: `Bearer ${token}` } });

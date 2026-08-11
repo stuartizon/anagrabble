@@ -9,7 +9,8 @@ import {
   type UsedWord,
 } from "@anagrabble/protocol";
 
-const WS_URL = import.meta.env.VITE_WS_URL ?? "ws://localhost:8080";
+const WS_URL = import.meta.env.VITE_WS_URL;
+if (!WS_URL) throw new Error("VITE_WS_URL is not set");
 
 export type SocketStatus = "connecting" | "open" | "closed";
 

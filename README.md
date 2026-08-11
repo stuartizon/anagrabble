@@ -101,12 +101,13 @@ anything will run is Clerk:
   surfaces immediately after: every command comes back `Unauthorized` since
   the connection never got a verified identity.
 
-Backend listens on `:8080`, frontend on `:5173`. The frontend expects
-`VITE_WS_URL` (defaults to `ws://localhost:8080`) to reach the backend's
-WebSocket, and `VITE_API_URL` (defaults to `http://localhost:8080`) for
-its REST endpoints (`/stats` and beyond). The backend's REST surface also
-needs `WEB_ORIGIN` (defaults to `http://localhost:5173` in
-`apps/server/.env.example`) for CORS.
+Backend listens on `:8080`, frontend on `:5173`. The frontend requires
+`VITE_WS_URL` (`ws://localhost:8080` for local dev) to reach the backend's
+WebSocket, and `VITE_API_URL` (`http://localhost:8080` for local dev) for
+its REST endpoints (`/stats` and beyond) — neither has a built-in default;
+both throw on startup if unset, same as `VITE_CLERK_PUBLISHABLE_KEY`. The
+backend's REST surface also needs `WEB_ORIGIN` (defaults to
+`http://localhost:5173` in `apps/server/.env.example`) for CORS.
 
 Open `http://localhost:5173`, create a game, then open the invite link
 (shown in the lobby) in a second tab/browser to join it — players should

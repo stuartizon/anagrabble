@@ -16,7 +16,9 @@
     "@anagrabble/protocol": "workspace:*",
     "@anagrabble/redis": "workspace:*",
     "@clerk/backend": "^3.16.1",
+    "@fastify/cors": "^11.3.0",
     "dotenv": "^17.4.2",
+    "fastify": "^5.11.3",
     "ioredis": "^5.4.1",
     "ws": "^8.18.0"
   },

@@ -2,7 +2,8 @@
 // real environment variables directly in production, where this is a no-op
 // (dotenv doesn't throw when the file is missing).
 import "dotenv/config";
-import { createServer } from "node:http";
+import Fastify from "fastify";
+import cors from "@fastify/cors";
 import { WebSocketServer, WebSocket } from "ws";
 import { createRedisClient } from "@anagrabble/redis";
 import {
@@ -43,6 +44,15 @@ if (!CLERK_SECRET_KEY) {
     "CLERK_SECRET_KEY is required — every command now needs a verified Clerk session (see docs/decisions.md 'Backend Clerk session verification').",
   );
 }
+
+// The web app's origin, for CORS on the REST surface (/stats and beyond) —
+// see docs/decisions.md "REST endpoints beyond /health". Not needed by the
+// WS path (browsers don't apply fetch-style CORS to WebSocket handshakes).
+const WEB_ORIGIN = process.env.WEB_ORIGIN;
+if (!WEB_ORIGIN) {
+  throw new Error("WEB_ORIGIN is required — see apps/server/.env.example.");
+}
+
 const GAME_CHANNEL = "game:events";
 
 const redis = createRedisClient({ url: REDIS_URL });
@@ -172,26 +182,27 @@ function lobbyStateEvent(snapshot: LobbySnapshot): Event {
   return { type: "LobbyState", seq: snapshot.seq, gameId: snapshot.gameId, lobby: snapshot };
 }
 
-const httpServer = createServer((req, res) => {
-  if (req.url === "/health") {
-    redis
-      .ping()
-      .then(() => {
-        res.writeHead(200, { "content-type": "application/json" });
-        res.end(JSON.stringify({ status: "ok", redis: "ok" }));
-      })
-      .catch((err) => {
-        res.writeHead(503, { "content-type": "application/json" });
-        res.end(JSON.stringify({ status: "degraded", redis: "error", error: String(err) }));
-      });
-    return;
-  }
+// apps/server's REST surface (currently just /health and /stats) — see
+// docs/decisions.md "Backend HTTP framework" for why Fastify over raw
+// node:http. @fastify/cors handles preflight/headers for every route
+// registered below, including /stats.
+const fastify = Fastify({ logger: false });
+fastify.register(cors, { origin: WEB_ORIGIN });
 
-  res.writeHead(404);
-  res.end();
+fastify.get("/health", async (request, reply) => {
+  try {
+    await redis.ping();
+    return { status: "ok", redis: "ok" };
+  } catch (err) {
+    return reply.code(503).send({ status: "degraded", redis: "error", error: String(err) });
+  }
 });
 
-const wss = new WebSocketServer({ server: httpServer });
+// Raw `ws` attaches directly to the underlying node http.Server's native
+// `upgrade` event, bypassing Fastify's own route table entirely — same
+// mechanism as before, just reached through Fastify. `fastify.server` is
+// available immediately at construction, not just after listen().
+const wss = new WebSocketServer({ server: fastify.server });
 
 interface SocketMeta {
   gameId?: string;
@@ -496,6 +507,10 @@ wss.on("connection", (socket, req) => {
   });
 });
 
-httpServer.listen(PORT, () => {
-  console.log(`[server] listening on :${PORT}`);
-});
+fastify
+  .listen({ port: PORT, host: "0.0.0.0" })
+  .then((address) => console.log(`[server] listening on ${address}`))
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });

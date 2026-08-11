@@ -1,5 +1,11 @@
-# Build context is the repo root (see infrastructure/docker-compose.yml) so pnpm
-# can resolve the workspace packages this service depends on.
+# The production build — this is what Railway deploys (railway.json points
+# "dockerfilePath" directly at this file). Build context is the repo root
+# (set by railway.json / whoever invokes `docker build`) so pnpm can
+# resolve the workspace packages this service depends on. Not used by
+# local dev's infrastructure/docker-compose.yml, which uses
+# infrastructure/dev.Dockerfile plus a bind-mounted checkout instead, so
+# `tsx watch` sees host edits without needing a rebuild — this file's
+# COPY-based snapshot build is the wrong shape for that.
 FROM node:22-alpine
 
 RUN corepack enable

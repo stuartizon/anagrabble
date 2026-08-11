@@ -1504,7 +1504,7 @@ server in every environment) just to fix local dev, and re-opens the
 deliberately. Also considered a Clerk "sandbox"/test-mode instance — still
 requires network access, so it wouldn't have fixed the actual complaint.
 For the server-side half specifically, a dedicated auth-mock container in
-`infrastructure/docker-compose.yml` (a small fake IdP other services could
+`docker-compose.yml` (a small fake IdP other services could
 point at) was also considered and rejected on the same grounds: it adds a
 service to run/maintain for no functional gain over a trivial in-process
 token check, since neither side of this design ever talks to a real auth

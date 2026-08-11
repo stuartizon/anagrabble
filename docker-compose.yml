@@ -1,0 +1,147 @@
+# Local dev only. Redis is authoritative live game state; Postgres is durable
+# history written after Redis accepts a move (see CLAUDE.md). Production uses
+# Railway (server + Redis) and Neon (Postgres), not this file.
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: anagrabble
+      POSTGRES_PASSWORD: anagrabble
+      POSTGRES_DB: anagrabble
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U anagrabble"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Local dev only, for visually inspecting the postgres service's tables —
+  # not part of the deployed stack. Login form at ADMINER_DEFAULT_SERVER,
+  # credentials same as the postgres service above (user/pass/db: anagrabble).
+  adminer:
+    image: adminer
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    ports:
+      - "8081:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  server:
+    build:
+      context: .
+      dockerfile: infrastructure/dev.Dockerfile
+    # Bind-mounts the live checkout instead of a build-time COPY (see
+    # dev.Dockerfile), so tsx watch picks up host edits with no rebuild.
+    # node_modules gets its own named volumes, one per workspace member on
+    # this service's dependency graph, so the container's own
+    # Linux-installed packages shadow whatever's in the bind-mounted host
+    # node_modules (built for the host's OS/arch) rather than colliding
+    # with it.
+    volumes:
+      - .:/repo
+      - server_root_node_modules:/repo/node_modules
+      - server_app_node_modules:/repo/apps/server/node_modules
+      - server_game_node_modules:/repo/packages/game/node_modules
+      - server_postgres_node_modules:/repo/packages/postgres/node_modules
+      - server_protocol_node_modules:/repo/packages/protocol/node_modules
+      - server_redis_node_modules:/repo/packages/redis/node_modules
+      - pnpm-store:/pnpm-store
+    # Installs on every container start rather than at build time — fast
+    # after the first run since /pnpm-store is a persisted named volume
+    # (pnpm's own content-addressable cache, safe to reuse/share since
+    # that's what it's designed for) and --filter limits the install to
+    # apps/server's own workspace dependency graph, not the whole repo
+    # (e.g. apps/web's React/Vite toolchain, which this container never
+    # touches).
+    command: [
+      "sh", "-c",
+      "pnpm install --frozen-lockfile --store-dir /pnpm-store --filter @anagrabble/server... && pnpm --filter @anagrabble/server dev",
+    ]
+    environment:
+      # Makes pnpm (and anything else that checks this convention) skip
+      # interactive prompts and take the non-interactive default instead —
+      # this container has no TTY to prompt on, so an unanswered prompt
+      # would just hang forever rather than actually failing loudly.
+      CI: "1"
+      PORT: 8080
+      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgres://anagrabble:anagrabble@postgres:5432/anagrabble
+      # From the host shell / .env — see apps/server/.env.example. Unset is
+      # fine: an unverifiable/missing token just means "not signed in".
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:-}
+      # Local dev default — accepts any non-empty session token as its own
+      # user id, no real Clerk needed (see docs/decisions.md "Local dev
+      # auth: mock provider, not a Clerk sandbox"). Matches apps/web's
+      # VITE_AUTH_MODE=mock default. Never set this in a deployed
+      # environment.
+      AUTH_MODE: mock
+      # CORS origin for the REST surface (/stats and beyond). The web app
+      # normally runs on the host via `pnpm dev:web`, not in this compose
+      # file, so this is the Vite dev server's default port.
+      WEB_ORIGIN: http://localhost:5173
+    ports:
+      - "8080:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  # Local dev only, one-shot: seeds mock-alice/bob/charlie with completed
+  # game history so /stats has something to show against a fresh database
+  # (see packages/postgres/scripts/seed-mock-stats.ts) — mock-diana is left
+  # alone on purpose, to check the empty state. Exits once seeding is done;
+  # idempotent, so a rerun on every `docker compose up` just no-ops.
+  # Deliberately its own service rather than something the server service
+  # runs on startup — that binary also runs in production, and this is
+  # dev-only, mock-roster-only data that should never be one conditional
+  # away from running there.
+  seed-mock-stats:
+    build:
+      context: .
+      dockerfile: infrastructure/dev.Dockerfile
+    volumes:
+      - .:/repo
+      - seed_root_node_modules:/repo/node_modules
+      - seed_postgres_node_modules:/repo/packages/postgres/node_modules
+      - seed_protocol_node_modules:/repo/packages/protocol/node_modules
+      - pnpm-store:/pnpm-store
+    command: [
+      "sh", "-c",
+      "pnpm install --frozen-lockfile --store-dir /pnpm-store --filter @anagrabble/postgres... && pnpm --filter @anagrabble/postgres seed:mock",
+    ]
+    environment:
+      # See the same var on the server service above — no TTY here either.
+      CI: "1"
+      DATABASE_URL: postgres://anagrabble:anagrabble@postgres:5432/anagrabble
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  pnpm-store:
+  server_root_node_modules:
+  server_app_node_modules:
+  server_game_node_modules:
+  server_postgres_node_modules:
+  server_protocol_node_modules:
+  server_redis_node_modules:
+  seed_root_node_modules:
+  seed_postgres_node_modules:
+  seed_protocol_node_modules:

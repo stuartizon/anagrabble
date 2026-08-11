@@ -48,12 +48,14 @@ an actor model, why Railway over AWS, why these deployment/hosting picks, etc.).
 ## Repo structure
 
 ```
+docker-compose.yml  Local dev stack — Redis, Postgres, the backend server, a
+                     one-shot mock-stats seed, and Adminer
 apps/server/     Stateless WebSocket/HTTP gateway
 apps/web/        Frontend — React + Vite
 packages/game/   Domain logic: word resolution, steal rules, dictionary validation
 packages/protocol/  Shared TS types: commands, events, WS message shapes
 packages/redis/  Lua scripts + typed Redis client wrapper
-infrastructure/  docker-compose.yml for local dev
+infrastructure/  dev.Dockerfile — the toolchain image docker-compose.yml builds
 design-system/   Claude Design export — reference only, not a build dependency
 docs/            decisions.md, user-stories.md, redis-schema.md
 ```
@@ -65,84 +67,70 @@ Requires Node 22.22.2+, pnpm, and Docker.
 ```bash
 pnpm install
 
-# copy env templates, then fill them in — see "Environment variables" below
-cp apps/server/.env.example apps/server/.env
+# copy the web app's env template, then fill it in if needed — see
+# "Environment variables" below
 cp apps/web/.env.example apps/web/.env
 
-# start Redis + Postgres locally
-docker compose -f infrastructure/docker-compose.yml up redis postgres -d
-
-# run the backend
-pnpm dev:server
+# start everything else — Redis, Postgres, and the backend server, already
+# wired to a mock auth mode that needs no real Clerk account — via Docker
+docker compose up -d
 
 # run the frontend, in another terminal
 pnpm dev:web
 ```
 
+The `server` container bind-mounts this checkout and runs `tsx watch`, so
+editing `apps/server` or `packages/*` reloads it live — no rebuild needed.
+Only rebuild (`docker compose up -d --build`) when the toolchain itself
+changes (Node/pnpm version, or `infrastructure/dev.Dockerfile`).
+
 ### Environment variables
 
-Each app reads local config from its own `.env` (gitignored; see
-`apps/server/.env.example` / `apps/web/.env.example` for the full list with
-comments). Most values already have a working local default — Redis URL,
-ports — and don't need editing.
+`apps/web` reads local config from its own `.env` (gitignored; see
+`apps/web/.env.example` for the full list with comments) — `VITE_WS_URL`
+(`ws://localhost:8080` for local dev) to reach the backend's WebSocket, and
+`VITE_API_URL` (`http://localhost:8080`) for its REST endpoints (`/stats`
+and beyond); neither has a built-in default, both throw on startup if
+unset.
 
-**Auth defaults to a fully offline mock** — set `VITE_AUTH_MODE=mock` in
-`apps/web/.env` and `AUTH_MODE=mock` in `apps/server/.env` (both blank by
-default in `.env.example`) and the whole create/join/play loop works with
-zero calls to real Clerk on either side, no Clerk application needed. See
-`docs/decisions.md` "Local dev auth: mock provider, not a Clerk sandbox".
-This is the normal way to run locally.
+**Auth defaults to a fully offline mock** — `docker-compose.yml` sets the
+backend's `AUTH_MODE=mock`, and `VITE_AUTH_MODE=mock` is `apps/web/.env.example`'s
+default too, so the whole create/join/play loop works with zero calls to
+real Clerk, no Clerk application needed. See `docs/decisions.md` "Local dev
+auth: mock provider, not a Clerk sandbox".
 
 The mock roster (Alice/Bob/Charlie/Diana) starts with no history, so
-`/stats` is empty for all of them against a fresh local Postgres. Run
-`pnpm --filter @anagrabble/postgres seed:mock` to backfill a handful of
-completed games for Alice, Bob, and Charlie (Diana is left with none on
-purpose, to check the empty state) — see
-`packages/postgres/scripts/seed-mock-stats.ts`. Safe to re-run.
+`/stats` is empty for all of them against a fresh database. The
+`seed-mock-stats` container (part of `docker compose up`) backfills a
+handful of completed games for Alice, Bob, and Charlie automatically —
+Diana is left with none on purpose, to check the empty state. See
+`packages/postgres/scripts/seed-mock-stats.ts`. Safe to rerun (idempotent).
 
 To instead run against a real (dev) Clerk instance — e.g. to sanity-check
 something mock auth can't exercise, like actual sign-up/password-reset
-flows — blank out both `_MODE` vars and fill in real keys:
+flows — blank `VITE_AUTH_MODE` in `apps/web/.env` and fill in
+`VITE_CLERK_PUBLISHABLE_KEY`, and on the backend side, `export
+CLERK_SECRET_KEY=...` in your shell before `docker compose up` (it's read
+from the host environment, not a `.env` file — see `${CLERK_SECRET_KEY:-}`
+in `docker-compose.yml`) and change `AUTH_MODE: mock` to blank in that same
+file for the `server` service:
 
 - Create a free application at [clerk.com](https://clerk.com) (or reuse an
   existing one).
-- Dashboard → API Keys → copy the **Publishable key** into `apps/web/.env`'s
-  `VITE_CLERK_PUBLISHABLE_KEY`. Required whenever `VITE_AUTH_MODE` isn't
-  `mock` — the frontend throws on startup without it.
-- Copy the **Secret key** into `apps/server/.env`'s `CLERK_SECRET_KEY`. Also
-  required outside mock mode — the backend throws on startup without it,
-  since every identity-bearing command is authorized against a verified
-  Clerk session (see `docs/decisions.md` "Backend Clerk session
-  verification").
+- Dashboard → API Keys → copy the **Publishable key** into
+  `VITE_CLERK_PUBLISHABLE_KEY` and the **Secret key** into
+  `CLERK_SECRET_KEY`. Both are required outside mock mode — each side
+  throws on startup without its key.
 - Both keys must come from the **same** Clerk application. A mismatch fails
   silently at connect time — the socket just never verifies — though it
   surfaces immediately after: every command comes back `Unauthorized` since
   the connection never got a verified identity.
-- Restart both dev servers after changing any of these — env var changes
-  aren't picked up by hot reload.
-
-Backend listens on `:8080`, frontend on `:5173`. The frontend requires
-`VITE_WS_URL` (`ws://localhost:8080` for local dev) to reach the backend's
-WebSocket, and `VITE_API_URL` (`http://localhost:8080` for local dev) for
-its REST endpoints (`/stats` and beyond) — neither has a built-in default;
-both throw on startup if unset, same as `VITE_CLERK_PUBLISHABLE_KEY`. The
-backend's REST surface also needs `WEB_ORIGIN` (defaults to
-`http://localhost:5173` in `apps/server/.env.example`) for CORS.
+- Restart `pnpm dev:web` and `docker compose up -d --build server` after
+  changing any of these.
 
 Open `http://localhost:5173`, create a game, then open the invite link
 (shown in the lobby) in a second tab/browser to join it — players should
 appear on both sides live.
-
-To build and run everything via Docker instead:
-
-```bash
-docker compose -f infrastructure/docker-compose.yml up
-```
-
-Note the `server` service reads `CLERK_SECRET_KEY` from your host shell
-environment (`${CLERK_SECRET_KEY:-}` in `docker-compose.yml`), not from
-`apps/server/.env` — `export CLERK_SECRET_KEY=...` first, or put it in
-`infrastructure/.env`, if you're using this all-in-Docker path.
 
 ## Testing
 
@@ -163,10 +151,9 @@ cd apps/web && pnpm test:e2e
 
 Runs the Playwright end-to-end suite against the real backend + Redis +
 browser (create a game, join via the invite link, see it live) — not part
-of `pnpm test` since it needs Redis already running (`docker compose -f
-infrastructure/docker-compose.yml up redis -d`) and downloaded browser
-binaries (`pnpm --filter @anagrabble/web exec playwright install
-chromium`).
+of `pnpm test` since it needs the stack already running (`docker compose up
+-d`) and downloaded browser binaries (`pnpm --filter @anagrabble/web exec
+playwright install chromium`).
 
 See `CLAUDE.md` "Testing strategy" for the framework chosen per layer, and
 "Test-driven development" for the red-green-refactor convention this repo

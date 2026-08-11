@@ -16,12 +16,15 @@ players race to submit overlapping words.
 ## Repo structure (monorepo)
 
 ```
+docker-compose.yml  Local dev stack: Redis, Postgres, the backend server
+                     (bind-mounted, hot-reloading), a one-shot mock-stats
+                     seed, and Adminer — see README.md "Getting started"
 apps/server/     Node.js + TypeScript — stateless WebSocket/HTTP gateway
 apps/web/        Frontend — React + Vite, fed by the Claude Design export in design-system/
 packages/game/   Domain logic: word resolution, steal rules, dictionary validation
 packages/protocol/ Shared TS types: commands, events, WS message shapes
 packages/redis/  Lua scripts + typed Redis client wrapper
-infrastructure/  docker-compose.yml for local dev (Node + Redis + Postgres)
+infrastructure/  dev.Dockerfile — the toolchain image docker-compose.yml builds
 design-system/   Claude Design export (tokens, components, screen prototypes)
 docs/            decisions.md, user-stories.md, redis-schema.md
 ```
@@ -329,7 +332,8 @@ mechanic without touching anything else.
   edit under `apps/server`/`apps/web`/`packages/*` takes effect without a
   restart — don't reflexively run `pnpm dev`/`docker compose up`/etc. as
   part of making a change. Check first (e.g. `lsof -i` on the relevant
-  port, or `docker compose ps` for Redis/Postgres) and only start something
+  port, or `docker compose ps` for Redis/Postgres/the server, which now
+  all run via the root `docker-compose.yml`) and only start something
   that's actually down. This isn't just tidiness: leftover processes from
   Claude-started dev servers have previously accumulated as orphaned,
   never-killed background processes. If you do start something because it

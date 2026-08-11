@@ -3,6 +3,7 @@ import { HomePage } from "./pages/HomePage";
 import { RulesPage } from "./pages/RulesPage";
 import { NewGamePage } from "./pages/NewGamePage";
 import { LobbyPage } from "./pages/LobbyPage";
+import { StatsPage } from "./pages/StatsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { SsoCallbackPage } from "./pages/SsoCallbackPage";
 import { RequireAuth } from "./components/RequireAuth";
@@ -23,6 +24,14 @@ export function App() {
         />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/sso-callback" element={<SsoCallbackPage />} />
+        <Route
+          path="/stats"
+          element={
+            <RequireAuth>
+              <StatsPage />
+            </RequireAuth>
+          }
+        />
         <Route
           path="/:gameId"
           element={

@@ -68,6 +68,12 @@
   padding-left: 32px;
 }
 
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .wordTag {
   display: inline-flex;
   align-items: center;

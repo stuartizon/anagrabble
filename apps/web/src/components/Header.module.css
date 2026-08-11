@@ -77,6 +77,14 @@
   color: var(--text-secondary);
 }
 
+.avatarMenuLink {
+  display: block;
+  padding: 10px 14px;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+
 .avatarMenuLogout {
   width: 100%;
   text-align: left;

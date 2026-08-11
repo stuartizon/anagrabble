@@ -84,6 +84,7 @@ describe("Header account status", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Account menu" }));
     expect(screen.getByText("Alex")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Stats" })).toHaveAttribute("href", "/stats");
 
     await userEvent.click(screen.getByRole("button", { name: "Log out" }));
     expect(signOutMock).toHaveBeenCalled();

@@ -79,4 +79,16 @@ describe("GameOverSummary", () => {
     await userEvent.click(screen.getByRole("button", { name: "New game" }));
     expect(navigateMock).toHaveBeenCalledWith("/new");
   });
+
+  it("navigates to the stats page when View your stats is clicked", async () => {
+    const me = player({ id: "me-1", name: "Me", score: 3 });
+    render(
+      <MemoryRouter>
+        <GameOverSummary lobby={lobbySnapshot([me])} playerId="me-1" />
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "View your stats" }));
+    expect(navigateMock).toHaveBeenCalledWith("/stats");
+  });
 });

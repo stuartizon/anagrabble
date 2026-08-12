@@ -20,7 +20,7 @@ export const bagKey = (gameId: string) => `game:{${gameId}}:bag`;
 
 export const CMDS_TTL_SEC = 3600;
 
-export type LobbyError = "GameNotFound" | "GameIdTaken" | "GameAlreadyStarted";
+export type LobbyError = "GameNotFound" | "GameIdTaken" | "GameAlreadyStarted" | "GameAlreadyEnded";
 
 /** The host is, by convention, whoever is first in `players` — set once at
  * creation and never reordered. No separate hostId is persisted; if the
@@ -143,7 +143,7 @@ export async function joinGame(
     };
   }
 
-  if (state.status !== "lobby") return { error: "GameAlreadyStarted" };
+  if (state.status === "ended") return { error: "GameAlreadyEnded" };
 
   const player: PlayerState = {
     id: playerId,
@@ -160,8 +160,8 @@ export async function joinGame(
 }
 
 /** Removes a player from a not-yet-started lobby (called on socket close).
- * No-op (returns null) once the game has started — leaving mid-game doesn't
- * remove you from the game, but "mid-game" isn't implemented yet either. */
+ * No-op (returns null) once the game has started — there's no mid-game
+ * leave yet, only mid-game join (see `joinGame` above). */
 export async function leaveGame(
   redis: Redis,
   gameId: string,

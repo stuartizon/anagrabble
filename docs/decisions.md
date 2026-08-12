@@ -2058,11 +2058,10 @@ right after only waiting on guest's button to appear).
 
 ## Mid-game join: scope decisions
 
-**Decided** (2026-08-12), closing the open questions flagged when this
-story was split out (`docs/user-stories.md` "Core gameplay" — "join a
-game that's already in progress"): cutoff, catch-up scoring, turn-rotation
-handling, and join UX. Not yet built — see "Planned work" below for
-sequencing.
+**Decided and built** (2026-08-12), closing the open questions flagged
+when this story was split out (`docs/user-stories.md` "Core gameplay" —
+"join a game that's already in progress"): cutoff, catch-up scoring,
+turn-rotation handling, and join UX.
 
 - **No cutoff.** A player can join any time `state.status === "playing"`,
   including during the post-bank-empty idle countdown, right up until the
@@ -2101,12 +2100,30 @@ connect gets a full snapshot regardless of when it happens"); the actual
 work is relaxing `joinGame`'s status check and giving that already-visible
 visitor a way to become a real participant.
 
-**Server-side change** (when built): `joinGame`'s
+**Server-side change**: `joinGame`'s
 `if (state.status !== "lobby") return { error: "GameAlreadyStarted" }`
-narrows to reject only `state.status === "ended"`. `GameAlreadyStarted`
-(`packages/protocol/src/ws.ts`) keeps its existing wire name — this
-narrows _when_ it fires, doesn't rename or repurpose it, so no protocol
-version bump needed.
+narrowed to reject only `state.status === "ended"`. Originally kept the
+existing `GameAlreadyStarted` code for this case too (narrowing _when_ it
+fires without renaming it), but that reads backwards once the condition is
+"the game has ended" rather than "the game has started" — flagged in
+review. Added a new `GameAlreadyEnded` code instead (`packages/protocol/
+src/ws.ts`) and use that for this rejection, leaving `GameAlreadyStarted`
+untouched for its original purpose (`apps/server/src/game.ts`'s
+`StartGame` rejecting a second start). A new error-code union member is
+additive, same as a new field or event type — no protocol version bump
+needed. Named `GameAlreadyEnded` rather than reusing the existing
+`GameEnded` _event_ type's name (`GameEndedEvent`, broadcast when the
+post-bank-empty idle countdown expires) — mechanically fine since one's a
+`type` discriminant and the other's a `code`, but confusing to read side
+by side; `GameAlreadyEnded` also mirrors the `GameAlreadyStarted` naming
+convention already in use.
+
+**Client-side change**: `LobbyPage`'s `isUnjoinedGuest` join-prompt branch
+(previously only reachable pre-start) now also fires for
+`status === "playing"`, ahead of the `GameBoard` render — the same Card,
+player list, and Join button as the pre-start lobby view, just with
+"This game's already in progress" copy instead of the share-link/config/
+Start-game furniture that only makes sense pre-start.
 
 ---
 
@@ -2235,26 +2252,24 @@ the what-and-in-what-order view.
    "CreateGame as a REST endpoint" above for what shipped. Was fully
    independent of the other two, as predicted; touched `NewGamePage`,
    `apps/server/src/index.ts`/new `games.ts`, `packages/protocol/src/rest.ts`.
-2. **Mid-game join** (`docs/user-stories.md` "Core gameplay") — see
-   "Mid-game join: scope decisions" above for the four resolved questions.
-   **Depends on nothing blocking** — server-side change is a one-line
-   status-check narrowing in `joinGame`; client-side is a new `LobbyPage`
-   branch reusing the existing `isUnjoinedGuest` pattern. Independent of
-   (1). Touches `apps/server/src/lobby.ts`, `apps/web/src/pages/
-LobbyPage.tsx`, `packages/protocol/src/ws.ts` (`GameAlreadyStarted`'s
-   trigger condition narrows, its shape doesn't change).
+2. **Mid-game join** (`docs/user-stories.md` "Core gameplay") — **done**
+   (2026-08-12), see "Mid-game join: scope decisions" above for the four
+   resolved questions and what shipped. Was independent of (1), as
+   predicted. Touched `apps/server/src/lobby.ts`, `apps/web/src/pages/
+LobbyPage.tsx`, and `packages/protocol/src/ws.ts` (additive: a new
+   `GameAlreadyEnded` error code, added rather than repurposing
+   `GameAlreadyStarted` — see "Mid-game join: scope decisions" above).
 3. **History panel backfill** (`docs/user-stories.md` "Non-functional /
    cross-cutting") — see "Explicitly still open" below for the three
    candidate approaches, not yet decided between. **Depends on its own
    open design decision** (which of the three approaches) being resolved
    before implementation is schedulable — same "raise it when it becomes
    relevant, don't decide speculatively" pattern already used for the
-   Fastify and ws-vs-Socket.IO calls above. Not hard-blocked by (2), but
-   only weakly useful without it today: a reconnecting player already has
-   partial history from before the drop in the common short-gap case; a
-   genuinely new late joiner from (2) has zero history until this lands —
-   the sharper version of the same gap. Sequencing (2) before (3) is
-   recommended, not required.
+   Fastify and ws-vs-Socket.IO calls above. Now the more pressing of the
+   two gaps it was scoped against: a reconnecting player already has
+   partial history from before the drop in the common short-gap case, but
+   a genuinely new late joiner from (2) — now live — has zero history
+   until this lands.
 
 None of these three block each other at the code level — they touch
 different files with no shared surface. The only real dependency is soft:

@@ -190,6 +190,7 @@ export interface ErrorEvent {
     | "GameNotFound"
     | "GameIdTaken"
     | "GameAlreadyStarted"
+    | "GameAlreadyEnded"
     | "GameNotStarted"
     | "NotHost"
     | "NotYourTurn"

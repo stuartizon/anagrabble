@@ -120,13 +120,27 @@ describe("lobby", () => {
       expect(snapshot.players).toHaveLength(2);
     });
 
-    it("rejects joining a game that has already started", async () => {
+    it("allows joining mid-game, appended to the end of players", async () => {
       await createGame(redis, createGameCommand(), HOST_ID);
       await seedGameState(redis, "game-1", (state) => ({ ...state, status: "playing" }));
 
       const result = await joinGame(redis, joinGameCommand(), PLAYER_ID);
 
-      expect(result).toEqual({ error: "GameAlreadyStarted" });
+      expect(result).toMatchObject({
+        isNew: true,
+        player: { id: "player-2", name: "Player Two", score: 0, words: [] },
+      });
+      const { snapshot } = result as { snapshot: LobbySnapshot };
+      expect(snapshot.players.map((p) => p.id)).toEqual(["host-1", "player-2"]);
+    });
+
+    it("rejects joining a game that has already ended", async () => {
+      await createGame(redis, createGameCommand(), HOST_ID);
+      await seedGameState(redis, "game-1", (state) => ({ ...state, status: "ended" }));
+
+      const result = await joinGame(redis, joinGameCommand(), PLAYER_ID);
+
+      expect(result).toEqual({ error: "GameAlreadyEnded" });
     });
   });
 

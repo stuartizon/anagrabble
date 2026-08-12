@@ -159,7 +159,7 @@ describe("LobbyPage", () => {
   });
 
   describe("once the game has started", () => {
-    it("renders the game board instead of the lobby card", () => {
+    it("renders the game board for a joined player", () => {
       mockSocket({
         lobby: lobbySnapshot({
           status: "playing",
@@ -174,6 +174,38 @@ describe("LobbyPage", () => {
 
       expect(screen.getByText("143 tiles left")).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /Start game/ })).not.toBeInTheDocument();
+    });
+
+    it("gates an unjoined guest behind a join prompt instead of the game board", async () => {
+      mockSocket({
+        lobby: lobbySnapshot({
+          status: "playing",
+          players: [HOST],
+          bankCount: 143,
+          pool: ["A"],
+          turnPlayerIndex: 0,
+          turnDeadline: Date.now() + 30_000,
+        }),
+      });
+      renderAsPlayer("guest-1");
+
+      expect(screen.queryByText("143 tiles left")).not.toBeInTheDocument();
+      expect(screen.getByText("This game’s already in progress — join in.")).toBeInTheDocument();
+      expect(screen.getByText("English")).toBeInTheDocument();
+      expect(screen.getByText("3 letters")).toBeInTheDocument();
+      expect(screen.getByText("30s")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Review the rules" })).toBeInTheDocument();
+      const joinButton = screen.getByRole("button", { name: "Join game" });
+      expect(joinButton).toBeEnabled();
+
+      await userEvent.click(joinButton);
+
+      expect(send).toHaveBeenCalledWith({
+        type: "JoinGame",
+        commandId: "cmd-1",
+        gameId: "ABCDE",
+        playerName: "Guest",
+      });
     });
   });
 

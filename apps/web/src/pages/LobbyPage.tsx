@@ -101,6 +101,78 @@ export function LobbyPage() {
     return <GameOverSummary lobby={lobby} playerId={userId!} />;
   }
 
+  const colors = assignPlayerColors(lobby.players, userId!);
+  const isHost = userId === lobby.hostId;
+  const isJoined = lobby.players.some((p) => p.id === userId);
+  const isUnjoinedGuest = !isHost && !isJoined;
+
+  // A guest who opens a mid-game invite link without ever calling JoinGame
+  // is otherwise just as "transport-ready" as anyone else — the WS connect
+  // already hands them a live-updating LobbySnapshot regardless of when it
+  // happens — but they can't do anything with it (apply_submit_word.lua
+  // rejects a submitter who isn't a recognized player). Gate the board
+  // behind the same join prompt the pre-start lobby already uses, rather
+  // than exposing a live read-only spectator view. See docs/decisions.md
+  // "Mid-game join: scope decisions".
+  if (lobby.status === "playing" && isUnjoinedGuest) {
+    return (
+      <PageShell>
+        <Header />
+        <CenteredContent>
+          <NarrowColumn>
+            <Card>
+              <div className={styles.title}>Join this game</div>
+              <div className={styles.subtitle}>This game’s already in progress — join in.</div>
+
+              <div className={styles.configList}>
+                <div className={styles.configRow}>
+                  <span className={styles.configLabel}>Language</span>
+                  <span className={styles.configValue}>{lobby.config.language}</span>
+                </div>
+                <div className={styles.configRow}>
+                  <span className={styles.configLabel}>Minimum word length</span>
+                  <span className={styles.configValue}>{lobby.config.minWordLength} letters</span>
+                </div>
+                <div className={cx(styles.configRow, styles.configRowLastOverride)}>
+                  <span className={styles.configLabel}>Turn timer</span>
+                  <span className={styles.configValue}>{lobby.config.turnTimerSec}s</span>
+                </div>
+              </div>
+
+              <div className={styles.rulesLinkRow}>
+                <RulesLink />
+              </div>
+
+              <div className={styles.playerSection}>
+                <div className={styles.playerSectionLabel}>
+                  {lobby.players.length === 1
+                    ? "1 player at the table"
+                    : `${lobby.players.length} players at the table`}
+                </div>
+                <div className={styles.playerList}>
+                  {lobby.players.map((p) => (
+                    <div key={p.id} className={styles.playerRow}>
+                      <span className={styles.playerDot} style={{ background: colors.get(p.id) }} />
+                      <span className={styles.playerName}>{p.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <Button
+                size="lg"
+                onClick={joinGame}
+                disabled={status !== "open" || joining}
+                fullWidth
+              >
+                {joining ? "Joining…" : "Join game"}
+              </Button>
+            </Card>
+          </NarrowColumn>
+        </CenteredContent>
+      </PageShell>
+    );
+  }
+
   if (lobby.status === "playing") {
     return (
       <GameBoard
@@ -115,10 +187,6 @@ export function LobbyPage() {
     );
   }
 
-  const colors = assignPlayerColors(lobby.players, userId!);
-  const isHost = userId === lobby.hostId;
-  const isJoined = lobby.players.some((p) => p.id === userId);
-  const isUnjoinedGuest = !isHost && !isJoined;
   const host = lobby.players.find((p) => p.id === lobby.hostId);
   const subtitle = isHost
     ? "Send this link to whoever’s playing."

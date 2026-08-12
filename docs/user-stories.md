@@ -75,16 +75,20 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Core gameplay
 
-- [ ] As a player, I can join a game that's already in progress, not just
+- [x] As a player, I can join a game that's already in progress, not just
       before it starts. Split out (2026-08-12) as its own story, distinct
       from the pre-start "join via invite link" story above and from the
       reconnect/resync story below (a returning player who's already
-      seated; this is a genuinely new player being seated mid-game). Today
-      `joinGame` explicitly rejects with `GameAlreadyStarted` once
-      `status !== "lobby"` (`apps/server/src/lobby.ts`). State delivery on
-      connect is already transport-ready for this — every `?game=` connect
-      gets a full `LobbySnapshot` regardless of when it happens — but
-      joining mid-game needs real game-logic decisions this doesn't
+      seated; this is a genuinely new player being seated mid-game). Built
+      2026-08-12: `joinGame` now only rejects (with a new `GameAlreadyEnded`
+      code) once `status === "ended"` (`apps/server/src/lobby.ts`);
+      `LobbyPage` gates the board behind the existing `isUnjoinedGuest`
+      join prompt — extended with the same config/rules-link summary the
+      pre-start lobby shows — for `status === "playing"` too, rather than
+      falling through to `GameBoard` for a non-participant. State delivery
+      on connect was already transport-ready for this — every `?game=`
+      connect gets a full `LobbySnapshot` regardless of when it happens —
+      but joining mid-game needed real game-logic decisions this didn't
       resolve for free: how a late joiner's score/pool access work when
       other players already have claimed words and a head start, whether
       there's a cutoff (e.g. no joins once the bank is nearly empty), and
@@ -93,9 +97,8 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
       "Realtime transport: raw `ws`, not Socket.IO" for why this story's
       existence argued _against_ Socket.IO rather than for it. Scope
       decided 2026-08-12 (cutoff, catch-up scoring, turn rotation, join
-      UX) — see docs/decisions.md "Mid-game join: scope decisions"; not
-      yet implemented, see that file's "Planned work" for sequencing
-      against the other pieces in flight.
+      UX) — see docs/decisions.md "Mid-game join: scope decisions" for the
+      resolved questions and confirmation this landed as scoped.
 
 - [x] As the current player, I can turn over one tile from the bank on my turn.
 - [x] As a player, if the current player's turn timer expires, the turn

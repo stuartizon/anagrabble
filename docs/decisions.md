@@ -1845,6 +1845,54 @@ first-class options.
 
 ---
 
+## Mobile playability audit: icon-button touch targets, not a layout gap
+
+**Decision**: closed out `docs/user-stories.md`'s "As a player on mobile, the
+game is fully playable" story by auditing the built app (not just the design
+mock) end to end at a real mobile viewport (Playwright, iPhone SE width,
+375px) — full two-player flow (home → rules → sign in → create game → second
+player joins → start → turn tiles → submit a word → toast) plus every other
+route (`/settings`, `/stats`, `/login`) checked for horizontal overflow
+(`document.documentElement.scrollWidth` vs. `clientWidth`, all clean) and
+visual inspection. Found no layout or functional blocker — the mobile-specific
+work already landed piecemeal (GameBoard's `useVisualViewportHeight` keyboard
+fix, the mobile menu overlay, `safe-area-inset-bottom` padding, pointer- vs.
+touch-aware refocus/blur on tile-turn and word-submit) had already closed the
+real gaps. The one concrete, verifiable issue: several icon-only buttons
+reachable mid-game on a touchscreen (`GameBoard`'s mobile menu open/close,
+`InviteLinkRow`'s and `LobbyPage`'s copy-link, `RulesModal`'s close) had a
+tappable area of only 16–20px (measured via `boundingBox()`), well under the
+~44px touch-target minimum both WCAG 2.5.5 and Apple's HIG point at — a
+generic web design pattern (`padding: 0` icon buttons) that works fine with a
+mouse cursor but is genuinely harder to hit with a fingertip. Fixed with the
+standard padding + matching-negative-margin technique (12px on the
+more-spacious header/menu buttons, 8px on the tighter invite-link rows) —
+grows the invisible hit box around each icon without moving the icon or
+changing any surrounding layout (verified via before/after screenshot diff:
+pixel-identical).
+
+**Alternatives considered**: leaving these at their design-mock-inherited
+size — rejected since `design-system/In Game.dc.html`'s own bare
+`padding:0` icon buttons were authored mouse-first and never adjusted for
+touch, so matching it exactly here would be inheriting an oversight, not a
+deliberate mobile-specific call. A visible larger tap circle/background (vs.
+an invisible expanded hit box) — rejected as a bigger visual departure from
+the design system's restrained icon treatment than the actual problem (hit
+area, not visual size) called for.
+
+**Why not more**: didn't touch the account-avatar button (34px, already
+reasonably close to the touch-target guideline and would need a visible
+resize rather than an invisible one to grow further, a bigger call than this
+pass was scoped for) or add a "mobile playability" regression test — the
+Playwright script used for this audit was throwaway (viewport + a full
+multiplayer smoke run + touch-target measurements), not integrated into
+`apps/web/e2e/` as a checked-in test, since `pnpm test:e2e`'s existing scope
+is deliberately minimal (see CLAUDE.md's Testing strategy) and this was a
+one-time audit rather than a new interaction needing its own permanent
+coverage.
+
+---
+
 ## Explicitly still open
 
 - **`VITE_API_URL` becoming canonical, `VITE_WS_URL` derived from it.** See

@@ -53,13 +53,19 @@
 }
 
 /* Mirrors .sidebar's breakpoint in reverse — the sidebar's content is
-   reachable via this button once the aside itself is hidden. */
+   reachable via this button once the aside itself is hidden. Padding +
+   matching negative margin grows the tappable area around the 20px icon
+   toward a real touch target (WCAG/Apple HIG both point at ~44px) without
+   moving the icon itself or growing the header row — the negative margin
+   cancels the padding's contribution to layout, so this only affects hit
+   area, not what's visually drawn. */
 .menuButton {
   display: flex;
   align-items: center;
   background: none;
   border: none;
-  padding: 0;
+  padding: 12px;
+  margin: -12px;
   cursor: pointer;
 }
 
@@ -114,11 +120,13 @@
   color: var(--ink);
 }
 
+/* Same touch-target expansion as .menuButton above. */
 .menuCloseButton {
   display: flex;
   background: none;
   border: none;
-  padding: 0;
+  padding: 12px;
+  margin: -12px;
   cursor: pointer;
 }
 

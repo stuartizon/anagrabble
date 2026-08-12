@@ -47,10 +47,15 @@
   white-space: nowrap;
 }
 
+/* Padding + matching negative margin grows the tappable area around the
+   18px icon toward a real touch target without moving the icon or growing
+   .shareLinkRow — see GameBoard.module.css's .menuButton for the same
+   technique. */
 .copyButton {
   background: none;
   border: none;
-  padding: 0;
+  padding: 8px;
+  margin: -8px;
   cursor: pointer;
   display: flex;
   flex-shrink: 0;

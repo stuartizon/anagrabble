@@ -24,9 +24,11 @@ turn tiles from the bank (auto-advancing if a turn timer expires), claim/
 steal words, see a running play history (desktop-only), and the game
 auto-ends after a 60s idle period once the bank runs dry, landing on a
 ranked game-over summary — through real WebSocket/Redis state (no mocked
-data), verified in a real browser against the real backend. See
+data), verified in a real browser against the real backend. Verified
+playable end to end on a real mobile viewport too (menu overlay in place of
+the desktop sidebar, keyboard-safe layout, touch-sized tap targets) — see
 `docs/user-stories.md` for exact scope and what's still missing
-(connection-drop resync, full mobile playability). Sign-up/log-in
+(connection-drop resync is the remaining non-functional story). Sign-up/log-in
 (email/password + Google, via Clerk, including password reset) gates
 gameplay — creating or joining a game requires being signed in, and
 player identity is the Clerk user id/account name, not a local stub. See

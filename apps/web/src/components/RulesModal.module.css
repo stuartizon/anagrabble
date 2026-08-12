@@ -54,11 +54,16 @@
   color: var(--ink);
 }
 
+/* Padding + matching negative margin grows the tappable area around the
+   20px icon toward a real touch target without moving the icon or growing
+   .header — see GameBoard.module.css's .menuButton for the same
+   technique. */
 .closeButton {
   display: flex;
   background: none;
   border: none;
-  padding: 0;
+  padding: 12px;
+  margin: -12px;
   cursor: pointer;
 }
 

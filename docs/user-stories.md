@@ -184,8 +184,21 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
 - [ ] As a player, if my connection drops and reconnects mid-game, I see the
       correct current state (seq-based resync, no silent drift).
-- [ ] As a player on mobile, the game is fully playable (design system has
-      responsive rail/menu treatment already specified).
+- [x] As a player on mobile, the game is fully playable (design system has
+      responsive rail/menu treatment already specified). Audited end to end
+      at a real mobile viewport (Playwright, iPhone SE width): full
+      two-player create/join/start/turn/play flow, every other route
+      checked for horizontal overflow — no layout or functional blocker
+      found (the mobile-specific work landed piecemeal already covered the
+      real gaps: keyboard-safe viewport height, the menu overlay,
+      safe-area-inset padding, touch- vs. pointer-aware input refocus). Did
+      find and fix one concrete issue: several icon-only buttons reachable
+      mid-game (mobile menu open/close, both copy-link buttons, the rules
+      modal's close button) had a 16–20px tappable area, well under the
+      ~44px touch-target guideline — grown via an invisible padding +
+      negative-margin hit-area expansion, no visual change. See
+      docs/decisions.md "Mobile playability audit: icon-button touch
+      targets, not a layout gap".
 
 ## Explicitly out of scope for MVP
 

@@ -188,6 +188,15 @@ when that environment is actually provisioned (a separate Railway
 environment already exists named `production`; Vercel would need a
 `--prod`/`--target=production` variant) is future work, not done here.
 
+**`dev.anagrabble.com` is re-aliased explicitly in CI, not via Vercel's
+branch-to-domain GUI setting**: the `Deploy` step captures the fresh
+deployment URL to `$GITHUB_OUTPUT` (`vercel deploy --prebuilt` prints it to
+stdout) and a follow-up `vercel alias set <url> dev.anagrabble.com` step
+points the domain at it. Vercel's dashboard also offers a native "assign
+this domain to deployments from branch X" setting that would do this
+automatically without a CI step, but that flow wasn't usable from the GUI in
+this project, hence the explicit alias step instead.
+
 **Why a custom workflow over each platform's native "wait for CI" toggle**:
 both Railway (Settings → Source) and Vercel (Settings → Git) have a built-in
 setting that holds their push-triggered deploy until the commit's GitHub
@@ -203,11 +212,7 @@ new workflow job and can still ship an unreviewed commit first. Railway:
 Settings → Source → disable automatic deploys for the `development`
 environment's service. Vercel: Settings → Git → disable automatic
 deployments (or otherwise stop the Git integration from redeploying on every
-push to `main`, since that's the branch this job now also deploys from). Also
-worth confirming in Vercel's dashboard that `dev.anagrabble.com` is aliased
-to Preview deployments from the `main` branch (Settings → Domains) — a plain
-`vercel deploy` without `--prod` only lands on that domain if that alias is
-already configured; otherwise it only gets a random `*.vercel.app` URL. The
+push to `main`, since that's the branch this job now also deploys from). The
 five secrets above must exist in the repo's GitHub Actions secrets before the
 new jobs can run.
 

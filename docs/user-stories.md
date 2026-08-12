@@ -91,7 +91,11 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
       how the history panel's past plays reach them (tracked separately,
       see "History panel backfill" below). See docs/decisions.md
       "Realtime transport: raw `ws`, not Socket.IO" for why this story's
-      existence argued _against_ Socket.IO rather than for it.
+      existence argued _against_ Socket.IO rather than for it. Scope
+      decided 2026-08-12 (cutoff, catch-up scoring, turn rotation, join
+      UX) — see docs/decisions.md "Mid-game join: scope decisions"; not
+      yet implemented, see that file's "Planned work" for sequencing
+      against the other pieces in flight.
 
 - [x] As the current player, I can turn over one tile from the bank on my turn.
 - [x] As a player, if the current player's turn timer expires, the turn
@@ -232,7 +236,9 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
       all (purely client-accumulated from events seen live, see
       docs/decisions.md "History panel is client-side only"). Candidate
       approaches captured but not decided in docs/decisions.md
-      "Explicitly still open" — resolve deliberately when picked up.
+      "Explicitly still open" — resolve deliberately when picked up. See
+      that file's "Planned work" (2026-08-12) for how this sequences
+      against mid-game join and the CreateGame-as-REST piece.
 - [x] As a player on mobile, the game is fully playable (design system has
       responsive rail/menu treatment already specified). Audited end to end
       at a real mobile viewport (Playwright, iPhone SE width): full

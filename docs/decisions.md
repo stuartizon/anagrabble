@@ -2032,6 +2032,149 @@ right after only waiting on guest's button to appear).
 
 ---
 
+## Mid-game join: scope decisions
+
+**Decided** (2026-08-12), closing the open questions flagged when this
+story was split out (`docs/user-stories.md` "Core gameplay" — "join a
+game that's already in progress"): cutoff, catch-up scoring, turn-rotation
+handling, and join UX. Not yet built — see "Planned work" below for
+sequencing.
+
+- **No cutoff.** A player can join any time `state.status === "playing"`,
+  including during the post-bank-empty idle countdown, right up until the
+  game actually ends (`status === "ended"`, which stays rejected).
+  Considered gating on `bankCount === 0` as a natural "winding down"
+  signal, but decided against restricting when someone's allowed to join.
+- **No catch-up mechanism.** A late joiner starts at `score: 0`,
+  `words: []` — identical shape to a lobby-phase join, no bonus points or
+  extra revealed letters. The existing steal-tiebreak (prefers stealing
+  from the highest-scoring player, CLAUDE.md "Word formability") already
+  provides mild rubber-banding; no new mechanic for MVP.
+- **Turn rotation needs no code change.** `joinGame`
+  (`apps/server/src/lobby.ts`) already appends new players to the end of
+  `state.players` — true today for lobby-phase joins, and nothing about
+  mid-game join needs that to differ. `turnPlayerIndex` (a numeric index)
+  is untouched for every existing player; a late joiner enters the
+  rotation on its next natural lap, no special insertion logic needed.
+- **Join UX: gate the board behind joining.** Extends the pattern
+  `LobbyPage` already uses for an unjoined guest in the lobby phase
+  (`isUnjoinedGuest`, "You're invited — join in") to the
+  `status === "playing"` branch, rather than exposing a live read-only
+  spectator view with a join banner overlaid on `GameBoard` — simpler, and
+  consistent with the existing pre-start pattern rather than inventing a
+  second one.
+
+**Discovered while scoping this**: today, _before_ this story lands, a
+signed-in user who opens a mid-game invite link without ever calling
+`JoinGame` already sees the live `GameBoard` update in real time —
+`LobbyPage` renders `GameBoard` for `status === "playing"` with no check
+that the visitor is in `lobby.players`. They just can't do anything:
+`apply_submit_word.lua` already correctly rejects with `PlayerNotFound` if
+the submitter isn't a recognized player. This story closes that gap rather
+than opening a new one — the read path was already "transport-ready" (per
+"Realtime transport: raw `ws`, not Socket.IO" above, "every `?game=`
+connect gets a full snapshot regardless of when it happens"); the actual
+work is relaxing `joinGame`'s status check and giving that already-visible
+visitor a way to become a real participant.
+
+**Server-side change** (when built): `joinGame`'s
+`if (state.status !== "lobby") return { error: "GameAlreadyStarted" }`
+narrows to reject only `state.status === "ended"`. `GameAlreadyStarted`
+(`packages/protocol/src/ws.ts`) keeps its existing wire name — this
+narrows _when_ it fires, doesn't rename or repurpose it, so no protocol
+version bump needed.
+
+---
+
+## CreateGame as a REST endpoint
+
+**Proposed** (2026-08-12, not yet built) — raised by the user while
+reviewing `NewGamePage`: move `CreateGame` off the WS command/event pair
+onto `POST /games`, plain HTTP/JSON, matching the `/stats`/`/settings`
+precedent (see "REST endpoints beyond `/health`" above).
+
+**Why now, when gameplay was originally built entirely on WS**: at the
+time, no REST surface existed at all — that arrived later, for `/stats`.
+Worth reapplying that decision's own criterion ("no live/real-time
+requirement") to `CreateGame` specifically: unlike `JoinGame`/`StartGame`/
+`TurnTile`/`SubmitWord`/`EndGame`, there is no other connected client to
+broadcast to, since the game doesn't exist for anyone else yet.
+
+**What's actually wrong with the status quo**: `NewGamePage` opens a bare
+WS connection (`useGameSocket()`, no `gameId`) purely to have a channel to
+send one command over, disabling "Create game" until that handshake
+completes (`status !== "open"`). Once the resulting snapshot arrives, it
+navigates to `/:gameId`, where `LobbyPage` opens a second, fully
+independent WS connection. Creating a game opens two sockets today; the
+first is discarded after sending exactly one message.
+
+**Why this slots in cleanly, not as new architecture**: `/stats`/
+`/settings` already established the pattern a `POST /games` handler needs
+— a thin Fastify handler that verifies the Clerk Bearer token itself
+(`handleStatsRequest(db, CLERK_SECRET_KEY, authHeader, AUTH_MODE)`),
+independent of the WS connection's own token-in-query-param verification.
+`lobby.ts`'s `createGame(redis, cmd, hostId)` is already WS-agnostic — a
+REST handler would call the exact same function, just resolving `hostId`
+from the Bearer header instead of `meta.clerkUserId`. Zero business-logic
+duplication.
+
+**Mechanical bits**: CORS is currently locked to `["GET", "HEAD", "PUT"]`
+(`apps/server/src/index.ts`) — no `POST` yet, needs adding deliberately
+(this file already has a note above about `PUT` itself silently missing
+from Fastify's CORS default until it caused a real browser failure — same
+class of gotcha, now known in advance). A new `CreateGameRequest`/response
+DTO in `packages/protocol/src/rest.ts`, following the existing
+`PlayerStatsResponse`/`PlayerSettingsResponse` precedent (additive-only,
+not versioned via `PROTOCOL_VERSION`).
+
+**Scope call**: `JoinGame`/`StartGame`/`TurnTile`/`SubmitWord`/`EndGame`
+stay on WS — they need to notify already-connected clients, and the lobby
+page's socket is open anyway regardless.
+
+---
+
+## Planned work (2026-08-12): task breakdown and dependencies
+
+Three pieces of work were scoped in the same conversation, agreed as
+"meaty, not all in one go" — this is the dependency map, so a future
+session doesn't have to reconstruct it from prose scattered across this
+file. See the sections above for the reasoning behind each; this is just
+the what-and-in-what-order view.
+
+1. **`CreateGame` as a REST endpoint** — see "CreateGame as a REST
+   endpoint" above. **Depends on nothing.** Fully independent of the other
+   two; touches `NewGamePage`, `apps/server/src/index.ts`/`lobby.ts`,
+   `packages/protocol/src/rest.ts`. Safe to pick up first, last, or in
+   parallel with either of the below.
+2. **Mid-game join** (`docs/user-stories.md` "Core gameplay") — see
+   "Mid-game join: scope decisions" above for the four resolved questions.
+   **Depends on nothing blocking** — server-side change is a one-line
+   status-check narrowing in `joinGame`; client-side is a new `LobbyPage`
+   branch reusing the existing `isUnjoinedGuest` pattern. Independent of
+   (1). Touches `apps/server/src/lobby.ts`, `apps/web/src/pages/
+LobbyPage.tsx`, `packages/protocol/src/ws.ts` (`GameAlreadyStarted`'s
+   trigger condition narrows, its shape doesn't change).
+3. **History panel backfill** (`docs/user-stories.md` "Non-functional /
+   cross-cutting") — see "Explicitly still open" below for the three
+   candidate approaches, not yet decided between. **Depends on its own
+   open design decision** (which of the three approaches) being resolved
+   before implementation is schedulable — same "raise it when it becomes
+   relevant, don't decide speculatively" pattern already used for the
+   Fastify and ws-vs-Socket.IO calls above. Not hard-blocked by (2), but
+   only weakly useful without it today: a reconnecting player already has
+   partial history from before the drop in the common short-gap case; a
+   genuinely new late joiner from (2) has zero history until this lands —
+   the sharper version of the same gap. Sequencing (2) before (3) is
+   recommended, not required.
+
+None of these three block each other at the code level — they touch
+different files with no shared surface. The only real dependency is soft:
+(3) is more valuable once (2) exists, and (3) itself needs a design
+decision made before it's schedulable at all, the same way (2)'s four
+questions needed resolving in conversation before _it_ was schedulable.
+
+---
+
 ## Explicitly still open
 
 - **Heartbeat/liveness detection for a silently-dead WS connection** — not

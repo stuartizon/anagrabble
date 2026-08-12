@@ -17,7 +17,18 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Install Railway CLI
-        run: npm install -g @railway/cli
+        run: |
+          n=0
+          until [ "$n" -ge 3 ]; do
+            npm install -g @railway/cli && break
+            n=$((n + 1))
+            echo "npm install failed (attempt $n/3), retrying in 5s..."
+            sleep 5
+          done
+          if [ "$n" -ge 3 ]; then
+            echo "npm install failed after 3 attempts"
+            exit 1
+          fi
 
       - name: Deploy to Railway
         run: railway up --service "$RAILWAY_SERVICE_ID" --environment production --ci

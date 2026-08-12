@@ -4,6 +4,7 @@ import { RulesPage } from "./pages/RulesPage";
 import { NewGamePage } from "./pages/NewGamePage";
 import { LobbyPage } from "./pages/LobbyPage";
 import { StatsPage } from "./pages/StatsPage";
+import { SettingsPage } from "./pages/SettingsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { SsoCallbackPage } from "./pages/SsoCallbackPage";
 import { RequireAuth } from "./components/RequireAuth";
@@ -29,6 +30,14 @@ export function App() {
           element={
             <RequireAuth>
               <StatsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <RequireAuth>
+              <SettingsPage />
             </RequireAuth>
           }
         />

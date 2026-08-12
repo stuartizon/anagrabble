@@ -1,0 +1,33 @@
+.track {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  padding: 0;
+  border-radius: var(--radius-pill);
+  border: none;
+  background: var(--neutral-500);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 140ms ease-out;
+}
+
+.track[data-checked] {
+  background: var(--accent);
+}
+
+.thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-sm);
+  transition: left 140ms ease-out;
+}
+
+.track[data-checked] .thumb {
+  left: 18px;
+}

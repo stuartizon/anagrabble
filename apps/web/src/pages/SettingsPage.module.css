@@ -1,0 +1,38 @@
+.title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-xl);
+  color: var(--ink);
+  margin-bottom: 20px;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.switchRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.switchLabel {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--ink);
+}
+
+.switchLabelHint {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.saveError {
+  margin-top: 16px;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--error);
+}

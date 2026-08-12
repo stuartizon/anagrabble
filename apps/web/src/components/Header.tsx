@@ -27,9 +27,7 @@ export function Header({ children }: { children?: ReactNode }) {
 
 // Matches design-system/New Game.dc.html's header avatar: a round
 // accent-green button showing the user's initial, opening a small dropdown
-// (name/email, Stats, Log out) on click. The design's dropdown also has a
-// Settings link — left out here since that page doesn't exist yet (a
-// separate, not-yet-started user story).
+// (name/email, Stats, Settings, Log out) on click.
 function AccountStatus() {
   const { signOut } = useClerk();
   const { user } = useUser();
@@ -73,6 +71,13 @@ function AccountStatus() {
                 onClick={() => setMenuOpen(false)}
               >
                 Stats
+              </Link>
+              <Link
+                to="/settings"
+                className={styles.avatarMenuLink}
+                onClick={() => setMenuOpen(false)}
+              >
+                Settings
               </Link>
               <button type="button" className={styles.avatarMenuLogout} onClick={() => signOut()}>
                 Log out

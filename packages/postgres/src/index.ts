@@ -20,3 +20,9 @@ export {
   type PlayerStats,
   type GetPlayerStatsOptions,
 } from "./stats.js";
+export {
+  getPlayerSettings,
+  upsertPlayerSettings,
+  DEFAULT_PLAYER_SETTINGS,
+  type PlayerSettings,
+} from "./settings.js";

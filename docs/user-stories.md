@@ -163,8 +163,22 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Settings
 
-- [ ] As a player, I can change interface language, sound, and haptics preferences
-      (persisted per-user, not per-game).
+- [x] As a player, I can change interface language, sound, and haptics preferences
+      (persisted per-user, not per-game). `SettingsPage` at `/settings`
+      (`RequireAuth`-gated), reachable from the header account dropdown.
+      Backed by new `GET`/`PUT /settings` endpoints and
+      `packages/postgres`'s `player_settings` query layer (the table
+      already existed, unused, from the original Postgres schema work).
+      Scoped down from design-system/`Settings.dc.html`'s full mock, which
+      also has a name/email/password "profile" section — left out, that's
+      Clerk account-management territory, not this story (same
+      scoping-down precedent as Stats dropping its mock's "Play style"
+      section). Interface language is persisted but only "English" is
+      selectable today — the preference round-trips through Postgres, but
+      nothing in the app is actually localized yet (word input stays
+      English-only). Each control (language select, sound/haptics
+      switches) saves immediately on change, no separate Save button — see
+      docs/decisions.md.
 
 ## Non-functional / cross-cutting
 

@@ -151,10 +151,14 @@ decisions worth recording here rather than only in code comments:
 
 ### `player_settings`
 
-Per-Clerk-user app preferences (language, sound, haptics — the still-open
-Settings user story), keyed directly on `clerk_user_id`. Provisioning
-(lazy-upsert-on-first-save vs. a Clerk `user.created` webhook) is not yet
-decided — see "Known limitations" below.
+Per-Clerk-user app preferences (language, sound, haptics — see
+docs/user-stories.md "Settings"), keyed directly on `clerk_user_id`.
+Provisioning is lazy upsert on first settings save — no row exists until a
+player saves once; `GET /settings` returns the table's own column defaults
+in that case (`packages/postgres/src/settings.ts`'s
+`DEFAULT_PLAYER_SETTINGS`, kept in sync by hand with the schema below). See
+docs/decisions.md "Settings: player_settings provisioning" for why this was
+chosen over a Clerk `user.created` webhook.
 
 ## Known limitations (deliberate, MVP-scope)
 
@@ -167,12 +171,6 @@ decided — see "Known limitations" below.
   queued or retried. Acceptable at current scale (few concurrent games);
   revisit (e.g. an outbox pattern) if silently-missing history rows ever
   becomes a real problem.
-- **`player_settings` provisioning is undecided** — lazy upsert on first
-  settings save vs. a Clerk `user.created` webhook creating the row
-  proactively. Webhooks are more robust (row exists before it's needed,
-  handles account deletion cleanly via `user.deleted`) but are a small
-  piece of new infra (an endpoint Clerk calls) not yet built. Decide when
-  the Settings story is picked up.
 - **`TileTurned`/lobby events write nothing to Postgres.** `TileTurned` is
   pure random-reveal noise (up to 144 rows/game) with no stat value;
   `PlayerJoined`/`PlayerLeft`/`GameStarted` are lobby-level and whatever

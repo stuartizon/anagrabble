@@ -25,8 +25,8 @@ steal words, see a running play history (desktop-only), and the game
 auto-ends after a 60s idle period once the bank runs dry, landing on a
 ranked game-over summary — through real WebSocket/Redis state (no mocked
 data), verified in a real browser against the real backend. See
-`docs/user-stories.md` for exact scope and what's still missing (settings
-persistence). Sign-up/log-in
+`docs/user-stories.md` for exact scope and what's still missing
+(connection-drop resync, full mobile playability). Sign-up/log-in
 (email/password + Google, via Clerk, including password reset) gates
 gameplay — creating or joining a game requires being signed in, and
 player identity is the Clerk user id/account name, not a local stub. See
@@ -38,7 +38,9 @@ plays, final scores) is now written after every accepted `StartGame`/
 `docs/postgres-schema.md`. A player can view their own stats across past
 games at `/stats` (games played, wins, win rate, average/highest score,
 longest word, win streak, lifetime totals, average game length),
-computed from that same durable history — see `docs/user-stories.md`.
+computed from that same durable history — see `docs/user-stories.md`. A
+player can also set interface language/sound/haptics preferences at
+`/settings`, persisted per-account in Postgres (`player_settings`).
 
 ## Stack
 

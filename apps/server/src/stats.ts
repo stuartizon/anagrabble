@@ -1,36 +1,6 @@
 import { getPlayerStats, type Database, type Kysely, type PlayerStats } from "@anagrabble/postgres";
+import type { PlayerStatsResponse } from "@anagrabble/protocol";
 import { verifyMockSessionToken, verifySessionToken } from "./auth.js";
-
-// Canonical response shape for GET /stats — hand-duplicated (not shared via
-// packages/protocol) in apps/web's fetchPlayerStats.ts. packages/protocol
-// is scoped to the WS wire protocol (versioned via PROTOCOL_VERSION under
-// CLAUDE.md's expand/contract rules); a plain GET response is neither a
-// Command nor an Event and shouldn't participate in that versioning
-// discipline. See docs/decisions.md for the fuller reasoning.
-export interface RecentGame {
-  gameId: string;
-  endedAt: string; // ISO 8601
-  placement: number;
-  playerCount: number;
-  score: number;
-}
-
-export interface PlayerStatsResponse {
-  gamesPlayed: number;
-  wins: number;
-  winRatePct: number | null;
-  /** Not comparable across games with different `minWordLength` configs —
-   * see packages/postgres's PlayerStats.avgScore. */
-  avgScore: number | null;
-  highestScore: number | null;
-  longestWordPlayed: string | null;
-  currentWinStreak: number;
-  bestWinStreak: number;
-  lifetimeWordsPlayed: number;
-  lifetimeScore: number;
-  avgGameDurationSec: number | null;
-  recentGames: RecentGame[];
-}
 
 export interface StatsRequestResult {
   status: 200 | 401 | 500;

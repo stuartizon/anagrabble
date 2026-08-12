@@ -26,6 +26,7 @@ import { createGame, joinGame, leaveGame, loadLobbySnapshot } from "./lobby.js";
 import { endGame, startGame, submitWord, turnTile } from "./game.js";
 import { resolveActingPlayerId, verifyMockSessionToken, verifySessionToken } from "./auth.js";
 import { handleStatsRequest } from "./stats.js";
+import { handleGetSettingsRequest, handleSaveSettingsRequest } from "./settings.js";
 
 const PORT = Number(process.env.PORT ?? 8080);
 
@@ -187,12 +188,16 @@ function lobbyStateEvent(snapshot: LobbySnapshot): Event {
   return { type: "LobbyState", seq: snapshot.seq, gameId: snapshot.gameId, lobby: snapshot };
 }
 
-// apps/server's REST surface (currently just /health and /stats) — see
+// apps/server's REST surface (/health, /stats, /settings) — see
 // docs/decisions.md "Backend HTTP framework" for why Fastify over raw
 // node:http. @fastify/cors handles preflight/headers for every route
-// registered below, including /stats.
+// registered below. `methods` must be listed explicitly — @fastify/cors's
+// own default is 'GET,HEAD,POST' (not every verb, despite first
+// appearances), which silently dropped PUT from
+// Access-Control-Allow-Methods until PUT /settings (this app's first
+// mutating REST endpoint) surfaced it as a real browser CORS failure.
 const fastify = Fastify({ logger: false });
-fastify.register(cors, { origin: WEB_ORIGIN });
+fastify.register(cors, { origin: WEB_ORIGIN, methods: ["GET", "HEAD", "PUT"] });
 
 fastify.get("/health", async (request, reply) => {
   try {
@@ -208,6 +213,27 @@ fastify.get("/stats", async (request, reply) => {
     db,
     CLERK_SECRET_KEY ?? "",
     request.headers.authorization,
+    AUTH_MODE,
+  );
+  return reply.code(result.status).send(result.body);
+});
+
+fastify.get("/settings", async (request, reply) => {
+  const result = await handleGetSettingsRequest(
+    db,
+    CLERK_SECRET_KEY ?? "",
+    request.headers.authorization,
+    AUTH_MODE,
+  );
+  return reply.code(result.status).send(result.body);
+});
+
+fastify.put("/settings", async (request, reply) => {
+  const result = await handleSaveSettingsRequest(
+    db,
+    CLERK_SECRET_KEY ?? "",
+    request.headers.authorization,
+    request.body,
     AUTH_MODE,
   );
   return reply.code(result.status).send(result.body);

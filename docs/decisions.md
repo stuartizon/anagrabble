@@ -1523,17 +1523,41 @@ required-with-throw pattern as `REDIS_URL`/`DATABASE_URL`/
 `CLERK_SECRET_KEY`) — an explicit single origin, not `*`, per the intent
 already flagged in "Frontend hosting: Vercel/Cloudflare Pages" above.
 
-**Response type: hand-duplicated, not shared via `packages/protocol`.**
-`packages/protocol` is scoped explicitly to the WS wire protocol, versioned
-via `PROTOCOL_VERSION` under CLAUDE.md's expand/contract rules — a plain
-GET response is neither a `Command` nor an `Event` and shouldn't
-participate in that versioning discipline. Separately, `apps/web` has no
-dependency on `@anagrabble/postgres` (which pulls in `pg`/`kysely`) and
-shouldn't gain one just for a type. `PlayerStatsResponse` is defined once in
-`apps/server/src/stats.ts` as canonical and hand-duplicated in
-`apps/web/src/fetchPlayerStats.ts`, each copy commented pointing at the
-other. Revisit only if a second/third HTTP endpoint makes the duplication
-actually hurt — not preemptively.
+**Response type: originally hand-duplicated, moved to `packages/protocol`
+once the Settings endpoint arrived (2026-08-12).** This entry originally
+kept `PlayerStatsResponse` out of `packages/protocol`, reasoning that the
+package "is scoped explicitly to the WS wire protocol, versioned via
+`PROTOCOL_VERSION`... a plain GET response... shouldn't participate in that
+versioning discipline" — defined once in `apps/server/src/stats.ts` and
+hand-duplicated in `apps/web/src/fetchPlayerStats.ts`, revisiting "only if
+a second/third HTTP endpoint makes the duplication actually hurt."
+
+That reasoning was too broad, caught while planning the Settings feature
+(`GET`/`PUT /settings`, the anticipated third endpoint): the actual reason
+expand/contract exists is that backend and frontend deploy independently
+with no atomicity guarantee (CLAUDE.md "Schema evolution"), which is
+exactly as true of a REST response as a WS event — an old frontend can hit
+a new backend's `/settings` just as easily as it can see a new
+`WordPlayed` shape. What's genuinely WS-specific is only the
+`PROTOCOL_VERSION` _handshake_ — a staleness check that makes sense for a
+long-lived connection the server can proactively challenge at connect
+time; a stateless REST call has no equivalent connection to negotiate
+over, so it doesn't need a version field. The "don't drag `pg`/`kysely`
+into `apps/web`" half of the original reasoning also doesn't actually
+block sharing: `packages/protocol` itself has zero runtime dependencies.
+
+**Current state**: `packages/protocol/src/rest.ts` holds
+`PlayerStatsResponse`/`RecentGame`/`PlayerSettingsResponse` — plain REST
+DTOs, imported by both `apps/server` and `apps/web`, explicitly excluded
+from `PROTOCOL_VERSION` but still bound by the same additive-only,
+no-rename/remove-in-one-PR discipline as `Command`/`Event` when they
+change. A genuinely breaking REST change (the "contract" half) uses a
+different mechanism than `Command`/`Event` since there's no handshake to
+detect staleness with — a versioned path prefix (e.g. `/v2/settings`) or a
+version header, added alongside the old route and tolerated for one
+rollout before the old one is retired in a later PR. Not needed yet by
+anything in this codebase; recorded now since it falls directly out of
+this correction.
 
 **`VITE_API_URL`/`VITE_WS_URL`**: added `VITE_API_URL` (new, additive) for
 `apps/web`'s REST calls rather than deriving it from `VITE_WS_URL` in
@@ -1570,6 +1594,61 @@ bias but are kept anyway: they're still meaningful as "your own history
 over time," just not an apples-to-apples number between players with
 different game preferences — noted in code comments and
 `docs/postgres-schema.md`, not silently presented as comparable.
+
+## Settings preferences: provisioning, save behavior, language scope
+
+Three decisions made together implementing `docs/user-stories.md`
+"Settings" (`GET`/`PUT /settings`, `SettingsPage`).
+
+**`player_settings` provisioning: lazy upsert, not a Clerk webhook.** No
+row needs to exist before a player's first save; `GET /settings` returns
+the table's own column defaults (`DEFAULT_PLAYER_SETTINGS` in
+`packages/postgres/src/settings.ts`) when absent. The alternative
+considered — a Clerk `user.created` webhook proactively inserting a
+default row, with `user.deleted` cleaning it up — is more robust in the
+abstract (a row always exists, no defaults-fallback logic needed) but is
+real new infrastructure (a signed endpoint, per-environment Clerk
+dashboard configuration) for a guarantee nothing downstream currently
+needs, since `player_settings` has exactly one reader today. It also
+doesn't work under local dev's `AUTH_MODE=mock` at all — there's no real
+Clerk account-creation event to fire a webhook from locally, so the
+webhook path would need a parallel mock-provisioning mechanism just to be
+testable in dev. Revisit if a second consumer of `player_settings` ever
+wants a guaranteed-row-exists invariant, or if account-deletion cleanup
+becomes a real requirement.
+
+**Save behavior: immediate persist per control, no Save button.** Matches
+`design-system/Settings.dc.html`'s actual behavior for these three fields
+(`persist(patch)` fires on every toggle/select change) — the mock's
+separate "Save profile" button covers only name/email/password, which
+this story excludes entirely (see below). Each control updates local
+state immediately and fires the `PUT` right away; on failure, the specific
+control reverts to its previous value and an inline error shows, rather
+than a whole-page error/dirty-state model. Considered and rejected: a
+single Save button batching all three fields — closer to a traditional
+form, but diverges from the mock's own behavior for these controls and
+adds unsaved-changes tracking to what are otherwise three independent
+atomic preferences with no reason to commit together.
+
+**Language: single-option `Select`, not a hand-picked list, and not
+omitted.** Only `"English"` is accepted by the server
+(`apps/server/src/settings.ts`'s `ALLOWED_LANGUAGES`) and offered by the
+client (`SettingsPage.tsx`'s `LANGUAGE_OPTIONS`) — the design mock's own
+`interfaceLanguageOptions` (English/Spanish/French) was never real, since
+nothing in `apps/web` is actually localized (word input stays
+English-only, an existing project decision). The control still renders
+rather than being left out until a second language exists, matching the
+mock's layout and requiring no UI change to grow later — but is
+functionally inert today (there's nothing to switch to). Extending
+`ALLOWED_LANGUAGES` later is an additive change under `rest.ts`'s
+expand/contract rules (see "REST endpoints beyond `/health`" above), not
+a breaking one.
+
+**Scope excluded, same as Stats**: `Settings.dc.html`'s name/email/
+password "profile" section (with its own separate "Save profile" button
+and Save/Saved label transition) is Clerk account-management territory,
+not this story — left out entirely, same scoping-down precedent as Stats
+dropping its mock's "Play style" section.
 
 ## Postgres reaffirmed against graph/document alternatives for stats
 

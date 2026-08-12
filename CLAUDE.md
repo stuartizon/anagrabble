@@ -85,6 +85,22 @@ load-bearing for any piece of state.
   choice, not an architectural dependency. AWS remains the fallback if/when real HA
   or infra control requirements emerge (see docs/decisions.md for the full
   Railway-vs-AWS-vs-Fly-vs-self-hosted comparison).
+- **Both platforms deploy only after CI passes, targeting the Dev
+  environment.** `.github/workflows/ci.yml`'s `deploy-backend`/
+  `deploy-frontend` jobs (`needs: test`, `main`-push only) call the
+  Railway/Vercel CLIs directly rather than relying on either platform's
+  push-triggered auto-deploy — Railway targets its `development` environment
+  (`--environment development`), Vercel deploys as a Preview build (no
+  `--prod`). See docs/decisions.md "Deploy gating: Railway/Vercel wait for CI,
+  via a custom deploy job" for why a custom workflow was chosen over each
+  platform's native "wait for CI" toggle, the required repo secrets, and the
+  manual dashboard steps (disabling each platform's own auto-deploy, and
+  confirming `dev.anagrabble.com` is aliased to `main`-branch Preview
+  deployments in Vercel) that this doesn't do for you. Repointing at
+  Production is future work once that environment is actually provisioned
+  (see README.md "Environments"). This closes the "red build reaches Dev" gap
+  but not backend/frontend deploy ordering relative to each other —
+  expand/contract protocol discipline (below) still covers that.
 
 ## Game rules — the parts that affect protocol design
 

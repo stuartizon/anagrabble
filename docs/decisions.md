@@ -168,6 +168,60 @@ subdomains (`anagrabble.com` vs `api.anagrabble.com`).
 
 ---
 
+## Deploy gating: Railway/Vercel wait for CI, via a custom deploy job
+
+**Decision**: reversed the earlier "no strict deploy ordering" call (see
+"Expand/contract schema evolution" under "Protocol conventions" below). Both
+Railway and Vercel were auto-deploying straight off the GitHub push webhook,
+independent of `.github/workflows/ci.yml`'s lint/format/typecheck/build/test
+job — a red `main` could still reach the Dev environment (`dev.anagrabble.com`
+/ `api-dev.anagrabble.com` — the only environment actually live; see
+README.md "Environments", Production is still unprovisioned). `ci.yml` now
+has `deploy-backend` and `deploy-frontend` jobs, each `needs: test` and gated
+to `push` on `main` only (not PRs), that run the Railway CLI (`railway up
+--service ... --environment development --ci`) and Vercel CLI (`vercel pull`
+/ `build` / `deploy --prebuilt`, no `--prod`, so it lands as a Preview
+deployment) directly, authenticated via repo secrets (`RAILWAY_TOKEN`,
+`RAILWAY_SERVICE_ID`, `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`).
+Both jobs target the Dev environment only for now — repointing at Production
+when that environment is actually provisioned (a separate Railway
+environment already exists named `production`; Vercel would need a
+`--prod`/`--target=production` variant) is future work, not done here.
+
+**Why a custom workflow over each platform's native "wait for CI" toggle**:
+both Railway (Settings → Source) and Vercel (Settings → Git) have a built-in
+setting that holds their push-triggered deploy until the commit's GitHub
+check succeeds, at zero workflow cost. That's the lower-machinery option and
+was offered first; the custom-workflow route was chosen instead to keep the
+actual deploy trigger and its conditions in version control rather than
+dashboard-only settings, at the cost of owning the CLI invocations and their
+secrets.
+
+**Prerequisite (manual, dashboard-side, not done as part of this change)**:
+each platform's own auto-deploy-on-push must be turned off, or it races the
+new workflow job and can still ship an unreviewed commit first. Railway:
+Settings → Source → disable automatic deploys for the `development`
+environment's service. Vercel: Settings → Git → disable automatic
+deployments (or otherwise stop the Git integration from redeploying on every
+push to `main`, since that's the branch this job now also deploys from). Also
+worth confirming in Vercel's dashboard that `dev.anagrabble.com` is aliased
+to Preview deployments from the `main` branch (Settings → Domains) — a plain
+`vercel deploy` without `--prod` only lands on that domain if that alias is
+already configured; otherwise it only gets a random `*.vercel.app` URL. The
+five secrets above must exist in the repo's GitHub Actions secrets before the
+new jobs can run.
+
+**Does not replace expand/contract**: gating on the same `test` job removes
+the "one deploy still mid-flight while the other already shipped" case for a
+_failing_ commit, but Railway and Vercel are still two separate deploy jobs
+with no ordering guarantee between each other for a single _passing_ commit —
+backend and frontend can still momentarily be one commit apart. Additive-only
+protocol changes plus expand/contract rollouts (below) remain the actual
+mechanism for tolerating that gap; this change only keeps a red build from
+reaching either platform at all.
+
+---
+
 ## Game rules
 
 ### Tile turning vs. word stealing are different concurrency problems
@@ -427,12 +481,13 @@ isn't wired up to `GameConfig` yet).
   chosen, since clients retry and connections drop regardless of architecture.
 - **Expand/contract schema evolution** for `packages/protocol`: decided once it
   became clear backend (Railway) and frontend (Vercel) deploy independently, with
-  no cross-platform ordering guarantee for a single commit touching both. Rather
-  than trying to engineer strict deploy ordering (possible via a custom CI
-  workflow, but judged as more machinery than needed right now), the constraint
-  was pushed into how protocol changes are written: additive-only per PR, with
-  genuine breaking changes split into an "expand" rollout (backend tolerates old
-  - new) followed by a later "contract" rollout.
+  no cross-platform ordering guarantee for a single commit touching both. Gating
+  both platforms' deploys on CI passing (see "Deploy gating: Railway/Vercel wait
+  for CI" above) closes the _red-build-reaches-prod_ case but not this one —
+  Railway and Vercel are still two independent deploy jobs for the same passing
+  commit, so the constraint stays pushed into how protocol changes are written:
+  additive-only per PR, with genuine breaking changes split into an "expand"
+  rollout (backend tolerates old + new) followed by a later "contract" rollout.
 - **Rejection messages correlate by `commandId`, not "last submitted"**:
   `ErrorEvent.commandId` already exists for idempotency dedup; `apps/web`'s
   `GameBoard` also uses it client-side to tie a rejection back to the exact

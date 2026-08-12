@@ -2259,3 +2259,29 @@ questions needed resolving in conversation before _it_ was schedulable.
     case (short gap, recent reconnect) with Postgres as a fallback for a
     late joiner wanting the full game so far. Worth resolving deliberately
     when the reconnect story is actually picked up, not defaulted into.
+- **Display names (`hostName`/`playerName`) are client-supplied, not
+  derived from the verified Clerk session.** Raised 2026-08-12 while
+  reviewing the new `POST /games` endpoint, but applies identically to
+  `JoinGame`'s `playerName` too — not something specific to that one
+  endpoint. Clerk session tokens (what `verifySessionToken`/
+  `resolveActingPlayerId` verify) reliably carry only `sub` (the user id),
+  not profile fields like first name, unless a Clerk JWT template is
+  explicitly configured to embed custom claims — not set up in this app.
+  Without that, the server would need a live call to Clerk's Backend API
+  (`GET /v1/users/{userId}`) per request to look up the display name
+  itself: real latency and a new external dependency on the critical path,
+  for data the frontend's Clerk SDK already has loaded for free
+  (`getDisplayName(user)`, no extra round trip there). Explicitly left
+  undecided (2026-08-12) — the current client-supplied behavior stays as
+  is for now, but this isn't a decision to leave it that way permanently,
+  just a deliberate non-decision. The trust gap is real, if low-stakes:
+  nothing server-side cross-checks a claimed name against the real Clerk
+  profile, but names are cosmetic only — every authorization/scoring/
+  ownership check uses the verified `hostId`/`playerId`, never the name.
+  Candidate fix, not yet built: configure a Clerk JWT template to embed
+  the display name as a verified custom claim, so the server reads it
+  straight off the already-verified token with no extra round trip — the
+  right fix if this ever matters enough to justify the Clerk dashboard
+  configuration work. A live Backend API lookup per request was also
+  considered and is strictly worse than the JWT-template approach for the
+  same outcome — not worth building either way.

@@ -183,10 +183,31 @@ to `push` on `main` only (not PRs), that run the Railway CLI (`railway up
 / `build` / `deploy --prebuilt`, no `--prod`, so it lands as a Preview
 deployment) directly, authenticated via repo secrets (`RAILWAY_TOKEN`,
 `RAILWAY_SERVICE_ID`, `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`).
-Both jobs target the Dev environment only for now — repointing at Production
-when that environment is actually provisioned (a separate Railway
-environment already exists named `production`; Vercel would need a
-`--prod`/`--target=production` variant) is future work, not done here.
+Both jobs target the Dev environment and fire automatically on every push to
+`main`.
+
+**Production deploys are a separate, manually-triggered pair of jobs**
+(`deploy-backend-production`/`deploy-frontend-production`), added once
+Production's Railway environment existed to deploy to. Both are gated
+`if: github.event_name == 'workflow_dispatch'` — `workflow_dispatch` was
+added to `ci.yml`'s `on:` block for this — and still `needs: test`, so a
+production deploy goes through the same lint/typecheck/build/test gate as
+everything else; it just never fires on its own. Deliberately not given any
+extra confirmation step (e.g. a required text input) beyond what
+`workflow_dispatch` itself already demands (navigating to the Actions tab,
+picking the workflow and branch, clicking "Run workflow") — revisit with a
+GitHub Environment + required reviewers if that ever proves too easy to
+trigger by accident. Railway's production job needs its own
+`RAILWAY_TOKEN_PRODUCTION` secret — the existing `RAILWAY_TOKEN` was
+deliberately scoped to the project's `development` environment only (see
+above), so it has no access to `production` by design and a
+same-privilege-as-dev token would defeat that isolation. `RAILWAY_SERVICE_ID`
+is shared (same service, selected per-call by `--environment`). Vercel's
+production job reuses the existing `VERCEL_TOKEN`/`VERCEL_ORG_ID`/
+`VERCEL_PROJECT_ID` secrets unchanged — Vercel tokens aren't
+environment-scoped the way Railway's project tokens are — and needs no
+alias step: `vercel deploy --prod` lands on whatever domains are already
+assigned as Production in the Vercel dashboard, unlike Preview.
 
 **`dev.anagrabble.com` is re-aliased explicitly in CI, not via Vercel's
 branch-to-domain GUI setting**: the `Deploy` step captures the fresh

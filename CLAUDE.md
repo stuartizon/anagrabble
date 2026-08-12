@@ -85,22 +85,23 @@ load-bearing for any piece of state.
   choice, not an architectural dependency. AWS remains the fallback if/when real HA
   or infra control requirements emerge (see docs/decisions.md for the full
   Railway-vs-AWS-vs-Fly-vs-self-hosted comparison).
-- **Both platforms deploy only after CI passes, targeting the Dev
-  environment.** `.github/workflows/ci.yml`'s `deploy-backend`/
-  `deploy-frontend` jobs (`needs: test`, `main`-push only) call the
-  Railway/Vercel CLIs directly rather than relying on either platform's
-  push-triggered auto-deploy — Railway targets its `development` environment
-  (`--environment development`), Vercel deploys as a Preview build (no
-  `--prod`). See docs/decisions.md "Deploy gating: Railway/Vercel wait for CI,
-  via a custom deploy job" for why a custom workflow was chosen over each
-  platform's native "wait for CI" toggle, the required repo secrets, and the
-  manual dashboard steps (disabling each platform's own auto-deploy, and
-  confirming `dev.anagrabble.com` is aliased to `main`-branch Preview
-  deployments in Vercel) that this doesn't do for you. Repointing at
-  Production is future work once that environment is actually provisioned
-  (see README.md "Environments"). This closes the "red build reaches Dev" gap
-  but not backend/frontend deploy ordering relative to each other —
-  expand/contract protocol discipline (below) still covers that.
+- **Both platforms deploy only after CI passes.** `.github/workflows/ci.yml`'s
+  `deploy-backend`/`deploy-frontend` jobs (`needs: test`, `main`-push only)
+  call the Railway/Vercel CLIs directly rather than relying on either
+  platform's push-triggered auto-deploy, targeting Dev (Railway's
+  `development` environment; Vercel as a Preview build, explicitly re-aliased
+  to `dev.anagrabble.com` in CI via `vercel alias set` — see decisions.md,
+  Vercel's own branch-to-domain GUI setting wasn't usable here). Production
+  deploys are separate, manually-triggered jobs
+  (`deploy-backend-production`/`deploy-frontend-production`, gated on
+  `workflow_dispatch`, still `needs: test`) — see docs/decisions.md "Deploy
+  gating: Railway/Vercel wait for CI, via a custom deploy job" for the full
+  reasoning, the required repo secrets (production needs its own
+  `RAILWAY_TOKEN_PRODUCTION`, deliberately separate from the dev-scoped
+  `RAILWAY_TOKEN`), and the manual dashboard step (disabling each platform's
+  own auto-deploy) this doesn't do for you. This closes the "red build
+  reaches prod" gap but not backend/frontend deploy ordering relative to each
+  other — expand/contract protocol discipline (below) still covers that.
 
 ## Game rules — the parts that affect protocol design
 

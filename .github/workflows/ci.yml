@@ -109,13 +109,6 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
-      - name: Ensure domain is attached to project
-        run: vercel domains add dev.anagrabble.com --token="$VERCEL_TOKEN" || true
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
       - name: Alias to dev.anagrabble.com
         run: vercel alias set "${{ steps.deploy.outputs.url }}" dev.anagrabble.com --token="$VERCEL_TOKEN"
         env:

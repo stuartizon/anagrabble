@@ -27,6 +27,7 @@ import { endGame, startGame, submitWord, turnTile } from "./game.js";
 import { resolveActingPlayerId, verifyMockSessionToken, verifySessionToken } from "./auth.js";
 import { handleStatsRequest } from "./stats.js";
 import { handleGetSettingsRequest, handleSaveSettingsRequest } from "./settings.js";
+import { handleCreateGameRequest } from "./games.js";
 
 const PORT = Number(process.env.PORT ?? 8080);
 
@@ -188,16 +189,17 @@ function lobbyStateEvent(snapshot: LobbySnapshot): Event {
   return { type: "LobbyState", seq: snapshot.seq, gameId: snapshot.gameId, lobby: snapshot };
 }
 
-// apps/server's REST surface (/health, /stats, /settings) — see
+// apps/server's REST surface (/health, /stats, /settings, /games) — see
 // docs/decisions.md "Backend HTTP framework" for why Fastify over raw
 // node:http. @fastify/cors handles preflight/headers for every route
 // registered below. `methods` must be listed explicitly — @fastify/cors's
 // own default is 'GET,HEAD,POST' (not every verb, despite first
 // appearances), which silently dropped PUT from
 // Access-Control-Allow-Methods until PUT /settings (this app's first
-// mutating REST endpoint) surfaced it as a real browser CORS failure.
+// mutating REST endpoint) surfaced it as a real browser CORS failure. POST
+// is added deliberately for /games, not rediscovered the same way.
 const fastify = Fastify({ logger: false });
-fastify.register(cors, { origin: WEB_ORIGIN, methods: ["GET", "HEAD", "PUT"] });
+fastify.register(cors, { origin: WEB_ORIGIN, methods: ["GET", "HEAD", "PUT", "POST"] });
 
 fastify.get("/health", async (request, reply) => {
   try {
@@ -231,6 +233,23 @@ fastify.get("/settings", async (request, reply) => {
 fastify.put("/settings", async (request, reply) => {
   const result = await handleSaveSettingsRequest(
     db,
+    CLERK_SECRET_KEY ?? "",
+    request.headers.authorization,
+    request.body,
+    AUTH_MODE,
+  );
+  return reply.code(result.status).send(result.body);
+});
+
+// See docs/decisions.md "CreateGame as a REST endpoint" — moved off the WS
+// command/event pair since, unlike JoinGame/StartGame/etc., there's no
+// other connected client to broadcast a new game's creation to yet. The WS
+// `CreateGame` command (below, in the switch) still exists for the
+// expand/contract rollout window (CLAUDE.md "Schema evolution") rather than
+// being removed in the same change that adds this.
+fastify.post("/games", async (request, reply) => {
+  const result = await handleCreateGameRequest(
+    redis,
     CLERK_SECRET_KEY ?? "",
     request.headers.authorization,
     request.body,

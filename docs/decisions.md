@@ -2088,9 +2088,9 @@ version bump needed.
 
 ## CreateGame as a REST endpoint
 
-**Proposed** (2026-08-12, not yet built) — raised by the user while
-reviewing `NewGamePage`: move `CreateGame` off the WS command/event pair
-onto `POST /games`, plain HTTP/JSON, matching the `/stats`/`/settings`
+**Decided and built** (2026-08-12) — raised by the user while reviewing
+`NewGamePage`: moved `CreateGame` off the WS command/event pair onto
+`POST /games`, plain HTTP/JSON, matching the `/stats`/`/settings`
 precedent (see "REST endpoints beyond `/health`" above).
 
 **Why now, when gameplay was originally built entirely on WS**: at the
@@ -2118,18 +2118,37 @@ REST handler would call the exact same function, just resolving `hostId`
 from the Bearer header instead of `meta.clerkUserId`. Zero business-logic
 duplication.
 
-**Mechanical bits**: CORS is currently locked to `["GET", "HEAD", "PUT"]`
-(`apps/server/src/index.ts`) — no `POST` yet, needs adding deliberately
-(this file already has a note above about `PUT` itself silently missing
-from Fastify's CORS default until it caused a real browser failure — same
-class of gotcha, now known in advance). A new `CreateGameRequest`/response
-DTO in `packages/protocol/src/rest.ts`, following the existing
+**Mechanical bits**: CORS's methods list (`apps/server/src/index.ts`) grew
+`POST` alongside `GET`/`HEAD`/`PUT`, added deliberately rather than
+rediscovered the way `PUT` itself was (see the note above this file
+already has about that). `CreateGameRequest` landed in
+`packages/protocol/src/rest.ts`, following the existing
 `PlayerStatsResponse`/`PlayerSettingsResponse` precedent (additive-only,
-not versioned via `PROTOCOL_VERSION`).
+not versioned via `PROTOCOL_VERSION`) — the response reuses `LobbySnapshot`
+(`ws.ts`) directly rather than a new type, since it's the exact shape
+`toLobbySnapshot()` already produces for the WS path.
 
 **Scope call**: `JoinGame`/`StartGame`/`TurnTile`/`SubmitWord`/`EndGame`
 stay on WS — they need to notify already-connected clients, and the lobby
 page's socket is open anyway regardless.
+
+**What shipped**: `apps/server/src/games.ts`'s `handleCreateGameRequest`
+— same framework-agnostic, unit-tested-in-isolation shape as
+`stats.ts`/`settings.ts` (18 tests, `games.test.ts`, mocking `createGame`
+and the auth verifiers rather than hitting real Redis — that coverage
+already exists in `lobby.test.ts`). `apps/web/src/fetchCreateGame.ts`
+wraps the `fetch()` call; `NewGamePage` no longer imports `useGameSocket`
+at all. Verified live in a real browser: the create-game button is now
+enabled immediately (no socket handshake to wait for), and exactly one WS
+connection opens for the whole flow — on the lobby page, after
+`POST /games` resolves — not the two sockets (one immediately discarded)
+the WS-based flow opened before.
+
+**Expand/contract note**: the WS `CreateGame` command (`packages/protocol`,
+`apps/server/src/index.ts`'s switch) was deliberately left in place rather
+than removed in this same change, per CLAUDE.md "Schema evolution" — dead
+but harmless until a follow-up "contract" pass removes it once there's no
+possibility of a stale frontend build still sending it.
 
 ---
 
@@ -2141,11 +2160,10 @@ session doesn't have to reconstruct it from prose scattered across this
 file. See the sections above for the reasoning behind each; this is just
 the what-and-in-what-order view.
 
-1. **`CreateGame` as a REST endpoint** — see "CreateGame as a REST
-   endpoint" above. **Depends on nothing.** Fully independent of the other
-   two; touches `NewGamePage`, `apps/server/src/index.ts`/`lobby.ts`,
-   `packages/protocol/src/rest.ts`. Safe to pick up first, last, or in
-   parallel with either of the below.
+1. **`CreateGame` as a REST endpoint** — **done** (2026-08-12), see
+   "CreateGame as a REST endpoint" above for what shipped. Was fully
+   independent of the other two, as predicted; touched `NewGamePage`,
+   `apps/server/src/index.ts`/new `games.ts`, `packages/protocol/src/rest.ts`.
 2. **Mid-game join** (`docs/user-stories.md` "Core gameplay") — see
    "Mid-game join: scope decisions" above for the four resolved questions.
    **Depends on nothing blocking** — server-side change is a one-line

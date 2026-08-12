@@ -1,6 +1,6 @@
 // Plain REST response DTOs shared between apps/server and apps/web — for
-// apps/server's REST surface (currently /stats, /settings), distinct from
-// the WS Command/Event types in ws.ts.
+// apps/server's REST surface (currently /stats, /settings, /games),
+// distinct from the WS Command/Event types in ws.ts.
 //
 // These do NOT participate in the PROTOCOL_VERSION handshake: that
 // mechanism exists to let the server detect a stale client on a persistent
@@ -15,6 +15,8 @@
 // /v2/settings) or a version header, tolerated alongside the old route for
 // one rollout before the old one is retired — the REST analog of
 // PROTOCOL_VERSION, not yet needed by anything here.
+
+import type { GameConfig } from "./ws.js";
 
 export interface RecentGame {
   gameId: string;
@@ -45,4 +47,21 @@ export interface PlayerSettingsResponse {
   language: string;
   soundEnabled: boolean;
   hapticsEnabled: boolean;
+}
+
+/** POST /games body. `gameId`/`commandId` are client-generated (same
+ * `makeGameId`/`makeCommandId` helpers the WS commands use) — a REST
+ * request's success/failure is directly observable in the response, so
+ * this doesn't need WS's fire-and-forget commandId dedup for its own sake,
+ * but keeping the field means the same idempotency-safe `createGame()`
+ * (apps/server/src/lobby.ts) handles both transports unchanged: a retried
+ * POST with the same gameId+commandId still resolves to the same game
+ * rather than a GameIdTaken conflict. Response is the created game's
+ * LobbySnapshot (ws.ts) — no separate response type needed, it's the same
+ * shape the WS path already produces via toLobbySnapshot(). */
+export interface CreateGameRequest {
+  commandId: string;
+  gameId: string;
+  hostName: string;
+  config: GameConfig;
 }

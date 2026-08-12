@@ -2,38 +2,49 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { SocketStatus } from "../useGameSocket";
 import type { LobbySnapshot } from "@anagrabble/protocol";
 import { mockSignedInClerk, setMockClerkIdentity } from "../testUtils/clerkTestMock";
 import { NewGamePage } from "./NewGamePage";
 
-const send = vi.fn();
-const useGameSocketMock = vi.fn();
+const createGame = vi.fn();
+const { CreateGameError } = vi.hoisted(() => ({
+  CreateGameError: class CreateGameError extends Error {
+    code: string;
+    constructor(code: string) {
+      super(code);
+      this.code = code;
+    }
+  },
+}));
 
-vi.mock("../useGameSocket", () => ({
-  useGameSocket: (...args: unknown[]) => useGameSocketMock(...args),
+vi.mock("../fetchCreateGame", () => ({
+  createGame: (...args: unknown[]) => createGame(...args),
+  CreateGameError,
 }));
 
 vi.mock("../auth", () => mockSignedInClerk());
 
-// gameId is client-generated randomly; fix it so the "navigate once the
-// server confirms" test can match a specific lobby snapshot to it.
+// gameId is client-generated randomly; fix it so requests are predictable.
 vi.mock("../gameId", () => ({
   makeGameId: () => "FIXED1",
   makeCommandId: () => "cmd-1",
 }));
 
-function mockSocket(overrides: {
-  status?: SocketStatus;
-  lobby?: LobbySnapshot | null;
-  error?: { code: string; message: string } | null;
-}) {
-  useGameSocketMock.mockReturnValue({
-    status: overrides.status ?? "open",
-    lobby: overrides.lobby ?? null,
-    error: overrides.error ?? null,
-    send,
-  });
+function sampleSnapshot(overrides: Partial<LobbySnapshot> = {}): LobbySnapshot {
+  return {
+    gameId: "FIXED1",
+    hostId: "host-1",
+    status: "lobby",
+    seq: 0,
+    config: { turnTimerSec: 30, minWordLength: 3, language: "English" },
+    turnPlayerIndex: 0,
+    turnDeadline: null,
+    endGameDeadline: null,
+    bankCount: 0,
+    pool: [],
+    players: [{ id: "host-1", name: "Alex", words: [], score: 0 }],
+    ...overrides,
+  };
 }
 
 function AppTree() {
@@ -55,32 +66,38 @@ function renderPage() {
 }
 
 beforeEach(() => {
-  send.mockClear();
-  useGameSocketMock.mockReset();
+  createGame.mockReset();
   setMockClerkIdentity({ id: "host-1", firstName: "Alex" });
-  mockSocket({});
 });
 
 describe("NewGamePage", () => {
-  it("disables Create game while the socket isn't open", () => {
-    mockSocket({ status: "connecting" });
+  it("is clickable immediately, with no socket handshake to wait for", () => {
     renderPage();
 
-    expect(screen.getByRole("button", { name: "Create game" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Create game" })).toBeEnabled();
   });
 
-  it("sends a CreateGame command with the configured rules and the signed-in player's identity", async () => {
+  it("posts to /games with the configured rules and the signed-in player's identity", async () => {
+    createGame.mockReturnValue(new Promise(() => {})); // never resolves — just inspect the call
     renderPage();
 
     await userEvent.click(screen.getByRole("button", { name: "Create game" }));
 
-    expect(send).toHaveBeenCalledWith({
-      type: "CreateGame",
+    expect(createGame).toHaveBeenCalledWith("test-token", {
       commandId: "cmd-1",
       gameId: "FIXED1",
       hostName: "Alex",
       config: { turnTimerSec: 30, minWordLength: 3, language: "English" },
     });
+  });
+
+  it("disables the button and shows 'Creating…' while the request is in flight", async () => {
+    createGame.mockReturnValue(new Promise(() => {}));
+    renderPage();
+
+    await userEvent.click(screen.getByRole("button", { name: "Create game" }));
+
+    expect(screen.getByRole("button", { name: "Creating…" })).toBeDisabled();
   });
 
   it("opens the rules modal from the Review the rules link", async () => {
@@ -91,35 +108,35 @@ describe("NewGamePage", () => {
     expect(screen.getByRole("dialog", { name: "Rules" })).toBeInTheDocument();
   });
 
-  it("shows the server error and re-enables the button", () => {
-    mockSocket({ error: { code: "GameIdTaken", message: "That game ID is already in use." } });
+  it("navigates to the lobby once the server confirms the game was created", async () => {
+    createGame.mockResolvedValue(sampleSnapshot());
     renderPage();
 
-    expect(screen.getByText("That game ID is already in use.")).toBeInTheDocument();
-  });
-
-  it("navigates to the lobby once the server confirms the game was created", async () => {
-    const { rerender } = renderPage();
-
-    await userEvent.click(screen.getByRole("button", { name: /Create game|Creating/ }));
-
-    mockSocket({
-      lobby: {
-        gameId: "FIXED1",
-        hostId: "host-1",
-        status: "lobby",
-        seq: 0,
-        config: { turnTimerSec: 30, minWordLength: 3, language: "English" },
-        turnPlayerIndex: 0,
-        turnDeadline: null,
-        endGameDeadline: null,
-        bankCount: 0,
-        pool: [],
-        players: [{ id: "host-1", name: "Alex", words: [], score: 0 }],
-      },
-    });
-    rerender(<AppTree />);
+    await userEvent.click(screen.getByRole("button", { name: "Create game" }));
 
     expect(await screen.findByText("Navigated to lobby")).toBeInTheDocument();
+  });
+
+  it("shows a friendly message and re-enables the button when the gameId is taken", async () => {
+    createGame.mockRejectedValue(new CreateGameError("GameIdTaken"));
+    renderPage();
+
+    await userEvent.click(screen.getByRole("button", { name: "Create game" }));
+
+    expect(
+      await screen.findByText("That game ID is already in use — try again."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create game" })).toBeEnabled();
+  });
+
+  it("shows a generic message for any other failure", async () => {
+    createGame.mockRejectedValue(new Error("network down"));
+    renderPage();
+
+    await userEvent.click(screen.getByRole("button", { name: "Create game" }));
+
+    expect(
+      await screen.findByText("Something went wrong creating your game. Try again."),
+    ).toBeInTheDocument();
   });
 });

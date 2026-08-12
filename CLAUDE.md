@@ -244,7 +244,11 @@ exists — marked below.
   LobbyPage). **Playwright** for a small number of true end-to-end flows
   against the real backend + Redis + browser — currently: create a game, join
   it via the invite link from a second browser context, see it update live
-  with no mock anywhere in the stack. Extends to tile-turning/word-claiming
+  with no mock anywhere in the stack; and a dropped connection reconnects
+  with backoff and resyncs to current state, having missed a live event
+  entirely (`reconnect.spec.ts` — force-closes the real `WebSocket` object
+  from page context, since Chromium's CDP offline emulation doesn't actually
+  interrupt an already-open WS). Extends to tile-turning/word-claiming
   flows once gameplay lands. Keep Playwright coverage minimal — it's the only
   layer where testing across the real WS boundary in a real browser matters,
   not a place to re-test business logic already covered elsewhere. Runs via

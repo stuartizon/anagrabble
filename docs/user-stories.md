@@ -200,8 +200,29 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Non-functional / cross-cutting
 
-- [ ] As a player, if my connection drops and reconnects mid-game, I see the
+- [x] As a player, if my connection drops and reconnects mid-game, I see the
       correct current state (seq-based resync, no silent drift).
+      `useGameSocket` retries an unexpected close with capped exponential
+      backoff (`RECONNECT_DELAYS_MS`), distinguishing it from a deliberate
+      close on unmount/`gameId` change so it doesn't reconnect after
+      navigating away. Resync itself needed no new logic: the server already
+      sends a full `LobbyState` snapshot on every `?game=` connect (not a
+      delta), so "no silent drift" comes from always re-fetching ground
+      truth rather than from tracking `seq` gaps client-side — see
+      docs/decisions.md "Realtime transport: raw `ws`, not Socket.IO"
+      ("Resync-on-connect is already built, and transport-agnostic").
+      `GameBoard` shows a "Reconnecting…" toast while a retry is in flight.
+      Lobby/history state (client-accumulated, see the History panel story
+      above) survives the reconnect rather than resetting. Does not cover a
+      genuinely new late joiner (separate "join a game already in progress"
+      story above) or backfilling history for the gap while disconnected
+      (separate story below). Four scope calls made along the way (no
+      heartbeat/liveness detection, no command queueing for a play sent
+      while offline, the server-side reconnect-recognition path is
+      untested, the backoff-vs-`pendingLeaves`-grace-period coupling is
+      unenforced) are documented as explicit follow-ups, not silently
+      dropped — see docs/decisions.md "Reconnect-with-backoff: scope calls
+      made, not blockers".
 - [ ] As a player who reconnects mid-game or joins a game already in
       progress ("Core gameplay" above), I see the History panel populated
       with plays I missed, not just current state. Split out (2026-08-12)

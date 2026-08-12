@@ -1954,8 +1954,98 @@ already built its own multi-instance fanout. Neither applies here.
 
 ---
 
+## Reconnect-with-backoff: scope calls made, not blockers
+
+**Context** (2026-08-12): shipping the client-side reconnect (`useGameSocket`'s
+`RECONNECT_DELAYS_MS` backoff, commit `a7da803`) surfaced four deliberate
+scope calls, recorded here so they're visible follow-ups rather than
+silently dropped — same "known gap documented, not a blocker" precedent as
+"Mobile playability audit" and the dictionary derivation gaps noted in
+CLAUDE.md's "Still open" section.
+
+1. **No heartbeat/ping-pong for silent connection death.** Reconnect
+   triggers on the browser's `close` event, which fires promptly for a
+   clean disconnect (server restart, explicit close) but can lag for a
+   truly dead network path (no TCP reset received) until the browser
+   eventually notices. Left out rather than built speculatively — the same
+   "wait for real evidence before adding polling machinery" call CLAUDE.md
+   already makes for the turn-timer sweep. Revisit if real usage shows
+   players stuck on a frozen-but-not-visibly-disconnected board longer than
+   the backoff schedule would explain.
+2. **No command queueing/replay.** A `SubmitWord`/`TurnTile` sent while the
+   socket is down or mid-backoff is silently dropped (`send()` no-ops on a
+   closed socket — pre-existing behavior, unchanged by this pass). The
+   reconnect fixes state staleness, not lost commands — a player who acts
+   during a drop has to notice nothing happened and retry once reconnected.
+   Not addressed; flag if it becomes a real complaint rather than building
+   speculative queueing now.
+3. **Server-side reconnect-recognition path is untested.** The
+   `?game=&token=` re-seat + `pendingLeaves` cancellation in `index.ts`'s
+   connection handler predates this pass and works, but nothing exercises
+   it directly — doing so needs the first full WS-round-trip harness
+   (Fastify + a real `ws` client, not just Redis via testcontainers), a
+   bigger lift than this story's actual new code (the client backoff)
+   warranted. TDD focus stayed on what was genuinely new; see CLAUDE.md's
+   testing strategy, "Extends to full WS round-trip tests ... once there's
+   more than the lobby/gameplay slices to exercise that way."
+4. **The 3000ms `pendingLeaves` grace period was left untouched.** The
+   first backoff attempt (1s) comfortably lands inside it today, so no
+   coupling change was needed — but the two constants live in different
+   files (`useGameSocket.ts`, `index.ts`) with no enforced relationship. If
+   either changes independently later, re-check that the first retry still
+   lands inside the grace window.
+
+None of these block the user-facing story (`docs/user-stories.md`
+"connection drops and reconnects mid-game") from being marked done — a
+player who drops and reconnects does see correct current state, which is
+what the story promises. (1) and (3) are the two with a real future action;
+see "Explicitly still open" below.
+
+**Verified live** (2026-08-12), against the running dev stack, real
+Chromium via Playwright: two browser contexts, host and guest, mid-game.
+Force-closed the host's actual `WebSocket` object from page context
+(`browserContext.setOffline()` was tried first and discarded — it doesn't
+interrupt an already-open WS in Chromium's CDP offline emulation, so it
+wasn't testing anything). While the host's socket was down, had the guest
+play a real dictionary word — a genuine state change (score, claimed word,
+pool letters consumed) the host never received live. Confirmed: the
+"Reconnecting…" indicator appeared immediately, a new `WebSocket` instance
+opened ~1s later (first backoff delay), and the host's post-reconnect UI
+showed the guest's play, updated score, and emptied pool correctly — all
+delivered purely through the resync snapshot, matching what the guest saw.
+
+Turned into a permanent regression test the same day:
+`apps/web/e2e/reconnect.spec.ts`. The checked-in version proves state
+via a tile-turn (bank count) rather than the ad hoc dictionary-word lookup
+used for the one-off manual check above — simpler and fully deterministic
+regardless of which random letters a given run turns over, since turning a
+tile also transfers `turnPlayerIndex` (`apply_turn_tile.lua`), so the host
+turning first legitimately hands the guest a turn to make while the host is
+down, with no dictionary dependency. Getting this test to pass reliably
+surfaced a real lesson about testing two independent WS connections: host
+and guest have no ordering guarantee on when each one's own DOM reflects a
+mutation, so every read in the test waits for that specific page's own text
+to change before capturing it, rather than inferring "it must have updated
+by now" from what a _different_ page observed — the first few versions of
+this test were flaky for exactly that reason (reading host's bank count
+right after only waiting on guest's button to appear).
+
+---
+
 ## Explicitly still open
 
+- **Heartbeat/liveness detection for a silently-dead WS connection** — not
+  built; reconnect currently relies solely on the browser's `close` event.
+  See "Reconnect-with-backoff: scope calls made, not blockers" above (item
+  1. for why this was deferred rather than built speculatively.
+- **A real WS round-trip test harness** (Fastify + a real `ws` client
+  against a running server, per CLAUDE.md's testing strategy) to cover the
+  server-side reconnect-recognition path (`?game=&token=` re-seat,
+  `pendingLeaves` cancellation in `index.ts`) — see "Reconnect-with-backoff:
+  scope calls made, not blockers" above (item 3). Untested today; the
+  client-side backoff logic that prompted this write-up has its own
+  coverage (`useGameSocket.test.ts`), but this server-side path predates it
+  and was never exercised directly.
 - **`VITE_API_URL` becoming canonical, `VITE_WS_URL` derived from it.** See
   "REST endpoints beyond `/health`" above for the full reasoning. Do this
   once `VITE_API_URL` is confirmed set in every deployed environment: (1)
@@ -1976,8 +2066,8 @@ already built its own multi-instance fanout. Neither applies here.
 - **History panel backfill on reconnect/late join** — split out
   (2026-08-12) as its own follow-up, separate from both the "connection
   drops and reconnects mid-game" story (`docs/user-stories.md`
-  "Non-functional / cross-cutting" — state resync, seq-based, already
-  designed for, see "Sequencing" in CLAUDE.md) and the mid-game-join story
+  "Non-functional / cross-cutting" — state resync, now shipped, see
+  "Sequencing" in CLAUDE.md) and the mid-game-join story
   (same file, "Core gameplay") — neither of those covers whether a
   reconnecting or late-joining client can see the history panel's _past_
   plays, only current state. Today it can't: the history panel is purely

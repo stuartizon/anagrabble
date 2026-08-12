@@ -33,7 +33,6 @@ const { handleCreateGameRequest } = await import("./games.js");
 const FAKE_REDIS = {} as Redis;
 
 const VALID_BODY: CreateGameRequest = {
-  commandId: "cmd-1",
   hostName: "Alice",
   config: { turnTimerSec: 30, minWordLength: 3, language: "English" },
 };
@@ -108,8 +107,6 @@ describe("handleCreateGameRequest", () => {
   });
 
   it.each([
-    ["a missing commandId", { ...VALID_BODY, commandId: undefined }],
-    ["a non-string commandId", { ...VALID_BODY, commandId: 123 }],
     ["a missing hostName", { ...VALID_BODY, hostName: undefined }],
     ["a missing config", { ...VALID_BODY, config: undefined }],
     [
@@ -132,7 +129,7 @@ describe("handleCreateGameRequest", () => {
     expect(createGame).not.toHaveBeenCalled();
   });
 
-  it("generates a gameId server-side and returns 201 with the resulting snapshot", async () => {
+  it("generates a gameId and commandId server-side and returns 201 with the resulting snapshot", async () => {
     verifySessionToken.mockResolvedValue({ userId: "user_1" });
     createGame.mockImplementation(async (_redis, cmd) => ({
       snapshot: sampleSnapshot(cmd.gameId),
@@ -151,13 +148,14 @@ describe("handleCreateGameRequest", () => {
       FAKE_REDIS,
       {
         type: "CreateGame",
-        commandId: VALID_BODY.commandId,
+        commandId: expect.any(String),
         gameId: expect.stringMatching(/^[A-Z0-9]{5}$/),
         hostName: VALID_BODY.hostName,
         config: VALID_BODY.config,
       },
       "user_1",
     );
+    expect(createGame.mock.calls[0]![1].commandId).toBeTruthy();
     expect(result.status).toBe(201);
     expect((result.body as LobbySnapshot).gameId).toMatch(/^[A-Z0-9]{5}$/);
   });

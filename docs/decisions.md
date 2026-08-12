@@ -2165,20 +2165,37 @@ sanity bound, not a tuned number; a true collision among 60M+ possible
 5-char codes and a handful of concurrent games is vanishingly unlikely)
 before giving up with a 500. Matches standard REST semantics (server
 assigns and returns the resource's identity) and closes a trust gap:
-nothing validated a client-supplied `gameId`'s shape before. `commandId`
-stays client-generated — `createGame()` still records one as part of its
-per-game command-dedup set regardless of caller, though its retry-safety
-value is moot for this specific call path now (a retry can't supply a
-server-chosen id it never received; true idempotent-retry-safety for
-creation specifically would need a separate, _global_ commandId→gameId
-lookup, not attempted here since nothing in the client actually retries
-automatically today — see the client-generated-`commandId` discussion in
-the DTO's own doc comment, `packages/protocol/src/rest.ts`). Client-side
+nothing validated a client-supplied `gameId`'s shape before. Client-side
 `makeGameId()` (`apps/web/src/gameId.ts`) was deleted outright as
 genuinely dead code, not deprecated in place — its only caller was
 `NewGamePage`. Verified live: `POST /games`'s request body now omits
 `gameId` entirely, and the server-assigned code appears correctly in the
 resulting invite URL.
+
+**`commandId` moved server-side too** (2026-08-12, same-day follow-up) —
+the immediate next question once `gameId` moved: does `commandId` still
+need to be on `CreateGameRequest` either? Traced through
+`createGame()`'s actual logic (`lobby.ts`) rather than assuming: its
+dedup check (`markCommandSeen`) only ever executes inside the
+`if (exists)` branch, and `exists` is checked against `gameId` — which is
+now always freshly server-generated, so that branch is only ever entered
+on a genuine collision with an unrelated game, never "this exact request,
+resubmitted." A freshly generated `commandId` can't match anything
+already recorded for that unrelated game either, so `markCommandSeen`
+always correctly reports "not already applied" and falls through to
+`GameIdTaken` — identical behavior to a client-supplied value, with no
+changes needed to `lobby.ts` at all. So: `commandId` is genuinely optional
+for this call path, not just moot-but-required as the entry above
+originally concluded (correcting that). Changed: `CreateGameRequest` no
+longer has a `commandId` field; `games.ts` synthesizes one
+(`crypto.randomUUID()`, Node's built-in global, already this codebase's
+own test-fixture convention — see `lobby.test.ts`/`game.test.ts`) once per
+request, alongside the `gameId` retry loop. `commandId` stays required
+and client-generated on the **WS** `CreateGameCommand` — that path's
+fire-and-forget retry/reconnect case is the genuine reason the field
+exists at all; REST simply never had a use for it. Verified live:
+`POST /games`'s request body now omits both `gameId` and `commandId`
+entirely.
 
 ---
 

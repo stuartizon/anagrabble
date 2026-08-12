@@ -49,20 +49,22 @@ export interface PlayerSettingsResponse {
   hapticsEnabled: boolean;
 }
 
-/** POST /games body. Unlike the WS `CreateGame` command, `gameId` is NOT
- * supplied here — the server generates and owns it (see
- * docs/decisions.md "CreateGame as a REST endpoint": standard REST
- * semantics, POST to a collection, server assigns the identity and
- * returns it in the response). `commandId` is still client-generated
- * (same `makeCommandId` helper the WS commands use) since `createGame()`
- * (apps/server/src/lobby.ts) still records one as part of its per-game
- * command-dedup set regardless of caller — its idempotent-retry value is
- * moot for this specific call path though, since a retry can't supply the
- * same server-chosen gameId it never received. Response is the created
- * game's LobbySnapshot (ws.ts) — no separate response type needed, it's
- * the same shape the WS path already produces via toLobbySnapshot(). */
+/** POST /games body. Unlike the WS `CreateGame` command, neither `gameId`
+ * nor `commandId` is supplied here — both are synthesized server-side
+ * (`apps/server/src/games.ts`). `gameId`: standard REST semantics, the
+ * server assigns and returns the resource's identity (see
+ * docs/decisions.md "CreateGame as a REST endpoint"). `commandId`:
+ * `createGame()` (apps/server/src/lobby.ts) records one as part of its
+ * per-game command-dedup set regardless of caller, but that dedup logic
+ * only ever matters when a caller might legitimately resubmit the exact
+ * same `gameId`+`commandId` pair (WS's genuine fire-and-forget
+ * retry/reconnect case) — REST's collision-retry loop never reuses a
+ * `gameId` across attempts, so a fresh server-generated `commandId` (never
+ * matching anything already recorded) produces identical, correct
+ * behavior to a client-supplied one. Response is the created game's
+ * LobbySnapshot (ws.ts) — no separate response type needed, it's the same
+ * shape the WS path already produces via toLobbySnapshot(). */
 export interface CreateGameRequest {
-  commandId: string;
   hostName: string;
   config: GameConfig;
 }

@@ -24,11 +24,6 @@ vi.mock("../fetchCreateGame", () => ({
 
 vi.mock("../auth", () => mockSignedInClerk());
 
-// commandId is client-generated randomly; fix it so requests are predictable.
-vi.mock("../gameId", () => ({
-  makeCommandId: () => "cmd-1",
-}));
-
 function sampleSnapshot(overrides: Partial<LobbySnapshot> = {}): LobbySnapshot {
   return {
     gameId: "FIXED1",
@@ -83,7 +78,6 @@ describe("NewGamePage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Create game" }));
 
     expect(createGame).toHaveBeenCalledWith("test-token", {
-      commandId: "cmd-1",
       hostName: "Alex",
       config: { turnTimerSec: 30, minWordLength: 3, language: "English" },
     });

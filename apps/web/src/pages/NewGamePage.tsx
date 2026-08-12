@@ -11,7 +11,6 @@ import { RulesLink } from "../components/RulesLink";
 import { PageShell, CenteredContent, NarrowColumn } from "../components/Layout";
 import { createGame as createGameRequest, CreateGameError } from "../fetchCreateGame";
 import { getDisplayName } from "../clerkDisplayName";
-import { makeCommandId } from "../gameId";
 import styles from "./NewGamePage.module.css";
 
 // Matches design-system/New Game.dc.html layout/copy. RequireAuth gates
@@ -68,11 +67,7 @@ export function NewGamePage() {
     try {
       const token = await getToken();
       if (!token) throw new CreateGameError("Unauthorized");
-      const snapshot = await createGameRequest(token, {
-        commandId: makeCommandId(),
-        hostName,
-        config,
-      });
+      const snapshot = await createGameRequest(token, { hostName, config });
       navigate(`/${snapshot.gameId}`);
     } catch {
       setError(CREATE_GAME_ERROR);

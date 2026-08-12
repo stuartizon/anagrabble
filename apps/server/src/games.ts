@@ -29,15 +29,14 @@ async function authenticate(
 
 function parseCreateGameBody(body: unknown): CreateGameRequest | null {
   if (typeof body !== "object" || body === null) return null;
-  const { commandId, hostName, config } = body as Record<string, unknown>;
-  if (typeof commandId !== "string" || !commandId) return null;
+  const { hostName, config } = body as Record<string, unknown>;
   if (typeof hostName !== "string" || !hostName) return null;
   if (typeof config !== "object" || config === null) return null;
   const { turnTimerSec, minWordLength, language } = config as Record<string, unknown>;
   if (typeof turnTimerSec !== "number") return null;
   if (typeof minWordLength !== "number") return null;
   if (typeof language !== "string") return null;
-  return { commandId, hostName, config: { turnTimerSec, minWordLength, language } };
+  return { hostName, config: { turnTimerSec, minWordLength, language } };
 }
 
 /** Same shape as apps/web's (now-removed) makeGameId() — short,
@@ -81,12 +80,19 @@ export async function handleCreateGameRequest(
     return { status: 400, body: { error: "Invalid request" } };
   }
 
+  // Synthesized, not client-supplied — see the CreateGameRequest doc
+  // comment (packages/protocol/src/rest.ts) for why a fresh server-
+  // generated commandId is behaviorally identical to a real one here:
+  // createGame()'s dedup check only ever matters for a legitimate retry of
+  // the exact same gameId, which this endpoint's collision loop never does.
+  const commandId = crypto.randomUUID();
+
   try {
     for (let attempt = 0; attempt < MAX_GAME_ID_ATTEMPTS; attempt++) {
       const gameId = makeGameId();
       const result = await createGame(
         redis,
-        { type: "CreateGame", ...request, gameId },
+        { type: "CreateGame", ...request, gameId, commandId },
         auth.userId,
       );
       if (!("error" in result)) {

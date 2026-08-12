@@ -75,6 +75,24 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Core gameplay
 
+- [ ] As a player, I can join a game that's already in progress, not just
+      before it starts. Split out (2026-08-12) as its own story, distinct
+      from the pre-start "join via invite link" story above and from the
+      reconnect/resync story below (a returning player who's already
+      seated; this is a genuinely new player being seated mid-game). Today
+      `joinGame` explicitly rejects with `GameAlreadyStarted` once
+      `status !== "lobby"` (`apps/server/src/lobby.ts`). State delivery on
+      connect is already transport-ready for this — every `?game=` connect
+      gets a full `LobbySnapshot` regardless of when it happens — but
+      joining mid-game needs real game-logic decisions this doesn't
+      resolve for free: how a late joiner's score/pool access work when
+      other players already have claimed words and a head start, whether
+      there's a cutoff (e.g. no joins once the bank is nearly empty), and
+      how the history panel's past plays reach them (tracked separately,
+      see "History panel backfill" below). See docs/decisions.md
+      "Realtime transport: raw `ws`, not Socket.IO" for why this story's
+      existence argued _against_ Socket.IO rather than for it.
+
 - [x] As the current player, I can turn over one tile from the bank on my turn.
 - [x] As a player, if the current player's turn timer expires, the turn
       auto-advances to the next player (see CLAUDE.md: client-triggered for MVP).
@@ -184,6 +202,16 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
 - [ ] As a player, if my connection drops and reconnects mid-game, I see the
       correct current state (seq-based resync, no silent drift).
+- [ ] As a player who reconnects mid-game or joins a game already in
+      progress ("Core gameplay" above), I see the History panel populated
+      with plays I missed, not just current state. Split out (2026-08-12)
+      as its own story — the state-resync story above already works via
+      full snapshots and doesn't need this; this is specifically about
+      backfilling _past_ plays, which the history panel today can't do at
+      all (purely client-accumulated from events seen live, see
+      docs/decisions.md "History panel is client-side only"). Candidate
+      approaches captured but not decided in docs/decisions.md
+      "Explicitly still open" — resolve deliberately when picked up.
 - [x] As a player on mobile, the game is fully playable (design system has
       responsive rail/menu treatment already specified). Audited end to end
       at a real mobile viewport (Playwright, iPhone SE width): full

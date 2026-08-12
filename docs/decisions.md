@@ -1893,6 +1893,67 @@ coverage.
 
 ---
 
+## Realtime transport: raw `ws`, not Socket.IO
+
+**Decision** (2026-08-12): stay on raw `ws` for the gameplay WebSocket
+channel. This closes the "confirmed? not discussed" flag raised
+2026-08-11 (see the now-removed "Explicitly still open" bullet below) —
+raised for real discussion specifically because it became relevant while
+scoping the reconnect/resync story
+(`docs/user-stories.md` "Non-functional / cross-cutting").
+
+**Alternative considered**: Socket.IO, for its built-in client
+reconnect-with-backoff and room/broadcast primitives.
+
+**Why not**, point by point against what Socket.IO actually offers:
+
+- **Multi-instance-safe broadcast is already built**, by hand:
+  `apps/server` publishes every accepted event to a Redis pub/sub channel
+  (`game:events`), and every server process subscribes and re-broadcasts to
+  whatever local sockets are in that game's room (`index.ts`, `rooms` Map +
+  `subscriber.on("message", ...)`). This is exactly what Socket.IO's Redis
+  adapter exists to provide — adopting Socket.IO would replace a working,
+  small piece of code with a heavier equivalent doing the same job, not add
+  a capability.
+- **Resync-on-connect is already built, and transport-agnostic.** Every WS
+  event carries a full `LobbySnapshot`, not a delta, and the server sends a
+  fresh `LobbyState` unconditionally on every `?game=` connect — fresh
+  join, page-navigation reconnect, and (once built, see "Mid-game join"
+  below) a genuinely new late joiner all go through the identical path.
+  Nothing about this needs Socket.IO.
+- **Socket.IO's one differentiated reconnection feature doesn't cover the
+  case that actually needs solving.** Connection State Recovery (v4.6+)
+  replays buffered packets only to a socket ID that previously connected,
+  within a short server-side window — it cannot serve a client that was
+  never connected before. Mid-game join needs a general "give this viewer
+  the state/history it's missing" mechanism regardless of who's asking, and
+  that mechanism (the bounded-Redis-history approach below) is a strict
+  superset of what CSR provides for reconnects. Once it exists, CSR's
+  marginal value is ~zero.
+- **Socket.IO's handshake requires load-balancer sticky sessions**, since it
+  defaults to HTTP long-polling upgrading to WebSocket (multiple HTTP round
+  trips before the upgrade) — a constraint raw `ws`'s single Upgrade
+  request doesn't have. This cuts against this project's stated "any node
+  can handle any game's command" goal (CLAUDE.md "Core architecture") for
+  whenever this goes multi-instance.
+- **Two overlapping version-negotiation concepts.** This app already has an
+  explicit `PROTOCOL_VERSION`/`Handshake` message (CLAUDE.md "Protocol
+  conventions"). Socket.IO layers its own Engine.IO protocol/version
+  negotiation underneath that, for no added benefit here.
+- **Testing.** CLAUDE.md's testing strategy already commits `apps/server`'s
+  WS round-trip tests to "a real `ws` client against a running server."
+  Socket.IO would mean swapping every test to `socket.io-client`.
+- **Bundle weight.** `socket.io-client` pulls in `engine.io-client`, a
+  polling transport, and its own parser, for functionality
+  (reconnect-with-backoff) that's a small, self-contained piece of code to
+  write directly against the native `WebSocket` API.
+
+**Where Socket.IO would genuinely have been the right call**: an app that
+needs transport fallback for hostile/proxy-heavy networks, or that hasn't
+already built its own multi-instance fanout. Neither applies here.
+
+---
+
 ## Explicitly still open
 
 - **`VITE_API_URL` becoming canonical, `VITE_WS_URL` derived from it.** See
@@ -1901,17 +1962,6 @@ coverage.
   refactor `useGameSocket.ts` to derive its WS URL from `VITE_API_URL`
   (scheme swap: `http:`→`ws:`, `https:`→`wss:`); (2) remove the standalone
   `VITE_WS_URL` var.
-- **`ws` (raw WebSocket) vs. Socket.IO for the gameplay channel.** This file
-  previously stated flatly that raw `ws` was "confirmed" here. Struck as of
-  2026-08-11: the user flagged they don't recall that actually being
-  discussed with them. The original reasoning (framework abstraction costing
-  more than it buys on the hot path) isn't wrong on its face, but treat it
-  as a proposal to revisit,
-  not a settled fact, particularly once the reconnect/mid-game-join stories
-  (see "Reconnect/mid-game-join history backfill" below) are picked up —
-  Socket.IO's built-in reconnection/room primitives may be worth the
-  framework cost specifically for that problem in a way that wasn't as
-  salient when this was first written.
 - **Hand-written Lua vs. a query-builder/wrapper for `packages/redis`.** Not
   yet discussed with the user at all — flagged 2026-08-11 as worth an actual
   pros/cons conversation before treating "hand-written Lua" as settled
@@ -1923,16 +1973,19 @@ coverage.
   history to Postgres yet at all (gameplay is Redis-only, per "Backend
   state architecture" above), so this is blocked on that landing first,
   not on identity — identity is already Clerk-based.
-- **Reconnect/mid-game-join history backfill** — the still-open "connection
+- **History panel backfill on reconnect/late join** — split out
+  (2026-08-12) as its own follow-up, separate from both the "connection
   drops and reconnects mid-game" story (`docs/user-stories.md`
-  "Non-functional / cross-cutting") covers state resync (seq-based, already
-  designed for — see "Sequencing" in CLAUDE.md), but not specifically
-  whether a reconnecting/late-joining client can see the history panel's
-  _past_ plays, not just current state. Today it can't: the history panel
-  is purely client-accumulated from events seen live (see "History panel is
+  "Non-functional / cross-cutting" — state resync, seq-based, already
+  designed for, see "Sequencing" in CLAUDE.md) and the mid-game-join story
+  (same file, "Core gameplay") — neither of those covers whether a
+  reconnecting or late-joining client can see the history panel's _past_
+  plays, only current state. Today it can't: the history panel is purely
+  client-accumulated from events seen live (see "History panel is
   client-side only" above) — a client that wasn't connected the whole time
-  just has a gap. Candidate approaches, not yet decided between, not yet
-  needed until that story is picked up:
+  just has a gap. Its own user story in `docs/user-stories.md`
+  "Non-functional / cross-cutting". Candidate approaches, not yet decided
+  between, not yet needed until that story is picked up:
   - **Bounded recent-history in Redis state** — add a capped list (e.g.
     last 50 events) to `GameState` itself, appended to on each accepted
     move, so a full resync payload includes it for free (no extra round

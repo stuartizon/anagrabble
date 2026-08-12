@@ -667,6 +667,30 @@ Redis with a TTL instead of a JS `setTimeout`, so the grace period survives
 a reconnect landing on any node. Revisit before running more than one
 server instance.
 
+**Correction** (2026-08-12): two details in the "Decision" paragraph above
+are now stale, both superseded by changes documented elsewhere in this
+file. The `New Game → Lobby` half of the motivating example no longer
+applies — `CreateGame` moved off WS onto `POST /games` (see "CreateGame as
+a REST endpoint" below), so `NewGamePage` doesn't hold a WebSocket at all
+anymore; there's no create-page socket to close during that transition.
+And `?player=` was removed from the WS connect URL entirely (see "Command
+identity: derived from the Clerk session, not client-supplied" —
+"Deferred, now landed") — reconnection is recognized purely via the
+verified Clerk session token checked against the game's existing player
+list, no query param involved. `pendingLeaves`/`LEAVE_GRACE_MS` itself is
+still very much live, but only pre-start: `leaveGame()` (`lobby.ts`) is a
+no-op once `status !== "lobby"`, so a mid-game drop was never going to
+remove anyone from `players` regardless of this window — score and
+claimed words just sit untouched while a player's gone. What it actually
+guards is a pre-start player (worst case the host, since host is derived
+from `players[0]`) getting visibly bounced from the lobby's player list
+and having to re-join at the back of the queue on a reload or blip. The
+reconnect-with-backoff feature (see "Reconnect-with-backoff: scope calls
+made, not blockers") is what makes that recovery fast enough to matter for
+this specific case — its first retry attempt (1s) is deliberately inside
+this 3s window. See "Explicitly still open" below for the host-status
+follow-up this raised.
+
 ## Player color: computed client-side, not server-assigned
 
 **Decision**: a player's display color isn't part of `GameState` at all —
@@ -2332,3 +2356,27 @@ questions needed resolving in conversation before _it_ was schedulable.
   configuration work. A live Backend API lookup per request was also
   considered and is strictly worse than the JWT-template approach for the
   same outcome — not worth building either way.
+- **`pendingLeaves`'s host-status-loss edge case, revisit once mid-game
+  join lands.** Raised 2026-08-12 while explaining the pre-start-only
+  debounce (see the "Correction" note under the original Lobby-slice
+  decision above): if a pre-start player's disconnect outlasts the 3s
+  grace window today, they get silently removed from `players` and have
+  to `JoinGame` again, landing at the back of the list. For a regular
+  player, once mid-game join (`docs/user-stories.md` "Core gameplay")
+  exists, this stops being a real problem — worst case they just rejoin
+  once the game's started, same as any other late joiner, no data lost
+  (`leaveGame()` only ever runs pre-start anyway, so nothing about their
+  in-game state is at risk either way). The **host** case doesn't go away
+  the same way, though: host is derived from `players[0]`, so a host who
+  gets bounced and re-joins comes back as an ordinary player at the end of
+  the list, having silently lost host status (the actual incident that
+  motivated building `pendingLeaves` in the first place). Mid-game join
+  landing doesn't fix that on its own. Not designed here — parked
+  deliberately rather than solved speculatively, per this file's own
+  "raise it when it becomes relevant" pattern (see the ws-vs-Socket.IO and
+  Fastify calls elsewhere in this file for precedent). Candidate
+  directions floated in conversation, none chosen: an explicit `hostId`
+  field instead of position-derived host status; some host-migration/
+  reclaim mechanic; extending the grace window specifically for the host;
+  or deciding the current behavior is rare/tolerable enough to leave as
+  is. Revisit when mid-game join is actually picked up, not before.

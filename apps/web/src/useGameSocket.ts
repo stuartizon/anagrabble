@@ -68,10 +68,11 @@ interface GameSocketState {
  * page. See CLAUDE.md "Sequencing" — LobbyState/PlayerJoined/PlayerLeft all
  * carry a full snapshot, so the component never has to hand-merge deltas.
  *
- * A page-to-page reconnect (Lobby page reload, New Game -> Lobby) is
- * recognized as the same player via the verified Clerk session token alone
- * — see apps/server's `resolveActingPlayerId` and `pendingLeaves` debounce —
- * so the caller doesn't need to tell this hook who it is. */
+ * A same-page reconnect (a Lobby page reload, or this hook's own
+ * reconnect-with-backoff after an unexpected drop) is recognized as the
+ * same player via the verified Clerk session token alone — see
+ * apps/server's `resolveActingPlayerId` and `pendingLeaves` debounce — so
+ * the caller doesn't need to tell this hook who it is. */
 export function useGameSocket(gameId?: string) {
   const [state, setState] = useState<GameSocketState>({
     status: "connecting",

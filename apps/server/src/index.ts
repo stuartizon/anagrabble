@@ -126,11 +126,20 @@ function leaveRoom(socket: WebSocket, gameId: string) {
 }
 
 // A client's WS connection is scoped to one page (see apps/web
-// useGameSocket), so a same-player navigation (New Game -> Lobby, or a
-// Lobby reload) closes one socket and opens another for the *same* player a
-// moment later — that's not the player leaving. Debounce the actual
-// Redis/broadcast removal so a prompt reconnect (same gameId+playerId)
-// cancels it instead of bouncing the player out of their own lobby.
+// useGameSocket), so a same-player Lobby page reload, or this hook's own
+// reconnect-with-backoff after an unexpected drop, closes one socket and
+// opens another for the *same* player a moment later — that's not the
+// player leaving. Debounce the actual Redis/broadcast removal so a prompt
+// reconnect (same gameId+playerId) cancels it instead of bouncing the
+// player out of their own lobby. Only bites pre-start: leaveGame() below
+// is a no-op once status !== "lobby", so a mid-game drop was never going
+// to remove anyone from `players` regardless of this window — what's
+// actually at stake is a pre-start player (worst case the host, since host
+// is derived from `players[0]`) getting visibly bounced from the lobby's
+// player list and having to re-join at the back of the queue. (Originally
+// also covered the New Game -> Lobby transition — that no longer applies
+// now that CreateGame is a plain POST /games and NewGamePage never holds a
+// socket at all; see docs/decisions.md "CreateGame as a REST endpoint".)
 const LEAVE_GRACE_MS = 3000;
 const pendingLeaves = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -155,8 +164,10 @@ function scheduleLeave(gameId: string, playerId: string) {
 }
 
 /** Cancels a pending leave if this playerId reconnects to the same game in
- * time — called both for a passive `?game=&player=` reconnect and for a
- * JoinGame retry from an already-seated player. */
+ * time — called both for a passive `?game=` reconnect (identity comes from
+ * the verified Clerk session token, not a query param — see "Command
+ * identity" in docs/decisions.md) and for a JoinGame retry from an
+ * already-seated player. */
 function cancelPendingLeave(gameId: string, playerId: string) {
   const key = leaveKey(gameId, playerId);
   const timer = pendingLeaves.get(key);

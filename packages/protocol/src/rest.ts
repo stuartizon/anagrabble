@@ -49,19 +49,20 @@ export interface PlayerSettingsResponse {
   hapticsEnabled: boolean;
 }
 
-/** POST /games body. `gameId`/`commandId` are client-generated (same
- * `makeGameId`/`makeCommandId` helpers the WS commands use) — a REST
- * request's success/failure is directly observable in the response, so
- * this doesn't need WS's fire-and-forget commandId dedup for its own sake,
- * but keeping the field means the same idempotency-safe `createGame()`
- * (apps/server/src/lobby.ts) handles both transports unchanged: a retried
- * POST with the same gameId+commandId still resolves to the same game
- * rather than a GameIdTaken conflict. Response is the created game's
- * LobbySnapshot (ws.ts) — no separate response type needed, it's the same
- * shape the WS path already produces via toLobbySnapshot(). */
+/** POST /games body. Unlike the WS `CreateGame` command, `gameId` is NOT
+ * supplied here — the server generates and owns it (see
+ * docs/decisions.md "CreateGame as a REST endpoint": standard REST
+ * semantics, POST to a collection, server assigns the identity and
+ * returns it in the response). `commandId` is still client-generated
+ * (same `makeCommandId` helper the WS commands use) since `createGame()`
+ * (apps/server/src/lobby.ts) still records one as part of its per-game
+ * command-dedup set regardless of caller — its idempotent-retry value is
+ * moot for this specific call path though, since a retry can't supply the
+ * same server-chosen gameId it never received. Response is the created
+ * game's LobbySnapshot (ws.ts) — no separate response type needed, it's
+ * the same shape the WS path already produces via toLobbySnapshot(). */
 export interface CreateGameRequest {
   commandId: string;
-  gameId: string;
   hostName: string;
   config: GameConfig;
 }

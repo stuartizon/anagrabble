@@ -24,9 +24,8 @@ vi.mock("../fetchCreateGame", () => ({
 
 vi.mock("../auth", () => mockSignedInClerk());
 
-// gameId is client-generated randomly; fix it so requests are predictable.
+// commandId is client-generated randomly; fix it so requests are predictable.
 vi.mock("../gameId", () => ({
-  makeGameId: () => "FIXED1",
   makeCommandId: () => "cmd-1",
 }));
 
@@ -85,7 +84,6 @@ describe("NewGamePage", () => {
 
     expect(createGame).toHaveBeenCalledWith("test-token", {
       commandId: "cmd-1",
-      gameId: "FIXED1",
       hostName: "Alex",
       config: { turnTimerSec: 30, minWordLength: 3, language: "English" },
     });
@@ -117,19 +115,7 @@ describe("NewGamePage", () => {
     expect(await screen.findByText("Navigated to lobby")).toBeInTheDocument();
   });
 
-  it("shows a friendly message and re-enables the button when the gameId is taken", async () => {
-    createGame.mockRejectedValue(new CreateGameError("GameIdTaken"));
-    renderPage();
-
-    await userEvent.click(screen.getByRole("button", { name: "Create game" }));
-
-    expect(
-      await screen.findByText("That game ID is already in use — try again."),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Create game" })).toBeEnabled();
-  });
-
-  it("shows a generic message for any other failure", async () => {
+  it("shows a generic message and re-enables the button on any failure", async () => {
     createGame.mockRejectedValue(new Error("network down"));
     renderPage();
 
@@ -138,5 +124,6 @@ describe("NewGamePage", () => {
     expect(
       await screen.findByText("Something went wrong creating your game. Try again."),
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create game" })).toBeEnabled();
   });
 });

@@ -3,8 +3,8 @@ import type { CreateGameRequest, LobbySnapshot } from "@anagrabble/protocol";
 const API_URL = import.meta.env.VITE_API_URL;
 if (!API_URL) throw new Error("VITE_API_URL is not set");
 
-/** Thrown with the server's error code (e.g. "GameIdTaken") rather than a
- * generic message, so callers can distinguish a real conflict from an
+/** Thrown with the server's error code (e.g. "Unauthorized") rather than a
+ * generic message, so callers can distinguish a real rejection from an
  * unreachable-backend/network failure if they want to. */
 export class CreateGameError extends Error {
   code: string;

@@ -11,7 +11,7 @@ import { RulesLink } from "../components/RulesLink";
 import { PageShell, CenteredContent, NarrowColumn } from "../components/Layout";
 import { createGame as createGameRequest, CreateGameError } from "../fetchCreateGame";
 import { getDisplayName } from "../clerkDisplayName";
-import { makeCommandId, makeGameId } from "../gameId";
+import { makeCommandId } from "../gameId";
 import styles from "./NewGamePage.module.css";
 
 // Matches design-system/New Game.dc.html layout/copy. RequireAuth gates
@@ -39,12 +39,11 @@ const MIN_WORD_LENGTH_OPTIONS = [
 ];
 const LANGUAGE = "English";
 
-function errorMessage(err: unknown): string {
-  if (err instanceof CreateGameError && err.code === "GameIdTaken") {
-    return "That game ID is already in use — try again.";
-  }
-  return "Something went wrong creating your game. Try again.";
-}
+// gameId is server-generated now (see docs/decisions.md "CreateGame as a
+// REST endpoint") — a collision on the server's own choice is retried
+// internally, so there's no client-visible "that id is taken" case left to
+// give a specific message for.
+const CREATE_GAME_ERROR = "Something went wrong creating your game. Try again.";
 
 export function NewGamePage() {
   const navigate = useNavigate();
@@ -71,13 +70,12 @@ export function NewGamePage() {
       if (!token) throw new CreateGameError("Unauthorized");
       const snapshot = await createGameRequest(token, {
         commandId: makeCommandId(),
-        gameId: makeGameId(),
         hostName,
         config,
       });
       navigate(`/${snapshot.gameId}`);
-    } catch (err) {
-      setError(errorMessage(err));
+    } catch {
+      setError(CREATE_GAME_ERROR);
       setCreating(false);
     }
   };

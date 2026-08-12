@@ -2150,6 +2150,36 @@ than removed in this same change, per CLAUDE.md "Schema evolution" — dead
 but harmless until a follow-up "contract" pass removes it once there's no
 possibility of a stale frontend build still sending it.
 
+**`gameId` generation moved server-side** (2026-08-12 follow-up, same day)
+— raised by the user reviewing the request shape right after the REST
+endpoint shipped: why was the client still generating `gameId` at all,
+given the WS-era reason (needing to know the id in advance to correlate a
+fire-and-forget command with its later response) doesn't apply to a
+REST request whose response directly returns the created snapshot?
+Agreed and changed: `POST /games`'s body no longer takes `gameId` —
+`apps/server/src/games.ts` generates it (`makeGameId()`, same
+`Math.random().toString(36).slice(2, 7).toUpperCase()` shape the removed
+client-side helper used, so invite-link codes look identical) and retries
+on a `GameIdTaken` collision up to `MAX_GAME_ID_ATTEMPTS` (5 — a
+sanity bound, not a tuned number; a true collision among 60M+ possible
+5-char codes and a handful of concurrent games is vanishingly unlikely)
+before giving up with a 500. Matches standard REST semantics (server
+assigns and returns the resource's identity) and closes a trust gap:
+nothing validated a client-supplied `gameId`'s shape before. `commandId`
+stays client-generated — `createGame()` still records one as part of its
+per-game command-dedup set regardless of caller, though its retry-safety
+value is moot for this specific call path now (a retry can't supply a
+server-chosen id it never received; true idempotent-retry-safety for
+creation specifically would need a separate, _global_ commandId→gameId
+lookup, not attempted here since nothing in the client actually retries
+automatically today — see the client-generated-`commandId` discussion in
+the DTO's own doc comment, `packages/protocol/src/rest.ts`). Client-side
+`makeGameId()` (`apps/web/src/gameId.ts`) was deleted outright as
+genuinely dead code, not deprecated in place — its only caller was
+`NewGamePage`. Verified live: `POST /games`'s request body now omits
+`gameId` entirely, and the server-assigned code appears correctly in the
+resulting invite URL.
+
 ---
 
 ## Planned work (2026-08-12): task breakdown and dependencies

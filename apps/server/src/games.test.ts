@@ -3,7 +3,9 @@
 // Redis mutation correctness (idempotency dedup, seq, state shape) is
 // lobby.test.ts's job (real Redis via testcontainers). What's ours to
 // verify here is auth/validation/status-code/response-shape wiring, same
-// split as stats.test.ts/settings.test.ts.
+// split as stats.test.ts/settings.test.ts — plus the gameId-generation/
+// collision-retry loop, which is genuinely new logic this file owns (see
+// docs/decisions.md "CreateGame as a REST endpoint").
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Redis } from "@anagrabble/redis";
@@ -32,24 +34,25 @@ const FAKE_REDIS = {} as Redis;
 
 const VALID_BODY: CreateGameRequest = {
   commandId: "cmd-1",
-  gameId: "ABCDE",
   hostName: "Alice",
   config: { turnTimerSec: 30, minWordLength: 3, language: "English" },
 };
 
-const SAMPLE_SNAPSHOT: LobbySnapshot = {
-  gameId: "ABCDE",
-  hostId: "user_1",
-  status: "lobby",
-  seq: 0,
-  config: VALID_BODY.config,
-  turnPlayerIndex: 0,
-  turnDeadline: null,
-  endGameDeadline: null,
-  bankCount: 0,
-  pool: [],
-  players: [{ id: "user_1", name: "Alice", words: [], score: 0 }],
-};
+function sampleSnapshot(gameId: string): LobbySnapshot {
+  return {
+    gameId,
+    hostId: "user_1",
+    status: "lobby",
+    seq: 0,
+    config: VALID_BODY.config,
+    turnPlayerIndex: 0,
+    turnDeadline: null,
+    endGameDeadline: null,
+    bankCount: 0,
+    pool: [],
+    players: [{ id: "user_1", name: "Alice", words: [], score: 0 }],
+  };
+}
 
 describe("handleCreateGameRequest", () => {
   it("returns 401 when the Authorization header is missing", async () => {
@@ -87,7 +90,9 @@ describe("handleCreateGameRequest", () => {
 
   it("verifies via the mock auth path when authMode is 'mock'", async () => {
     verifyMockSessionToken.mockReturnValue({ userId: "user_1" });
-    createGame.mockResolvedValue({ snapshot: SAMPLE_SNAPSHOT });
+    createGame.mockImplementation(async (_redis, cmd) => ({
+      snapshot: sampleSnapshot(cmd.gameId),
+    }));
 
     const result = await handleCreateGameRequest(
       FAKE_REDIS,
@@ -99,14 +104,12 @@ describe("handleCreateGameRequest", () => {
 
     expect(verifyMockSessionToken).toHaveBeenCalledWith("mock-user_1");
     expect(verifySessionToken).not.toHaveBeenCalled();
-    expect(result).toEqual({ status: 201, body: SAMPLE_SNAPSHOT });
+    expect(result?.status).toBe(201);
   });
 
   it.each([
     ["a missing commandId", { ...VALID_BODY, commandId: undefined }],
     ["a non-string commandId", { ...VALID_BODY, commandId: 123 }],
-    ["a missing gameId", { ...VALID_BODY, gameId: undefined }],
-    ["an empty gameId", { ...VALID_BODY, gameId: "" }],
     ["a missing hostName", { ...VALID_BODY, hostName: undefined }],
     ["a missing config", { ...VALID_BODY, config: undefined }],
     [
@@ -129,9 +132,11 @@ describe("handleCreateGameRequest", () => {
     expect(createGame).not.toHaveBeenCalled();
   });
 
-  it("creates the game and returns 201 with the resulting snapshot for a valid request", async () => {
+  it("generates a gameId server-side and returns 201 with the resulting snapshot", async () => {
     verifySessionToken.mockResolvedValue({ userId: "user_1" });
-    createGame.mockResolvedValue({ snapshot: SAMPLE_SNAPSHOT });
+    createGame.mockImplementation(async (_redis, cmd) => ({
+      snapshot: sampleSnapshot(cmd.gameId),
+    }));
 
     const result = await handleCreateGameRequest(
       FAKE_REDIS,
@@ -141,23 +146,27 @@ describe("handleCreateGameRequest", () => {
     );
 
     expect(verifySessionToken).toHaveBeenCalledWith("good-token", "sk_test");
+    expect(createGame).toHaveBeenCalledTimes(1);
     expect(createGame).toHaveBeenCalledWith(
       FAKE_REDIS,
       {
         type: "CreateGame",
         commandId: VALID_BODY.commandId,
-        gameId: VALID_BODY.gameId,
+        gameId: expect.stringMatching(/^[A-Z0-9]{5}$/),
         hostName: VALID_BODY.hostName,
         config: VALID_BODY.config,
       },
       "user_1",
     );
-    expect(result).toEqual({ status: 201, body: SAMPLE_SNAPSHOT });
+    expect(result.status).toBe(201);
+    expect((result.body as LobbySnapshot).gameId).toMatch(/^[A-Z0-9]{5}$/);
   });
 
-  it("returns 409 when the gameId is already taken", async () => {
+  it("retries with a freshly generated gameId when the first choice collides, and succeeds", async () => {
     verifySessionToken.mockResolvedValue({ userId: "user_1" });
-    createGame.mockResolvedValue({ error: "GameIdTaken" });
+    createGame
+      .mockResolvedValueOnce({ error: "GameIdTaken" })
+      .mockImplementationOnce(async (_redis, cmd) => ({ snapshot: sampleSnapshot(cmd.gameId) }));
 
     const result = await handleCreateGameRequest(
       FAKE_REDIS,
@@ -166,7 +175,30 @@ describe("handleCreateGameRequest", () => {
       VALID_BODY,
     );
 
-    expect(result).toEqual({ status: 409, body: { error: "GameIdTaken" } });
+    expect(createGame).toHaveBeenCalledTimes(2);
+    const firstAttemptGameId: string = createGame.mock.calls[0]![1].gameId;
+    const secondAttemptGameId: string = createGame.mock.calls[1]![1].gameId;
+    expect(secondAttemptGameId).not.toBe(firstAttemptGameId);
+    expect(result).toEqual({ status: 201, body: sampleSnapshot(secondAttemptGameId) });
+  });
+
+  it("gives up and returns 500 after repeated gameId collisions", async () => {
+    verifySessionToken.mockResolvedValue({ userId: "user_1" });
+    createGame.mockResolvedValue({ error: "GameIdTaken" });
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await handleCreateGameRequest(
+      FAKE_REDIS,
+      "sk_test",
+      "Bearer good-token",
+      VALID_BODY,
+    );
+
+    expect(createGame.mock.calls.length).toBeGreaterThan(1);
+    expect(result).toEqual({ status: 500, body: { error: "Internal error" } });
+    expect(errorSpy).toHaveBeenCalled();
+
+    errorSpy.mockRestore();
   });
 
   it("returns 500 and logs when createGame rejects", async () => {

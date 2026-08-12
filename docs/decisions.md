@@ -181,8 +181,9 @@ has `deploy-backend` and `deploy-frontend` jobs, each `needs: test` and gated
 to `push` on `main` only (not PRs), that run the Railway CLI (`railway up
 --service ... --environment development --ci`) and Vercel CLI (`vercel pull`
 / `build` / `deploy --prebuilt`, no `--prod`, so it lands as a Preview
-deployment) directly, authenticated via repo secrets (`RAILWAY_TOKEN`,
-`RAILWAY_SERVICE_ID`, `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`).
+deployment) directly, authenticated via repo secrets
+(`RAILWAY_TOKEN_DEVELOPMENT`, `RAILWAY_SERVICE_ID`, `VERCEL_TOKEN`,
+`VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`).
 Both jobs target the Dev environment and fire automatically on every push to
 `main`.
 
@@ -198,10 +199,13 @@ extra confirmation step (e.g. a required text input) beyond what
 picking the workflow and branch, clicking "Run workflow") — revisit with a
 GitHub Environment + required reviewers if that ever proves too easy to
 trigger by accident. Railway's production job needs its own
-`RAILWAY_TOKEN_PRODUCTION` secret — the existing `RAILWAY_TOKEN` was
-deliberately scoped to the project's `development` environment only (see
+`RAILWAY_TOKEN_PRODUCTION` secret — the existing `RAILWAY_TOKEN_DEVELOPMENT`
+was deliberately scoped to the project's `development` environment only (see
 above), so it has no access to `production` by design and a
-same-privilege-as-dev token would defeat that isolation. `RAILWAY_SERVICE_ID`
+same-privilege-as-dev token would defeat that isolation; the `_DEVELOPMENT`
+suffix on the dev secret's name (renamed from a bare `RAILWAY_TOKEN`) exists
+so the two are symmetric and neither reads as the unscoped default.
+`RAILWAY_SERVICE_ID`
 is shared (same service, selected per-call by `--environment`). Vercel's
 production job reuses the existing `VERCEL_TOKEN`/`VERCEL_ORG_ID`/
 `VERCEL_PROJECT_ID` secrets unchanged — Vercel tokens aren't

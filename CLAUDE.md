@@ -96,9 +96,10 @@ load-bearing for any piece of state.
   (`deploy-backend-production`/`deploy-frontend-production`, gated on
   `workflow_dispatch`, still `needs: test`) — see docs/decisions.md "Deploy
   gating: Railway/Vercel wait for CI, via a custom deploy job" for the full
-  reasoning, the required repo secrets (production needs its own
-  `RAILWAY_TOKEN_PRODUCTION`, deliberately separate from the dev-scoped
-  `RAILWAY_TOKEN`), and the manual dashboard step (disabling each platform's
+  reasoning, the required repo secrets (`RAILWAY_TOKEN_DEVELOPMENT` and
+  `RAILWAY_TOKEN_PRODUCTION` are deliberately separate, environment-scoped
+  tokens, not one shared token), and the manual dashboard step (disabling
+  each platform's
   own auto-deploy) this doesn't do for you. This closes the "red build
   reaches prod" gap but not backend/frontend deploy ordering relative to each
   other — expand/contract protocol discipline (below) still covers that.

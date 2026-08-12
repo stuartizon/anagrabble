@@ -61,7 +61,7 @@ jobs:
       - name: Deploy to Railway
         run: railway up --service "$RAILWAY_SERVICE_ID" --environment development --ci
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEVELOPMENT }}
           RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
 
   deploy-frontend:

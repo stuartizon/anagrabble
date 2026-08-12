@@ -16,7 +16,18 @@ export function createPostgresClient({
   connectionString,
   poolConfig,
 }: CreatePostgresClientOptions): Pool {
-  return new Pool({ connectionString, ...poolConfig });
+  const pool = new Pool({ connectionString, ...poolConfig });
+  // pg emits 'error' on the pool for backend/network failures affecting an
+  // idle client (e.g. the server terminating the connection) — without a
+  // listener, Node treats that as an unhandled exception and crashes the
+  // process. Surfaced by packages/postgres's own test suites tearing down
+  // their testcontainers (container.stop() after pool.end() can still race
+  // an idle client's disconnect), but applies equally to the real pool
+  // apps/server holds open against a live Postgres instance.
+  pool.on("error", (err) => {
+    console.error("Unexpected error on idle Postgres client", err);
+  });
+  return pool;
 }
 
 /** Kysely instance for typed queries (see docs/decisions.md "packages/postgres:

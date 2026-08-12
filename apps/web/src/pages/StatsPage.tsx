@@ -3,6 +3,7 @@ import { useAuth } from "../auth";
 import { Header } from "../components/Header";
 import { Card } from "../components/Card";
 import { LetterTile } from "../components/LetterTile";
+import { Loader } from "../components/Loader";
 import { PageShell, CenteredContent } from "../components/Layout";
 import { fetchPlayerStats, type PlayerStatsResponse } from "../fetchPlayerStats";
 import { cx } from "../cx";
@@ -67,7 +68,7 @@ export function StatsPage() {
       <Header />
       <CenteredContent>
         <div className={styles.column}>
-          {state.status === "loading" && <Card>Loading your stats…</Card>}
+          {state.status === "loading" && <Loader />}
           {state.status === "error" && <Card>Something went wrong loading your stats.</Card>}
           {state.status === "loaded" && <StatsContent stats={state.stats} />}
         </div>

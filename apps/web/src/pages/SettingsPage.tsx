@@ -4,6 +4,7 @@ import { Header } from "../components/Header";
 import { Card } from "../components/Card";
 import { Select } from "../components/Select";
 import { Switch } from "../components/Switch";
+import { Loader } from "../components/Loader";
 import { PageShell, CenteredContent, NarrowColumn } from "../components/Layout";
 import {
   fetchPlayerSettings,
@@ -75,7 +76,7 @@ export function SettingsPage() {
       <Header />
       <CenteredContent>
         <NarrowColumn>
-          {state.status === "loading" && <Card>Loading your settings…</Card>}
+          {state.status === "loading" && <Loader />}
           {state.status === "error" && <Card>Something went wrong loading your settings.</Card>}
           {state.status === "loaded" && (
             <Card>

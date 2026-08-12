@@ -87,11 +87,12 @@ beforeEach(() => {
 });
 
 describe("LobbyPage", () => {
-  it("shows only the header while the lobby hasn't loaded yet", () => {
+  it("shows a loading indicator while the lobby hasn't loaded yet", () => {
     mockSocket({ lobby: null });
     renderAsPlayer("host-1");
 
     expect(screen.queryByText(/game/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId("loader")).toBeInTheDocument();
   });
 
   it("shows a not-found message and returns home on error", async () => {

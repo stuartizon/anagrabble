@@ -1,5 +1,13 @@
 .tile {
   display: flex;
+  /* Without this, a fixed-width tile in a flex row narrower than its
+     content (e.g. Loader's word not fitting a narrow viewport) gets
+     compressed by flex-shrink's default of 1 — width shrinks but height
+     doesn't, turning the tile into a rectangle. Callers that need a tile
+     row to fit a narrow width should size or wrap around it (see
+     GameBoard's .poolTiles flex-wrap, or Loader's breakpoint-driven size
+     swap), not let individual tiles distort. */
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-sm);
@@ -10,6 +18,23 @@
   font-weight: 700;
   color: var(--ink);
   text-transform: uppercase;
+  transition: background-color 140ms ease-out;
+}
+
+.down {
+  background-color: var(--neutral-300);
+  /* Subtle diagonal-line texture for the unturned tile back — hard-edged
+     stripes, not a color fade, so it stays within the design system's
+     "no gradients" restraint (see CLAUDE.md "Design system"). Clips to
+     the tile's own border-radius automatically (background-clip defaults
+     to the border box). */
+  background-image: repeating-linear-gradient(
+    -45deg,
+    color-mix(in srgb, var(--neutral-500) 18%, transparent) 0,
+    color-mix(in srgb, var(--neutral-500) 18%, transparent) 1px,
+    transparent 1px,
+    transparent 4px
+  );
 }
 
 .sm {

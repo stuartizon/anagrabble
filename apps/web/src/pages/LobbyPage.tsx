@@ -7,6 +7,7 @@ import { Card } from "../components/Card";
 import { Button } from "../components/Button";
 import { PageShell, CenteredContent, NarrowColumn } from "../components/Layout";
 import { RulesLink } from "../components/RulesLink";
+import { Loader } from "../components/Loader";
 import { useGameSocket } from "../useGameSocket";
 import { getDisplayName } from "../clerkDisplayName";
 import { makeCommandId } from "../gameId";
@@ -85,6 +86,9 @@ export function LobbyPage() {
     return (
       <PageShell>
         <Header />
+        <CenteredContent>
+          <Loader />
+        </CenteredContent>
       </PageShell>
     );
   }

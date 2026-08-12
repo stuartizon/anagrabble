@@ -187,18 +187,24 @@ deployment) directly, authenticated via repo secrets
 Both jobs target the Dev environment and fire automatically on every push to
 `main`.
 
-**Production deploys are a separate, manually-triggered pair of jobs**
+**Production deploys are a separate, manually-triggered pair of jobs in
+their own workflow file**, `.github/workflows/deploy-production.yml`
 (`deploy-backend-production`/`deploy-frontend-production`), added once
-Production's Railway environment existed to deploy to. Both are gated
-`if: github.event_name == 'workflow_dispatch'` — `workflow_dispatch` was
-added to `ci.yml`'s `on:` block for this — and still `needs: test`, so a
-production deploy goes through the same lint/typecheck/build/test gate as
-everything else; it just never fires on its own. Deliberately not given any
+Production's Railway environment existed to deploy to. That workflow's only
+trigger is `workflow_dispatch` — it was initially a `workflow_dispatch`
+addition to `ci.yml`'s own `on:` block, gated `if: github.event_name ==
+'workflow_dispatch'`, but that mashed a purely-manual promotion path into
+the same file as every push/PR-triggered job, so it was split out. Unlike
+the Dev deploy jobs, the production jobs have no `needs: test` and don't
+re-run lint/typecheck/build/test at all — promotion only ever targets
+`main`, which already passed that gate on the push that landed it, so
+re-running it here would just be redundant latency on every promotion, not
+an additional safety check. Deliberately not given any
 extra confirmation step (e.g. a required text input) beyond what
 `workflow_dispatch` itself already demands (navigating to the Actions tab,
-picking the workflow and branch, clicking "Run workflow") — revisit with a
-GitHub Environment + required reviewers if that ever proves too easy to
-trigger by accident. Railway's production job needs its own
+picking the `Deploy to production` workflow and branch, clicking "Run
+workflow") — revisit with a GitHub Environment + required reviewers if that
+ever proves too easy to trigger by accident. Railway's production job needs its own
 `RAILWAY_TOKEN_PRODUCTION` secret — the existing `RAILWAY_TOKEN_DEVELOPMENT`
 was deliberately scoped to the project's `development` environment only (see
 above), so it has no access to `production` by design and a

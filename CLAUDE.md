@@ -92,10 +92,15 @@ load-bearing for any piece of state.
   `development` environment; Vercel as a Preview build, explicitly re-aliased
   to `dev.anagrabble.com` in CI via `vercel alias set` — see decisions.md,
   Vercel's own branch-to-domain GUI setting wasn't usable here). Production
-  deploys are separate, manually-triggered jobs
-  (`deploy-backend-production`/`deploy-frontend-production`, gated on
-  `workflow_dispatch`, still `needs: test`) — see docs/decisions.md "Deploy
-  gating: Railway/Vercel wait for CI, via a custom deploy job" for the full
+  deploys are a separate workflow file,
+  `.github/workflows/deploy-production.yml` (`deploy-backend-production`/
+  `deploy-frontend-production`), triggered only by `workflow_dispatch` — kept
+  out of `ci.yml` so the purely-manual promotion path isn't mashed in with
+  the push/PR-triggered jobs. Neither job runs the
+  lint/format/typecheck/build/test gate — promotion only ever targets
+  `main`, which already passed it on the push that landed it — see
+  docs/decisions.md "Deploy gating: Railway/Vercel wait for CI, via a
+  custom deploy job" for the full
   reasoning, the required repo secrets (`RAILWAY_TOKEN_DEVELOPMENT` and
   `RAILWAY_TOKEN_PRODUCTION` are deliberately separate, environment-scoped
   tokens, not one shared token), and the manual dashboard step (disabling

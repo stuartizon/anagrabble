@@ -12,7 +12,18 @@ import {
 const WS_URL = import.meta.env.VITE_WS_URL;
 if (!WS_URL) throw new Error("VITE_WS_URL is not set");
 
-export type SocketStatus = "connecting" | "open" | "closed";
+/** Backoff schedule for reconnect attempts after an unexpected close (server
+ * restart, network blip) — capped exponential, retried indefinitely rather
+ * than giving up, since a stale-but-present tab should keep trying. The
+ * first attempt (1s) is well inside the server's 3s `pendingLeaves` grace
+ * period (apps/server/src/index.ts) so a brief blip doesn't visibly boot the
+ * player from the lobby's player list. Deliberately not a heartbeat/ping
+ * scheme that detects a silently-dead connection faster than the browser's
+ * own "close" event does — same "wait for real evidence before adding
+ * polling machinery" call as CLAUDE.md's turn-timer polling sweep. */
+export const RECONNECT_DELAYS_MS = [1000, 2000, 5000, 10000, 30000];
+
+export type SocketStatus = "connecting" | "open" | "reconnecting" | "closed";
 
 /** Narration data for the most recent WordPlayed event — enough for a
  * client to render "Sam stole CAT from You -> CAST" (CLAUDE.md "Core
@@ -84,6 +95,9 @@ export function useGameSocket(gameId?: string) {
 
   useEffect(() => {
     let cancelled = false;
+    let intentionalClose = false;
+    let reconnectAttempt = 0;
+    let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
     setState({ status: "connecting", lobby: null, error: null, wordPlay: null, history: [] });
 
     async function connect() {
@@ -98,8 +112,27 @@ export function useGameSocket(gameId?: string) {
       const socket = new WebSocket(url);
       socketRef.current = socket;
 
-      socket.addEventListener("open", () => setState((s) => ({ ...s, status: "open" })));
-      socket.addEventListener("close", () => setState((s) => ({ ...s, status: "closed" })));
+      socket.addEventListener("open", () => {
+        reconnectAttempt = 0;
+        setState((s) => ({ ...s, status: "open" }));
+      });
+
+      // An unexpected close (server restart, network blip) retries with
+      // backoff rather than leaving the player stranded — see
+      // RECONNECT_DELAYS_MS above. A deliberate close (unmount, gameId
+      // change — the effect cleanup below) sets `intentionalClose` first, so
+      // this listener knows not to schedule a retry for its own cleanup.
+      socket.addEventListener("close", () => {
+        if (cancelled || intentionalClose) {
+          setState((s) => ({ ...s, status: "closed" }));
+          return;
+        }
+        setState((s) => ({ ...s, status: "reconnecting" }));
+        const delay =
+          RECONNECT_DELAYS_MS[Math.min(reconnectAttempt, RECONNECT_DELAYS_MS.length - 1)];
+        reconnectAttempt += 1;
+        reconnectTimer = setTimeout(connect, delay);
+      });
 
       socket.addEventListener("message", (evt) => {
         const message = JSON.parse(evt.data as string) as HandshakeMessage | Event;
@@ -155,6 +188,8 @@ export function useGameSocket(gameId?: string) {
 
     return () => {
       cancelled = true;
+      intentionalClose = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
       socketRef.current?.close();
     };
   }, [gameId]);

@@ -10,7 +10,7 @@ import { TurnTileButton } from "../components/TurnTileButton";
 import { EndGameCountdown } from "../components/EndGameCountdown";
 import { makeCommandId } from "../gameId";
 import { assignPlayerColors } from "../playerColors";
-import type { GameSocketError, WordPlayNarration } from "../useGameSocket";
+import type { GameSocketError, SocketStatus, WordPlayNarration } from "../useGameSocket";
 import { useVisualViewportHeight } from "../useVisualViewportHeight";
 import styles from "./GameBoard.module.css";
 
@@ -32,6 +32,7 @@ interface GameBoardProps {
   error: GameSocketError | null;
   wordPlay: WordPlayNarration | null;
   history: WordPlayNarration[];
+  status: SocketStatus;
 }
 
 function remainingSeconds(deadline: number | null): number {
@@ -225,7 +226,15 @@ function HistorySection({
   );
 }
 
-export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: GameBoardProps) {
+export function GameBoard({
+  lobby,
+  playerId,
+  send,
+  error,
+  wordPlay,
+  history,
+  status,
+}: GameBoardProps) {
   const colors = assignPlayerColors(lobby.players, playerId);
   const currentPlayer = lobby.players[lobby.turnPlayerIndex];
   const isCurrentPlayer = currentPlayer?.id === playerId;
@@ -370,6 +379,14 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
   const me = lobby.players.find((p) => p.id === playerId);
   const others = lobby.players.filter((p) => p.id !== playerId);
 
+  // Takes priority over `message` in the same slot rather than appending a
+  // second one: while the socket's down, a lingering "you stole CAT" toast
+  // is stale/misleading anyway, and nothing can be submitted regardless
+  // (see useGameSocket's RECONNECT_DELAYS_MS). Unlike `message`, this isn't
+  // on a dismiss timer — it tracks `status` directly, so it stays up for
+  // the whole outage, however many backoff attempts that takes.
+  const displayedMessage = status === "reconnecting" ? "Reconnecting…" : message;
+
   return (
     <div className={styles.page}>
       <Header>
@@ -484,11 +501,11 @@ export function GameBoard({ lobby, playerId, send, error, wordPlay, history }: G
             </div>
           </div>
 
-          {message && (
+          {displayedMessage && (
             <div className={styles.messageAnchor}>
               <div className={styles.message}>
                 <span role="status" className={styles.messagePill}>
-                  {message}
+                  {displayedMessage}
                 </span>
               </div>
             </div>

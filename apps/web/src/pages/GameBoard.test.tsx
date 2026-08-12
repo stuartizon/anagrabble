@@ -3,7 +3,7 @@ import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LobbySnapshot, PlayerState } from "@anagrabble/protocol";
-import type { GameSocketError, WordPlayNarration } from "../useGameSocket";
+import type { GameSocketError, SocketStatus, WordPlayNarration } from "../useGameSocket";
 import { mockSignedOutClerk } from "../testUtils/clerkTestMock";
 import { GameBoard } from "./GameBoard";
 
@@ -41,6 +41,7 @@ type BoardProps = {
   error?: GameSocketError | null;
   wordPlay?: WordPlayNarration | null;
   history?: WordPlayNarration[];
+  status?: SocketStatus;
 };
 
 function boardElement(props: BoardProps = {}) {
@@ -53,6 +54,7 @@ function boardElement(props: BoardProps = {}) {
         error={props.error ?? null}
         wordPlay={props.wordPlay ?? null}
         history={props.history ?? []}
+        status={props.status ?? "open"}
       />
     </MemoryRouter>
   );
@@ -501,5 +503,15 @@ describe("GameBoard", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("shows a reconnecting indicator when the socket is reconnecting", () => {
+    renderBoard({ status: "reconnecting" });
+    expect(screen.getByText(/reconnecting/i)).toBeInTheDocument();
+  });
+
+  it("shows no reconnecting indicator while the socket is open", () => {
+    renderBoard({ status: "open" });
+    expect(screen.queryByText(/reconnecting/i)).not.toBeInTheDocument();
   });
 });

@@ -8,7 +8,7 @@
 
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useGameSocket } from "./useGameSocket";
+import { RECONNECT_DELAYS_MS, useGameSocket } from "./useGameSocket";
 
 const getTokenMock = vi.fn();
 
@@ -19,24 +19,41 @@ vi.mock("./auth", () => ({
 class MockWebSocket {
   static instances: MockWebSocket[] = [];
   url: string;
-  listeners: Record<string, Array<() => void>> = {};
+  listeners: Record<string, Array<(evt?: unknown) => void>> = {};
+  closeCalled = false;
 
   constructor(url: string) {
     this.url = url;
     MockWebSocket.instances.push(this);
   }
 
-  addEventListener(type: string, cb: () => void) {
+  addEventListener(type: string, cb: (evt?: unknown) => void) {
     (this.listeners[type] ??= []).push(cb);
   }
 
-  close() {}
+  close() {
+    this.closeCalled = true;
+  }
   send() {}
+
+  /** Test-only helper: a real socket's "close" listener fires asynchronously
+   * whether the close was requested locally or the connection just dropped —
+   * callers drive this explicitly rather than have `close()` auto-fire it,
+   * so tests can distinguish "close() was called" from "the close event has
+   * actually been delivered", same as the real network timing. */
+  emitClose() {
+    for (const cb of this.listeners.close ?? []) cb();
+  }
+
+  emitOpen() {
+    for (const cb of this.listeners.open ?? []) cb();
+  }
 }
 
 beforeEach(() => {
   MockWebSocket.instances = [];
   getTokenMock.mockReset();
+  getTokenMock.mockResolvedValue("tok_abc123");
   vi.stubGlobal("WebSocket", MockWebSocket);
 });
 
@@ -81,5 +98,142 @@ describe("useGameSocket", () => {
     await act(async () => resolveToken("tok_late"));
 
     expect(MockWebSocket.instances).toHaveLength(0);
+  });
+});
+
+// A dropped socket must reopen itself — see docs/user-stories.md
+// "Non-functional / cross-cutting" and docs/decisions.md "Realtime
+// transport: raw `ws`, not Socket.IO" (the reconnect logic this closes the
+// gap on is deliberately hand-written rather than pulled from a framework).
+// Fake timers drive the backoff delays; vi.advanceTimersByTimeAsync flushes
+// both the timer and the getToken() microtask each retry schedules.
+describe("useGameSocket reconnection", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  async function flush(ms = 0) {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(ms);
+    });
+  }
+
+  it("reconnects with backoff after the connection drops unexpectedly", async () => {
+    const { result } = renderHook(() => useGameSocket("game-1"));
+    await flush();
+    const socket1 = MockWebSocket.instances[0]!;
+    await act(async () => socket1.emitOpen());
+    expect(result.current.status).toBe("open");
+
+    await act(async () => socket1.emitClose());
+    expect(result.current.status).toBe("reconnecting");
+    expect(MockWebSocket.instances).toHaveLength(1);
+
+    await flush(RECONNECT_DELAYS_MS[0]);
+    expect(MockWebSocket.instances).toHaveLength(2);
+    expect(getTokenMock).toHaveBeenCalledTimes(2);
+    const socket2 = MockWebSocket.instances[1]!;
+    const url = new URL(socket2.url);
+    expect(url.searchParams.get("game")).toBe("game-1");
+
+    await act(async () => socket2.emitOpen());
+    expect(result.current.status).toBe("open");
+  });
+
+  it("does not reconnect after a deliberate close on unmount", async () => {
+    const { unmount } = renderHook(() => useGameSocket("game-1"));
+    await flush();
+    const socket1 = MockWebSocket.instances[0]!;
+    await act(async () => socket1.emitOpen());
+
+    unmount();
+    expect(socket1.closeCalled).toBe(true);
+    await act(async () => socket1.emitClose());
+
+    await flush(RECONNECT_DELAYS_MS[RECONNECT_DELAYS_MS.length - 1] * 10);
+    expect(MockWebSocket.instances).toHaveLength(1);
+  });
+
+  it("backs off with an increasing delay on repeated drops", async () => {
+    const { result } = renderHook(() => useGameSocket("game-1"));
+    await flush();
+    await act(async () => MockWebSocket.instances[0]!.emitOpen());
+
+    await act(async () => MockWebSocket.instances[0]!.emitClose());
+    await flush(RECONNECT_DELAYS_MS[0]);
+    expect(MockWebSocket.instances).toHaveLength(2);
+
+    await act(async () => MockWebSocket.instances[1]!.emitClose());
+    // The first delay alone isn't enough for the second retry.
+    await flush(RECONNECT_DELAYS_MS[0]);
+    expect(MockWebSocket.instances).toHaveLength(2);
+
+    await flush(RECONNECT_DELAYS_MS[1] - RECONNECT_DELAYS_MS[0]);
+    expect(MockWebSocket.instances).toHaveLength(3);
+    expect(result.current.status).toBe("reconnecting");
+  });
+
+  it("resets the backoff after a successful reconnect", async () => {
+    renderHook(() => useGameSocket("game-1"));
+    await flush();
+    await act(async () => MockWebSocket.instances[0]!.emitOpen());
+    await act(async () => MockWebSocket.instances[0]!.emitClose());
+    await flush(RECONNECT_DELAYS_MS[0]);
+    expect(MockWebSocket.instances).toHaveLength(2);
+
+    // Reconnect succeeds, then drops again — should use the *first* backoff
+    // delay again, not continue escalating from the previous cycle.
+    await act(async () => MockWebSocket.instances[1]!.emitOpen());
+    await act(async () => MockWebSocket.instances[1]!.emitClose());
+    await flush(RECONNECT_DELAYS_MS[0]);
+    expect(MockWebSocket.instances).toHaveLength(3);
+  });
+
+  it("preserves accumulated lobby/history state across a reconnect", async () => {
+    const { result } = renderHook(() => useGameSocket("game-1"));
+    await flush();
+    const socket1 = MockWebSocket.instances[0]!;
+    await act(async () => socket1.emitOpen());
+
+    const lobby = {
+      gameId: "game-1",
+      hostId: "host-1",
+      status: "playing",
+      seq: 1,
+      config: { turnTimerSec: 30, minWordLength: 3, language: "en" },
+      turnPlayerIndex: 0,
+      turnDeadline: null,
+      endGameDeadline: null,
+      bankCount: 0,
+      pool: [],
+      players: [],
+    };
+    const wordPlayed = {
+      type: "WordPlayed",
+      seq: 1,
+      gameId: "game-1",
+      playerId: "host-1",
+      word: "CAT",
+      usedWords: [],
+      usedPoolLetters: ["C", "A", "T"],
+      lobby,
+    };
+    await act(async () => {
+      for (const cb of socket1.listeners.message ?? []) {
+        cb({ data: JSON.stringify(wordPlayed) });
+      }
+    });
+    expect(result.current.history).toHaveLength(1);
+
+    await act(async () => socket1.emitClose());
+    await flush(RECONNECT_DELAYS_MS[0]);
+    await act(async () => MockWebSocket.instances[1]!.emitOpen());
+
+    expect(result.current.history).toHaveLength(1);
+    expect(result.current.lobby).toEqual(lobby);
   });
 });

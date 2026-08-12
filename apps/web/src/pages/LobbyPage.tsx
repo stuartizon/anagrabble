@@ -110,6 +110,7 @@ export function LobbyPage() {
         error={error}
         wordPlay={wordPlay}
         history={history}
+        status={status}
       />
     );
   }

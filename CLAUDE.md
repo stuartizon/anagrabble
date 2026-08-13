@@ -86,7 +86,9 @@ load-bearing for any piece of state.
   or infra control requirements emerge (see docs/decisions.md for the full
   Railway-vs-AWS-vs-Fly-vs-self-hosted comparison).
 - **Both platforms deploy only after CI passes.** `.github/workflows/ci.yml`'s
-  `deploy-backend`/`deploy-frontend` jobs (`needs: test`, `main`-push only)
+  `deploy-backend`/`deploy-frontend` jobs (`needs: [lint, format, typecheck,
+  build, test]`, `main`-push only — those five run as separate parallel jobs,
+  not one combined job)
   call the Railway/Vercel CLIs directly rather than relying on either
   platform's push-triggered auto-deploy, targeting Dev (Railway's
   `development` environment; Vercel as a Production build/deploy, with

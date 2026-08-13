@@ -174,11 +174,12 @@ subdomains (`anagrabble.com` vs `api.anagrabble.com`).
 "Expand/contract schema evolution" under "Protocol conventions" below). Both
 Railway and Vercel were auto-deploying straight off the GitHub push webhook,
 independent of `.github/workflows/ci.yml`'s lint/format/typecheck/build/test
-job — a red `main` could still reach the Dev environment (`dev.anagrabble.com`
+gate — a red `main` could still reach the Dev environment (`dev.anagrabble.com`
 / `api-dev.anagrabble.com` — the only environment actually live; see
 README.md "Environments", Production is still unprovisioned). `ci.yml` now
-has `deploy-backend` and `deploy-frontend` jobs, each `needs: test` and gated
-to `push` on `main` only (not PRs), that run the Railway CLI (`railway up
+has `deploy-backend` and `deploy-frontend` jobs, each `needs: [lint, format,
+typecheck, build, test]` and gated to `push` on `main` only (not PRs), that
+run the Railway CLI (`railway up
 --service ... --environment development --ci`) and Vercel CLI (`vercel pull
 --environment=production` / `build --prod` / `deploy --prebuilt --prod`)
 directly, authenticated via repo secrets (`RAILWAY_TOKEN_DEVELOPMENT`,
@@ -190,6 +191,17 @@ Production (see below) — the "Dev" framing is about which app environment
 (`dev.anagrabble.com`, Clerk dev instance, etc.) it's promoted to, not a
 Vercel-side environment name.
 
+**Lint/format/typecheck/build/test run as five separate parallel jobs, not
+one combined `test` job.** Originally a single `test` job ran all five
+checks sequentially in one runner; each now gets its own job (its own
+checkout/install), and both deploy jobs `needs:` all five. None of the five
+depend on another's output (`pnpm test` runs Vitest directly against source,
+not built output — see "Testing strategy"), so splitting them only costs
+five parallel runners' worth of redundant checkout/install instead of one
+sequential runner's worth of wall-clock time, which is the better trade once
+the checks are slow enough that their sum matters more than a few
+duplicated `pnpm install`s.
+
 **Production deploys are a separate, manually-triggered pair of jobs in
 their own workflow file**, `.github/workflows/deploy-production.yml`
 (`deploy-backend-production`/`deploy-frontend-production`), added once
@@ -198,8 +210,8 @@ trigger is `workflow_dispatch` — it was initially a `workflow_dispatch`
 addition to `ci.yml`'s own `on:` block, gated `if: github.event_name ==
 'workflow_dispatch'`, but that mashed a purely-manual promotion path into
 the same file as every push/PR-triggered job, so it was split out. Unlike
-the Dev deploy jobs, the production jobs have no `needs: test` and don't
-re-run lint/typecheck/build/test at all — promotion only ever targets
+the Dev deploy jobs, the production jobs have no `needs:` on the lint/format/
+typecheck/build/test jobs and don't re-run any of them — promotion only ever targets
 `main`, which already passed that gate on the push that landed it, so
 re-running it here would just be redundant latency on every promotion, not
 an additional safety check. Deliberately not given any
@@ -256,7 +268,8 @@ push to `main`, since that's the branch this job now also deploys from). The
 five secrets above must exist in the repo's GitHub Actions secrets before the
 new jobs can run.
 
-**Does not replace expand/contract**: gating on the same `test` job removes
+**Does not replace expand/contract**: gating on the same lint/format/
+typecheck/build/test jobs removes
 the "one deploy still mid-flight while the other already shipped" case for a
 _failing_ commit, but Railway and Vercel are still two separate deploy jobs
 with no ordering guarantee between each other for a single _passing_ commit —

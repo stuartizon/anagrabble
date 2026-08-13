@@ -89,9 +89,9 @@ load-bearing for any piece of state.
   `deploy-backend`/`deploy-frontend` jobs (`needs: test`, `main`-push only)
   call the Railway/Vercel CLIs directly rather than relying on either
   platform's push-triggered auto-deploy, targeting Dev (Railway's
-  `development` environment; Vercel as a Preview build, explicitly re-aliased
-  to `dev.anagrabble.com` in CI via `vercel alias set` — see decisions.md,
-  Vercel's own branch-to-domain GUI setting wasn't usable here). Production
+  `development` environment; Vercel as a Production build/deploy, with
+  `dev.anagrabble.com` connected to that Vercel project's production
+  environment via the Vercel UI rather than CI-side aliasing). Production
   deploys are a separate workflow file,
   `.github/workflows/deploy-production.yml` (`deploy-backend-production`/
   `deploy-frontend-production`), triggered only by `workflow_dispatch` — kept

@@ -179,13 +179,16 @@ job — a red `main` could still reach the Dev environment (`dev.anagrabble.com`
 README.md "Environments", Production is still unprovisioned). `ci.yml` now
 has `deploy-backend` and `deploy-frontend` jobs, each `needs: test` and gated
 to `push` on `main` only (not PRs), that run the Railway CLI (`railway up
---service ... --environment development --ci`) and Vercel CLI (`vercel pull`
-/ `build` / `deploy --prebuilt`, no `--prod`, so it lands as a Preview
-deployment) directly, authenticated via repo secrets
-(`RAILWAY_TOKEN_DEVELOPMENT`, `RAILWAY_SERVICE_ID`, `VERCEL_TOKEN`,
-`VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`).
+--service ... --environment development --ci`) and Vercel CLI (`vercel pull
+--environment=production` / `build --prod` / `deploy --prebuilt --prod`)
+directly, authenticated via repo secrets (`RAILWAY_TOKEN_DEVELOPMENT`,
+`RAILWAY_SERVICE_ID`, `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`).
 Both jobs target the Dev environment and fire automatically on every push to
-`main`.
+`main`. Vercel's own environment naming doesn't have a "development" tier
+distinct from Preview/Production, so the Dev deploy job uses Vercel
+Production (see below) — the "Dev" framing is about which app environment
+(`dev.anagrabble.com`, Clerk dev instance, etc.) it's promoted to, not a
+Vercel-side environment name.
 
 **Production deploys are a separate, manually-triggered pair of jobs in
 their own workflow file**, `.github/workflows/deploy-production.yml`
@@ -215,18 +218,24 @@ so the two are symmetric and neither reads as the unscoped default.
 is shared (same service, selected per-call by `--environment`). Vercel's
 production job reuses the existing `VERCEL_TOKEN`/`VERCEL_ORG_ID`/
 `VERCEL_PROJECT_ID` secrets unchanged — Vercel tokens aren't
-environment-scoped the way Railway's project tokens are — and needs no
-alias step: `vercel deploy --prod` lands on whatever domains are already
-assigned as Production in the Vercel dashboard, unlike Preview.
+environment-scoped the way Railway's project tokens are — and, like the Dev
+deploy job (both now run `vercel deploy --prod`), needs no alias step:
+`vercel deploy --prod` lands on whatever domains are already assigned as
+Production in the Vercel dashboard.
 
-**`dev.anagrabble.com` is re-aliased explicitly in CI, not via Vercel's
-branch-to-domain GUI setting**: the `Deploy` step captures the fresh
-deployment URL to `$GITHUB_OUTPUT` (`vercel deploy --prebuilt` prints it to
-stdout) and a follow-up `vercel alias set <url> dev.anagrabble.com` step
-points the domain at it. Vercel's dashboard also offers a native "assign
-this domain to deployments from branch X" setting that would do this
-automatically without a CI step, but that flow wasn't usable from the GUI in
-this project, hence the explicit alias step instead.
+**`dev.anagrabble.com` is connected to the Vercel project's Production
+environment via Vercel's dashboard domain assignment, not a CI alias
+step.** An earlier version of the Dev deploy job (`deploy-frontend` in
+`ci.yml`) deployed with `vercel deploy --prebuilt` (no `--prod`), landing as
+a Preview deployment, and then ran a follow-up `vercel alias set <url>
+dev.anagrabble.com` step (using the URL captured from the `Deploy` step's
+stdout via `$GITHUB_OUTPUT`) to point the domain at it — because Vercel's
+native branch-to-domain GUI setting wasn't usable from the GUI at the time,
+and Preview deployments aren't otherwise addressable by a stable domain.
+That approach proved unreliable in practice, so the Dev deploy job was
+switched to deploy straight to Vercel Production (`--prod`, same as the
+production-promotion job) with `dev.anagrabble.com` assigned to it directly
+in the Vercel dashboard — removing the CI-side alias step entirely.
 
 **Why a custom workflow over each platform's native "wait for CI" toggle**:
 both Railway (Settings → Source) and Vercel (Settings → Git) have a built-in

@@ -253,22 +253,35 @@ export function GameBoard({
 
   const turnDeadline = lobby.turnDeadline;
   const gameId = lobby.gameId;
+  // Drives the fast-skip fast path (apply_turn_tile.lua's
+  // currentPlayerUnreachable OR condition — see docs/decisions.md "Player
+  // presence: connected/disconnected/left tracking"): without this, the
+  // background auto-fire below would only ever attempt TurnTile once the
+  // *original* turnDeadline passes, same as before presence tracking
+  // existed, making the server's early-accept branch unreachable in
+  // practice. `undefined`/`"connected"` both mean "don't fire early."
+  const currentPlayerUnreachable =
+    currentPlayer?.presence != null && currentPlayer.presence !== "connected";
 
   useEffect(() => {
     setSecondsLeft(remainingSeconds(turnDeadline));
     firedForDeadline.current = null;
     if (turnDeadline === null || lobby.bankCount <= 0) return;
 
-    const interval = setInterval(() => {
+    const fireIfDue = () => {
       setSecondsLeft(remainingSeconds(turnDeadline));
-      if (Date.now() >= turnDeadline && firedForDeadline.current !== turnDeadline) {
+      const due = Date.now() >= turnDeadline || currentPlayerUnreachable;
+      if (due && firedForDeadline.current !== turnDeadline) {
         firedForDeadline.current = turnDeadline;
         send({ type: "TurnTile", commandId: makeCommandId(), gameId });
       }
-    }, 250);
+    };
+
+    fireIfDue(); // don't wait for the first 250ms tick once already due
+    const interval = setInterval(fireIfDue, 250);
 
     return () => clearInterval(interval);
-  }, [turnDeadline, gameId, send, lobby.bankCount]);
+  }, [turnDeadline, gameId, send, lobby.bankCount, currentPlayerUnreachable]);
 
   // Same client-triggered, server-verified pattern as the turnDeadline
   // effect above, but for the post-bank-empty idle countdown (CLAUDE.md

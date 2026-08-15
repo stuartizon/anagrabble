@@ -329,7 +329,7 @@ wss.on("connection", (socket, req) => {
   if (gameId) {
     identityReady
       .then(() => loadLobbySnapshot(redis, gameId))
-      .then((snapshot) => {
+      .then(async (snapshot) => {
         if (!snapshot) {
           sendError(socket, "GameNotFound", `No game with id ${gameId}`, gameId);
           return;
@@ -342,6 +342,35 @@ wss.on("connection", (socket, req) => {
         const reconnectingPlayerId = resolveActingPlayerId(meta);
         if (reconnectingPlayerId && snapshot.players.some((p) => p.id === reconnectingPlayerId)) {
           meta.playerId = reconnectingPlayerId;
+          // Stamp presence as part of the handshake itself rather than
+          // waiting on this socket's own next heartbeat Ping — that first
+          // "immediate" Ping (useGameSocket.ts) structurally loses a race
+          // against meta.playerId being set here, so presence used to lag
+          // the real reconnect by up to a full PING_INTERVAL_MS. That
+          // staleness was visible to apply_turn_tile.lua too: a reconnected
+          // but not-yet-refreshed current player still read as unreachable,
+          // so another player's TurnTile could fast-skip them for real. See
+          // docs/decisions.md "Presence: reconnect handshake stamps and
+          // broadcasts presence directly".
+          const presenceResult = await applyPresence(redis, {
+            stateKey: stateKey(gameId),
+            playerId: reconnectingPlayerId,
+            lastSeenAt: Date.now(),
+          });
+          if (!("error" in presenceResult)) {
+            // Broadcast, not a direct send — this socket already joined
+            // the room above, so the publish fans back out to it too (same
+            // pattern as JoinGame's PlayerJoined broadcast), and every
+            // other connected client sees the presence refresh immediately
+            // instead of waiting on their own next heartbeat's Pong.
+            await publish({
+              type: "LobbyState",
+              seq: presenceResult.state.seq,
+              gameId,
+              lobby: toLobbySnapshot(gameId, presenceResult.state),
+            });
+            return;
+          }
         }
         send(socket, lobbyStateEvent(snapshot));
       })

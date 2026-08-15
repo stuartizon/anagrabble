@@ -2688,6 +2688,95 @@ restored.
 
 ---
 
+## Presence: reconnect handshake stamps and broadcasts presence directly
+
+**Status: implemented 2026-08-15**, same day as "Player presence:
+connected/disconnected/left tracking" above and the "Turn ownership"
+migration below — found while manually verifying reconnect behavior after
+that work landed.
+
+**The bug** (found live, not by inspection): after a disconnected player
+reconnected, other players kept seeing their presence badge for ~8-16s
+after the reconnect actually completed, and — more seriously — a
+reconnected-but-not-yet-refreshed current player could still be fast-
+skipped out of their own turn by another player during that window.
+
+**Root cause**: the reconnect handshake (the `gameId`-triggered branch of
+`wss.on("connection", ...)` in `apps/server/src/index.ts`) never called
+`applyPresence` at all — it only `send`s a read-only resync snapshot to
+the reconnecting socket itself. The only thing that ever wrote a fresh
+`lastSeenAt` was the `Ping` heartbeat handler, gated on `meta.playerId`
+being set. `useGameSocket.ts` does fire a `Ping` immediately on socket
+`open` specifically to avoid waiting a full `PING_INTERVAL_MS`, but that
+optimization was structurally defeated: `meta.playerId` is set by a
+_separate_ continuation off the same `identityReady` promise, one with an
+extra Redis round-trip (`loadLobbySnapshot`) after `identityReady`
+resolves, while the `Ping` handler only awaits `identityReady` itself
+before checking `meta.playerId`. The reconnect chain is therefore
+structurally slower than the immediate ping by at least that one Redis
+call, so the "fire immediately" ping consistently arrived to find
+`meta.playerId` still unset, fell through to a bare no-op `Pong`, and
+presence didn't actually refresh until the client's _next scheduled_
+heartbeat — up to `PING_INTERVAL_MS` (8s) later. Compounding it: unlike
+`markDisconnected` on close (which explicitly `publish`es a room-wide
+`LobbyState`), the reconnect path never broadcasts either, so other
+clients only learn about it via their own next heartbeat's `Pong`
+snapshot — up to another `PING_INTERVAL_MS` on top. Since
+`apply_turn_tile.lua`'s reachability check just reads whatever
+`lastSeenAt` is sitting in Redis at call time with no notion of actual
+socket state, a reconnected player could be for-real fast-skipped by
+another player racing them during that window — not just a UI lag, a
+real turn-loss bug.
+
+**Fix**: the reconnect handshake now stamps presence itself, synchronously
+as part of re-seating the player, instead of relying on this socket's own
+heartbeat to eventually get there. Once it confirms the verified identity
+is actually an existing player in this game, it calls `applyPresence`
+directly (same atomic Lua-backed write already used by `markDisconnected`
+and the `Ping` handler) and then `publish`es a room-wide `LobbyState` with
+the result — mirroring `markDisconnected`'s existing broadcast-on-the-way-
+out with a symmetric broadcast-on-the-way-back-in. The reconnecting
+socket doesn't also get a direct `send` in that case: it already
+`joinRoom`-ed itself moments earlier, so the `publish` fans back out to it
+too via the existing Redis pub/sub loopback — same pattern `JoinGame`
+already uses for a genuinely-new player (publish only, no direct send, to
+avoid double-delivering the event). The direct-`send`-of-the-plain-
+snapshot path is kept only as the fallback for a fresh anonymous viewer
+(not a returning player) and for the defensive case where `applyPresence`
+itself errors.
+
+No protocol, Lua, or client change needed — this reuses `applyPresence`
+and `publish` exactly as they already existed. Server-only, single file,
+single PR.
+
+**Testing**: this is a real-WS-boundary timing bug (a promise-ordering
+race inside `wss.on("connection")`), squarely Playwright's lane per
+CLAUDE.md's testing strategy, not Vitest's — and building the WS
+round-trip harness that could unit-test `index.ts`'s connection handler
+directly was explicitly deferred (see "Explicitly still open" below) as
+its own separate, nontrivial refactor (the whole file is a top-level
+script, not a callable factory today), not bundled into this fix.
+Extended `apps/web/e2e/presence.spec.ts`'s existing disconnect/fast-skip
+test with a reconnect-recovery half: after confirming the host's own
+local status clears (proving the socket actually reconnected), assert the
+guest's presence badge for the host clears within a **tight 3s bound** —
+the actual regression check, since "eventually" would have passed under
+the old ~8-16s behavior too.
+
+**Caught by checking before assuming, again**: the fix initially appeared
+to only partially work (passed at an 8s bound, failed at 3s) — investigated
+with temporary timestamped logging before concluding the fix was flawed,
+which instead surfaced an unrelated environment issue: the `server`
+container's `tsx watch` process had stopped picking up edits to
+`index.ts` itself (still reacting fine to edits in files it imports, like
+`lobby.ts`) partway through the session, so every test run had actually
+been exercising the old, unfixed code. A container restart (prompted to
+the user per CLAUDE.md's "don't restart running services yourself"
+convention) resolved it; the 3s bound then passed reliably across
+repeated runs.
+
+---
+
 ## Turn ownership: `turnPlayerIndex` → identity-based, not array position
 
 **Status: implemented 2026-08-15**, in a fresh session per the hand-off

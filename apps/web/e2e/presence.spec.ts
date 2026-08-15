@@ -80,6 +80,24 @@ test("a disconnected current player's turn is force-advanced for other players w
   await guestPage.waitForTimeout(3000);
   await expect(guestBank).toHaveText(afterAdvanceText);
 
+  // --- Now let the host reconnect, and confirm recovery is prompt ---
+  // useGameSocket's own backoff (RECONNECT_DELAYS_MS[0] = 1s) reopens the
+  // host's socket automatically; wait for the host's own local status to
+  // confirm that actually happened before checking the guest's view of it.
+  await expect(hostPage.getByText("Reconnecting…")).toBeHidden({ timeout: 10_000 });
+
+  // Regression coverage for the reconnect-handshake presence fix
+  // (docs/decisions.md "Presence: reconnect handshake stamps and
+  // broadcasts presence directly"): before that fix, the guest's badge for
+  // Alice only cleared once each side's own heartbeat cadence eventually
+  // caught up — up to ~PING_INTERVAL_MS (8s) twice over. The reconnect
+  // handshake now stamps presence and broadcasts it itself, so the guest's
+  // badge should clear promptly, well inside a single heartbeat interval —
+  // a tight bound here is the actual assertion, not just "eventually".
+  await expect(guestPage.locator('svg[aria-label="Reconnecting…"]')).toBeHidden({
+    timeout: 3_000,
+  });
+
   await hostContext.close();
   await guestContext.close();
 });

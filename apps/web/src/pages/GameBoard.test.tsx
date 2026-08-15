@@ -143,10 +143,10 @@ describe("GameBoard", () => {
     expect(screen.getByLabelText("Left the game")).toBeInTheDocument();
   });
 
-  it("shows the invite link in the sidebar, positioned after Players and before History", () => {
+  it("shows the invite code in the sidebar, positioned after Players and before History", () => {
     renderBoard();
 
-    expect(screen.getByText(`${window.location.origin}/ABCDE`)).toBeInTheDocument();
+    expect(screen.getByText("ABCDE")).toBeInTheDocument();
 
     const sidebarText = document.body.textContent ?? "";
     const playersIdx = sidebarText.indexOf("Players");
@@ -432,7 +432,7 @@ describe("GameBoard", () => {
 
     const menu = within(screen.getByTestId("mobile-menu"));
     expect(menu.getByText("Players")).toBeInTheDocument();
-    expect(menu.getByText(`${window.location.origin}/ABCDE`)).toBeInTheDocument();
+    expect(menu.getByText("ABCDE")).toBeInTheDocument();
     expect(menu.queryByText("History")).not.toBeInTheDocument();
     expect(menu.queryByText("Me played TAR")).not.toBeInTheDocument();
 

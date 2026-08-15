@@ -4,7 +4,7 @@ import type { Command, LobbySnapshot, UsedWord } from "@anagrabble/protocol";
 import { Header } from "../components/Header";
 import { Input } from "../components/Input";
 import { Button } from "../components/Button";
-import { InviteLinkRow } from "../components/InviteLinkRow";
+import { InviteCode } from "../components/InviteCode";
 import { LetterTile } from "../components/LetterTile";
 import { TurnTileButton } from "../components/TurnTileButton";
 import { EndGameCountdown } from "../components/EndGameCountdown";
@@ -192,8 +192,7 @@ function PlayersAndInviteSections({
       </div>
 
       <div>
-        <div className={styles.poolLabel}>Invite</div>
-        <InviteLinkRow link={shareLink} />
+        <InviteCode code={lobby.gameId} shareLink={shareLink} />
       </div>
     </>
   );

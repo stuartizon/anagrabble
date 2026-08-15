@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth, useUser } from "../auth";
-import { Check, Copy, WifiOff } from "lucide-react";
+import { WifiOff } from "lucide-react";
 import { Header } from "../components/Header";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
+import { InviteCode } from "../components/InviteCode";
 import { PageShell, CenteredContent, NarrowColumn } from "../components/Layout";
 import { RulesLink } from "../components/RulesLink";
 import { Loader } from "../components/Loader";
@@ -12,7 +13,6 @@ import { useGameSocket } from "../useGameSocket";
 import { getDisplayName } from "../clerkDisplayName";
 import { makeCommandId } from "../gameId";
 import { assignPlayerColors } from "../playerColors";
-import { useCopyLink } from "../useCopyLink";
 import { leaveGame as leaveGameRequest } from "../fetchLeaveGame";
 import { presenceLabel } from "../presenceLabel";
 import { cx } from "../cx";
@@ -42,7 +42,6 @@ export function LobbyPage() {
   const { status, lobby, error, wordPlay, history, send } = useGameSocket(gameId);
 
   const shareLink = `${window.location.origin}/${gameId}`;
-  const { copied, copyLink } = useCopyLink(shareLink);
 
   const joinGame = () => {
     setJoining(true);
@@ -239,14 +238,7 @@ export function LobbyPage() {
             <div className={styles.subtitle}>{subtitle}</div>
 
             <div className={styles.shareLinkRow}>
-              <span className={styles.shareLinkText}>{shareLink}</span>
-              <button className={styles.copyButton} onClick={copyLink} aria-label="Copy link">
-                {copied ? (
-                  <Check size={18} color="var(--text-muted)" />
-                ) : (
-                  <Copy size={18} color="var(--text-muted)" />
-                )}
-              </button>
+              <InviteCode code={gameId} shareLink={shareLink} />
             </div>
 
             <div className={styles.configList}>

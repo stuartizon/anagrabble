@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { captureSocketInit } from "./socketCapture";
 
 // Real-WS-boundary regression coverage for the reconnect/resync story
 // (docs/user-stories.md "Non-functional / cross-cutting" — connection
@@ -12,24 +13,8 @@ import { expect, test } from "@playwright/test";
 // straight through the "offline" window). Force-closing the real
 // `WebSocket` object from page context is what actually reproduces an
 // unexpected drop from the client's point of view, so that's what this
-// test does — captured via a `window.WebSocket` proxy installed before
-// navigation (`addInitScript`), the same trick as the app has no other way
-// to reach the socket instance from outside the hook.
-const captureSocketInit = `
-  (() => {
-    const NativeWS = window.WebSocket;
-    window.__lastSocket = null;
-    window.__socketCount = 0;
-    window.WebSocket = new Proxy(NativeWS, {
-      construct(target, args) {
-        const instance = new target(...args);
-        instance.__seq = ++window.__socketCount;
-        window.__lastSocket = instance;
-        return instance;
-      },
-    });
-  })();
-`;
+// test does — see socketCapture.ts for the `window.WebSocket` proxy this
+// and presence.spec.ts both rely on.
 
 test("a dropped connection reconnects with backoff and resyncs to current state", async ({
   browser,

@@ -8,7 +8,7 @@
 
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { RECONNECT_DELAYS_MS, useGameSocket } from "./useGameSocket";
+import { PING_INTERVAL_MS, RECONNECT_DELAYS_MS, useGameSocket } from "./useGameSocket";
 
 const getTokenMock = vi.fn();
 
@@ -21,6 +21,7 @@ class MockWebSocket {
   url: string;
   listeners: Record<string, Array<(evt?: unknown) => void>> = {};
   closeCalled = false;
+  sent: unknown[] = [];
 
   constructor(url: string) {
     this.url = url;
@@ -34,7 +35,9 @@ class MockWebSocket {
   close() {
     this.closeCalled = true;
   }
-  send() {}
+  send(data: string) {
+    this.sent.push(JSON.parse(data));
+  }
 
   /** Test-only helper: a real socket's "close" listener fires asynchronously
    * whether the close was requested locally or the connection just dropped —
@@ -235,5 +238,97 @@ describe("useGameSocket reconnection", () => {
 
     expect(result.current.history).toHaveLength(1);
     expect(result.current.lobby).toEqual(lobby);
+  });
+});
+
+// The presence heartbeat — see docs/decisions.md "Player presence:
+// connected/disconnected/left tracking". Ping keeps the server's
+// lastSeenAt fresh; the Pong reply doubling as a lightweight resync is
+// what apps/server's index.ts relies on for other players' presence to
+// stay current without a separate broadcast on every heartbeat tick.
+describe("useGameSocket heartbeat", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  async function flush(ms = 0) {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(ms);
+    });
+  }
+
+  it("sends a Ping immediately on open, then again on the heartbeat interval", async () => {
+    renderHook(() => useGameSocket("game-1"));
+    await flush();
+    const socket = MockWebSocket.instances[0]!;
+
+    await act(async () => socket.emitOpen());
+    expect(socket.sent).toEqual([expect.objectContaining({ type: "Ping", gameId: "game-1" })]);
+
+    await flush(PING_INTERVAL_MS);
+    expect(socket.sent).toHaveLength(2);
+  });
+
+  it("stops pinging once the socket closes", async () => {
+    renderHook(() => useGameSocket("game-1"));
+    await flush();
+    const socket = MockWebSocket.instances[0]!;
+    await act(async () => socket.emitOpen());
+    expect(socket.sent).toHaveLength(1);
+
+    await act(async () => socket.emitClose());
+    await flush(PING_INTERVAL_MS * 3);
+    // Only the reconnect's new socket should be pinging now, not this one.
+    expect(socket.sent).toHaveLength(1);
+  });
+
+  it("adopts the lobby snapshot carried on a Pong reply", async () => {
+    const { result } = renderHook(() => useGameSocket("game-1"));
+    await flush();
+    const socket = MockWebSocket.instances[0]!;
+    await act(async () => socket.emitOpen());
+
+    const lobby = {
+      gameId: "game-1",
+      hostId: "host-1",
+      status: "lobby",
+      seq: 2,
+      config: { turnTimerSec: 30, minWordLength: 3, language: "en" },
+      turnPlayerIndex: 0,
+      turnDeadline: null,
+      endGameDeadline: null,
+      bankCount: 0,
+      pool: [],
+      players: [{ id: "host-1", name: "Host", words: [], score: 0, presence: "connected" }],
+    };
+    const pong = { type: "Pong", seq: 0, gameId: "game-1", lobby };
+
+    await act(async () => {
+      for (const cb of socket.listeners.message ?? []) {
+        cb({ data: JSON.stringify(pong) });
+      }
+    });
+
+    expect(result.current.lobby).toEqual(lobby);
+  });
+
+  it("ignores a Pong with no lobby (an unjoined/anonymous connection)", async () => {
+    const { result } = renderHook(() => useGameSocket("game-1"));
+    await flush();
+    const socket = MockWebSocket.instances[0]!;
+    await act(async () => socket.emitOpen());
+
+    const pong = { type: "Pong", seq: 0, gameId: "game-1" };
+    await act(async () => {
+      for (const cb of socket.listeners.message ?? []) {
+        cb({ data: JSON.stringify(pong) });
+      }
+    });
+
+    expect(result.current.lobby).toBeNull();
   });
 });

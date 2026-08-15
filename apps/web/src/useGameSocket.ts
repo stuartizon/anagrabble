@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "./auth";
 import { WS_URL } from "./env";
+import { makeCommandId } from "./gameId";
 import {
   PROTOCOL_VERSION,
   type Command,
@@ -12,14 +13,17 @@ import {
 
 /** Backoff schedule for reconnect attempts after an unexpected close (server
  * restart, network blip) — capped exponential, retried indefinitely rather
- * than giving up, since a stale-but-present tab should keep trying. The
- * first attempt (1s) is well inside the server's 3s `pendingLeaves` grace
- * period (apps/server/src/index.ts) so a brief blip doesn't visibly boot the
- * player from the lobby's player list. Deliberately not a heartbeat/ping
- * scheme that detects a silently-dead connection faster than the browser's
- * own "close" event does — same "wait for real evidence before adding
- * polling machinery" call as CLAUDE.md's turn-timer polling sweep. */
+ * than giving up, since a stale-but-present tab should keep trying. */
 export const RECONNECT_DELAYS_MS = [1000, 2000, 5000, 10000, 30000];
+
+/** How often a connected client sends the presence heartbeat (`Ping`) — see
+ * PingCommand's doc comment (packages/protocol/src/ws.ts) and
+ * docs/decisions.md "Player presence: connected/disconnected/left
+ * tracking". Kept well under the server's PRESENCE_STALE_MS
+ * (apps/server/src/lobby.ts, currently 20000ms) so a couple of missed beats
+ * don't false-positive a still-connected player as stale; the two constants
+ * live in separate packages and must be kept roughly in sync by hand. */
+export const PING_INTERVAL_MS = 8000;
 
 export type SocketStatus = "connecting" | "open" | "reconnecting" | "closed";
 
@@ -69,8 +73,8 @@ interface GameSocketState {
  * A same-page reconnect (a Lobby page reload, or this hook's own
  * reconnect-with-backoff after an unexpected drop) is recognized as the
  * same player via the verified Clerk session token alone — see
- * apps/server's `resolveActingPlayerId` and `pendingLeaves` debounce — so
- * the caller doesn't need to tell this hook who it is. */
+ * apps/server's `resolveActingPlayerId` — so the caller doesn't need to
+ * tell this hook who it is. */
 export function useGameSocket(gameId?: string) {
   const [state, setState] = useState<GameSocketState>({
     status: "connecting",
@@ -97,6 +101,7 @@ export function useGameSocket(gameId?: string) {
     let intentionalClose = false;
     let reconnectAttempt = 0;
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+    let pingTimer: ReturnType<typeof setInterval> | undefined;
     setState({ status: "connecting", lobby: null, error: null, wordPlay: null, history: [] });
 
     async function connect() {
@@ -114,6 +119,18 @@ export function useGameSocket(gameId?: string) {
       socket.addEventListener("open", () => {
         reconnectAttempt = 0;
         setState((s) => ({ ...s, status: "open" }));
+        // Fire once immediately (so a reconnect's presence recovers without
+        // waiting a full interval) and then on the regular cadence — see
+        // PING_INTERVAL_MS above. No-op without a gameId: an anonymous
+        // connection has no player to stamp presence for.
+        if (gameId) {
+          const ping = () => {
+            const command: Command = { type: "Ping", commandId: makeCommandId(), gameId };
+            socket.send(JSON.stringify(command));
+          };
+          ping();
+          pingTimer = setInterval(ping, PING_INTERVAL_MS);
+        }
       });
 
       // An unexpected close (server restart, network blip) retries with
@@ -122,6 +139,7 @@ export function useGameSocket(gameId?: string) {
       // change — the effect cleanup below) sets `intentionalClose` first, so
       // this listener knows not to schedule a retry for its own cleanup.
       socket.addEventListener("close", () => {
+        if (pingTimer) clearInterval(pingTimer);
         if (cancelled || intentionalClose) {
           setState((s) => ({ ...s, status: "closed" }));
           return;
@@ -142,6 +160,15 @@ export function useGameSocket(gameId?: string) {
               `[ws] server protocol version ${message.protocolVersion} differs from client ${PROTOCOL_VERSION}`,
             );
           }
+          return;
+        }
+
+        // Pong is the heartbeat reply — see PING_INTERVAL_MS above and
+        // PongEvent's doc comment (packages/protocol/src/ws.ts). `lobby` is
+        // only present when this connection is seated as a player; treat it
+        // the same as any other snapshot-bearing event below when it is.
+        if (message.type === "Pong") {
+          if (message.lobby) setState((s) => ({ ...s, lobby: message.lobby! }));
           return;
         }
 
@@ -189,6 +216,7 @@ export function useGameSocket(gameId?: string) {
       cancelled = true;
       intentionalClose = true;
       if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (pingTimer) clearInterval(pingTimer);
       socketRef.current?.close();
     };
   }, [gameId]);

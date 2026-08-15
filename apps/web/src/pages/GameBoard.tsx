@@ -389,6 +389,38 @@ export function GameBoard({
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, []);
 
+  // Same "confirm before leaving" intent as the wordmark/Leave game button,
+  // but for the browser's own back/forward buttons — the one way of leaving
+  // this page that neither a click handler nor `beforeunload` can catch:
+  // react-router's <BrowserRouter> handles back/forward via the History
+  // API's `popstate` entirely client-side, so the page never unloads and
+  // `beforeunload` never fires for it (see that effect above).
+  //
+  // The trick: push a duplicate history entry on mount, so the browser's
+  // "back" always has a same-URL entry to land on first. Landing there
+  // fires `popstate` (letting us intercept it and show the dialog) without
+  // the URL actually changing, and re-arms the trap immediately so repeated
+  // back-presses keep re-opening the dialog instead of ever slipping
+  // through. Confirming leave navigates away explicitly via onLeaveGame
+  // (see confirmLeave below), same as the button/wordmark paths — this
+  // effect only re-arms the trap, it never itself decides to leave.
+  //
+  // Known tradeoff: the duplicate entry isn't cleaned up on unmount (there's
+  // no way to "pop" it without also moving the real history position), so
+  // it can linger after a confirmed leave — landing back on this game's URL
+  // and remounting it, same as reloading that link directly, rather than
+  // continuing further back. Not a broken state, just one extra back-press
+  // occasionally required.
+  useEffect(() => {
+    window.history.pushState(null, "", window.location.href);
+    const onPopState = () => {
+      window.history.pushState(null, "", window.location.href);
+      openLeaveConfirm();
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
   const [wordValue, setWordValue] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   // Read inside the wordPlay effect via ref rather than as a dependency —

@@ -682,5 +682,54 @@ describe("GameBoard", () => {
 
       expect(event.defaultPrevented).toBe(true);
     });
+
+    it("pushes a sentinel history entry on mount so the first back-press trips the trap instead of actually navigating away", () => {
+      const lengthBefore = window.history.length;
+
+      renderBoard();
+
+      expect(window.history.length).toBeGreaterThan(lengthBefore);
+    });
+
+    it("blocks the browser back button, opening the same confirm dialog instead of navigating away", () => {
+      renderBoard();
+      const lengthBeforeBack = window.history.length;
+
+      act(() => {
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      });
+
+      expect(screen.getByRole("dialog", { name: "Leave this game?" })).toBeInTheDocument();
+      // Re-armed: a fresh sentinel entry went back on top, so the next
+      // back-press trips the trap again instead of slipping through.
+      expect(window.history.length).toBeGreaterThan(lengthBeforeBack);
+    });
+
+    it("re-opens the dialog on a second back-press after 'Keep playing' cancelled the first", async () => {
+      renderBoard();
+      act(() => {
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      });
+      await userEvent.click(screen.getByRole("button", { name: "Keep playing" }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+      act(() => {
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      });
+
+      expect(screen.getByRole("dialog", { name: "Leave this game?" })).toBeInTheDocument();
+    });
+
+    it("calls onLeaveGame when confirming a dialog opened by the back button", async () => {
+      renderBoard();
+      act(() => {
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      });
+      const dialog = within(screen.getByRole("dialog", { name: "Leave this game?" }));
+
+      await userEvent.click(dialog.getByRole("button", { name: "Leave game" }));
+
+      expect(onLeaveGame).toHaveBeenCalled();
+    });
   });
 });

@@ -216,7 +216,7 @@ jobs:
 
       - name: Deploy to Cloudflare Pages (dev alias)
         working-directory: apps/web
-        run: wrangler pages deploy dist --project-name=anagrabble-web --branch=dev
+        run: wrangler pages deploy dist --project-name=anagrabble --branch=dev
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

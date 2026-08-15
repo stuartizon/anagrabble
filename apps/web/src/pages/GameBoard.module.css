@@ -173,11 +173,15 @@
   margin-bottom: 0;
 }
 
+/* min-height reserves exactly one row of "md" LetterTiles (48px, see
+   LetterTile.module.css's .md) plus this element's own vertical padding, so
+   turning the first tile doesn't grow the box — only wrapping past one row
+   does. */
 .poolTiles {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  min-height: 60px;
+  min-height: 80px;
   padding: 16px;
   background: var(--surface-sunken);
   border-radius: var(--radius-lg);

@@ -448,9 +448,12 @@ export function GameBoard({
                   )}
                 </div>
                 <div className={styles.poolTiles}>
-                  {lobby.pool.length === 0 && (
-                    <span className={styles.poolEmpty}>No tiles turned yet.</span>
-                  )}
+                  {lobby.pool.length === 0 &&
+                    (lobby.players.some((p) => p.words.length > 0) ? (
+                      <span className={styles.poolEmpty}>All tiles claimed.</span>
+                    ) : (
+                      <span className={styles.poolEmpty}>No tiles turned yet.</span>
+                    ))}
                   {lobby.pool.map((letter, i) => (
                     <LetterTile key={i} letter={letter} />
                   ))}

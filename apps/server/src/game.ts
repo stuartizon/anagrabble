@@ -69,7 +69,7 @@ export async function startGame(
     status: "playing",
     seq,
     bankCount: bag.length,
-    turnPlayerIndex: 0,
+    turnPlayerId: hostId,
     turnDeadline: now + state.config.turnTimerSec * 1000,
   };
 

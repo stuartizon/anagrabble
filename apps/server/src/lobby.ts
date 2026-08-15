@@ -137,7 +137,7 @@ export async function createGame(
     status: "lobby",
     seq: 0,
     config: cmd.config,
-    turnPlayerIndex: 0,
+    turnPlayerId: hostId,
     turnDeadline: null,
     endGameDeadline: null,
     bankCount: 0,

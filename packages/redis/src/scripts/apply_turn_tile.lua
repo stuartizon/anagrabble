@@ -32,23 +32,41 @@ if state.bankCount <= 0 then
   return stateRaw
 end
 
+-- "Unreachable" mirrors apps/server/src/lobby.ts's isReachable() exactly
+-- (PRESENCE_STALE_MS must stay in sync between the two, Lua can't share the
+-- TS constant) — see docs/decisions.md "Player presence:
+-- connected/disconnected/left tracking". Missing lastSeenAt (shouldn't
+-- happen for a real game, but possible for state persisted before this
+-- field existed) defaults to "just seen" rather than "long gone", failing
+-- open during a rollout window instead of mass-skipping every in-flight
+-- game's current turn the instant this deploys.
+local PRESENCE_STALE_MS = 20000
 local now = tonumber(ARGV[3])
-local currentPlayer = state.players[state.turnPlayerIndex + 1]
+
+local function isReachable(player)
+  local lastSeenAt = player.lastSeenAt or now
+  return player.left ~= true and (now - lastSeenAt) < PRESENCE_STALE_MS
+end
+
+-- turnPlayerId is an identity, not an array position — see
+-- docs/decisions.md "Turn ownership: turnPlayerIndex -> identity-based,
+-- not array position". `nil`/cjson.null (nobody currently eligible, the
+-- pathological all-unreachable case) resolves to no current player.
+local currentIndex = nil
+if state.turnPlayerId ~= nil and state.turnPlayerId ~= cjson.null then
+  for i, p in ipairs(state.players) do
+    if p.id == state.turnPlayerId then
+      currentIndex = i
+      break
+    end
+  end
+end
+local currentPlayer = currentIndex ~= nil and state.players[currentIndex] or nil
 local isCurrentPlayer = currentPlayer ~= nil and currentPlayer.id == ARGV[2]
 
 -- Fast-skip: don't make everyone wait out the full turnTimerSec for a
--- player who's gone quiet. "Unreachable" mirrors apps/server/src/lobby.ts's
--- isReachable() exactly (PRESENCE_STALE_MS must stay in sync between the
--- two, Lua can't share the TS constant) — see docs/decisions.md "Player
--- presence: connected/disconnected/left tracking". Missing lastSeenAt
--- (shouldn't happen for a real game, but possible for state persisted
--- before this field existed) defaults to "just seen" rather than "long
--- gone", failing open during a rollout window instead of mass-skipping
--- every in-flight game's current turn the instant this deploys.
-local PRESENCE_STALE_MS = 20000
-local lastSeenAt = (currentPlayer ~= nil and currentPlayer.lastSeenAt) or now
-local currentPlayerUnreachable = currentPlayer ~= nil
-  and (currentPlayer.left == true or (now - lastSeenAt) >= PRESENCE_STALE_MS)
+-- player who's gone quiet.
+local currentPlayerUnreachable = currentPlayer == nil or not isReachable(currentPlayer)
 
 local deadlinePassed = (type(state.turnDeadline) == 'number' and now >= state.turnDeadline)
   or currentPlayerUnreachable
@@ -64,7 +82,29 @@ end
 local seq = redis.call('INCR', KEYS[2])
 table.insert(state.pool, letter)
 state.bankCount = state.bankCount - 1
-state.turnPlayerIndex = (state.turnPlayerIndex + 1) % #state.players
+
+-- Advance turn ownership to the next reachable player, walking past any
+-- run of unreachable ones without drawing a tile for them. Landing on an
+-- unreachable player here is exactly what let a client's own fast-skip
+-- effect fire again immediately after this call returned, silently
+-- drawing a second tile for one click — see docs/decisions.md "Turn
+-- ownership: turnPlayerIndex -> identity-based, not array position".
+local numPlayers = #state.players
+local startIndex = currentIndex or 0
+local nextPlayerId = nil
+for step = 1, numPlayers do
+  local candidateIndex = ((startIndex + step - 1) % numPlayers) + 1
+  local candidate = state.players[candidateIndex]
+  if isReachable(candidate) then
+    nextPlayerId = candidate.id
+    break
+  end
+end
+-- Lua semantics: assigning a table field to `nil` removes the key rather
+-- than encoding JSON null, which would silently drop turnPlayerId from the
+-- wire payload instead of sending the documented `null`. cjson.null is the
+-- explicit JSON-null sentinel.
+state.turnPlayerId = nextPlayerId or cjson.null
 state.turnDeadline = now + (state.config.turnTimerSec * 1000)
 if state.bankCount == 0 then
   state.endGameDeadline = now + 60000

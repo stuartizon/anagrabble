@@ -78,7 +78,14 @@ export interface GameState {
   status: GameStatus;
   seq: number;
   config: GameConfig;
-  turnPlayerIndex: number;
+  /** Identity, not array position — `players[]` never drops a mid-game
+   * player on disconnect (see PlayerState's `left`/`lastSeenAt` docs
+   * below), so a position-based index would cycle through unreachable
+   * players. `null` only in the pathological case where every player is
+   * currently unreachable — no crash, just "nobody can currently take a
+   * turn." See docs/decisions.md "Turn ownership: turnPlayerIndex ->
+   * identity-based, not array position". */
+  turnPlayerId: string | null;
   turnDeadline: number | null;
   /** Set once bankCount reaches 0, reset to now + 60000ms on every accepted
    * WordPlayed event; null while the bank still has tiles. Same

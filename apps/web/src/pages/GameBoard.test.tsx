@@ -26,7 +26,7 @@ function lobbySnapshot(overrides: Partial<LobbySnapshot> = {}): LobbySnapshot {
     status: "playing",
     seq: 1,
     config: { turnTimerSec: 30, minWordLength: 3, language: "English" },
-    turnPlayerIndex: 0,
+    turnPlayerId: "me-1",
     turnDeadline: Date.now() + 30_000,
     endGameDeadline: null,
     bankCount: 100,
@@ -537,7 +537,7 @@ describe("GameBoard", () => {
     // ever reach it before the full turnTimerSec elapsed.
     renderBoard({
       lobby: lobbySnapshot({
-        turnPlayerIndex: 1,
+        turnPlayerId: "opp-1",
         turnDeadline: Date.now() + 30_000, // far away — not why this fires
         players: [ME, { ...OPPONENT, presence: "disconnected" }],
       }),
@@ -553,7 +553,7 @@ describe("GameBoard", () => {
   it("does not fire TurnTile early while the current player is still connected", () => {
     renderBoard({
       lobby: lobbySnapshot({
-        turnPlayerIndex: 1,
+        turnPlayerId: "opp-1",
         turnDeadline: Date.now() + 30_000,
         players: [ME, { ...OPPONENT, presence: "connected" }],
       }),

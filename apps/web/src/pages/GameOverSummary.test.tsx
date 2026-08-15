@@ -26,7 +26,7 @@ function lobbySnapshot(players: PlayerState[]): LobbySnapshot {
     status: "ended",
     seq: 5,
     config: { turnTimerSec: 30, minWordLength: 3, language: "English" },
-    turnPlayerIndex: 0,
+    turnPlayerId: null,
     turnDeadline: null,
     endGameDeadline: null,
     bankCount: 0,

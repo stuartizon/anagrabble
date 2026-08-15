@@ -50,7 +50,7 @@ function sampleSnapshot(gameId: string): LobbySnapshot {
     status: "lobby",
     seq: 0,
     config: VALID_BODY.config,
-    turnPlayerIndex: 0,
+    turnPlayerId: "user_1",
     turnDeadline: null,
     endGameDeadline: null,
     bankCount: 0,

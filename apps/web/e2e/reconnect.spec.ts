@@ -57,8 +57,8 @@ test("a dropped connection reconnects with backoff and resyncs to current state"
   await expect(guestBank).toBeVisible();
   const initialBankText = await hostBank.innerText();
 
-  // Host turns first (turnPlayerIndex starts at 0) — this also hands the
-  // turn to the guest (apply_turn_tile.lua advances turnPlayerIndex on
+  // Host turns first (turnPlayerId starts as the host) — this also hands the
+  // turn to the guest (apply_turn_tile.lua advances turnPlayerId on
   // every turn, not just on a word play), so the guest can turn the tile
   // used below as proof-of-resync without needing a real dictionary word.
   await hostPage.getByRole("button", { name: /Turn a tile/ }).click();

@@ -242,7 +242,7 @@ export function GameBoard({
   status,
 }: GameBoardProps) {
   const colors = assignPlayerColors(lobby.players, playerId);
-  const currentPlayer = lobby.players[lobby.turnPlayerIndex];
+  const currentPlayer = lobby.players.find((p) => p.id === lobby.turnPlayerId);
   const isCurrentPlayer = currentPlayer?.id === playerId;
   const [secondsLeft, setSecondsLeft] = useState(() => remainingSeconds(lobby.turnDeadline));
   // Guards against every tick after a missed deadline re-firing TurnTile —

@@ -44,8 +44,9 @@ test("a disconnected current player's turn is force-advanced for other players w
   const guestBank = guestPage.getByText("tiles left");
   await expect(guestBank).toBeVisible();
   const initialBankText = await guestBank.innerText();
+  const initialBankCount = parseInt(initialBankText, 10);
 
-  // Host goes first (turnPlayerIndex starts at 0) — force-close their
+  // Host goes first (turnPlayerId starts as the host) — force-close their
   // socket before they ever turn a tile, so the guest is left waiting on a
   // disconnected current player.
   await hostPage.evaluate(() => window.__lastSocket?.close(4000, "simulated drop"));
@@ -60,6 +61,24 @@ test("a disconnected current player's turn is force-advanced for other players w
   // current player is unreachable, with no click and no reconnect from the
   // host at all.
   await expect(guestBank).not.toHaveText(initialBankText, { timeout: 20_000 });
+
+  // Exactly one tile drawn by the force-advance, not two — regression
+  // coverage for the turnPlayerIndex -> turnPlayerId bug (docs/decisions.md
+  // "Turn ownership: turnPlayerIndex -> identity-based, not array
+  // position"). With a 2-player game and the host disconnected, the old
+  // position-based advance handed the turn straight back to the (still
+  // disconnected) host, which let the guest's own auto-fire effect notice
+  // an unreachable current player again and immediately fire a second
+  // TurnTile — one force-advance, two tiles drawn. Asserting "the count
+  // changed" alone is exactly what let that regression ship unnoticed.
+  const afterAdvanceText = await guestBank.innerText();
+  expect(parseInt(afterAdvanceText, 10)).toBe(initialBankCount - 1);
+
+  // Give a would-be second auto-fire a beat to happen, then confirm the
+  // count held — the guest is now the reachable current player, so nothing
+  // should draw again without an actual click.
+  await guestPage.waitForTimeout(3000);
+  await expect(guestBank).toHaveText(afterAdvanceText);
 
   await hostContext.close();
   await guestContext.close();

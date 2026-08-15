@@ -18,7 +18,7 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
     status: "playing",
     seq: 0,
     config: { turnTimerSec: 30, minWordLength: 3, language: "en" },
-    turnPlayerIndex: 0,
+    turnPlayerId: "p1",
     turnDeadline: Date.now() + 30_000,
     endGameDeadline: null,
     bankCount: 5,

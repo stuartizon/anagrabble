@@ -128,18 +128,21 @@ build, test]`, `main`-push only — those five run as separate parallel jobs,
 
 ## Game rules — the parts that affect protocol design
 
-- **Tile turning is turn-based**: only the current player (by rotating index) may
-  turn a tile, gated by a per-turn countdown (`turnTimerSec`, configurable 15–60s).
-  This is a _different_ concurrency problem than word submission — effectively
-  single-writer by construction, but the deadline must still be server-verified,
-  never trusted to the client.
+- **Tile turning is turn-based**: only the current player (by identity, not
+  array position — `turnPlayerId: string | null` on `GameState`, see
+  docs/decisions.md "Turn ownership: turnPlayerIndex -> identity-based, not
+  array position") may turn a tile, gated by a per-turn countdown
+  (`turnTimerSec`, configurable 15–60s). This is a _different_ concurrency
+  problem than word submission — effectively single-writer by construction,
+  but the deadline must still be server-verified, never trusted to the
+  client.
 - **Word submission/stealing is free-for-all**: any player, any time. This is the
   actual "first wins" race the whole Redis/atomicity design exists for.
 - **Playing/stealing a word also transfers the tile-turn**: the submitter
   becomes the current player, same as if they'd turned a tile — see
   docs/decisions.md "Word play transfers the tile-turn" for why this needed
   confirming rather than assuming (the two design references disagreed).
-  `apply_submit_word.lua` reassigns `turnPlayerIndex`/`turnDeadline` as part
+  `apply_submit_word.lua` reassigns `turnPlayerId`/`turnDeadline` as part
   of the same atomic mutation.
 - **Scoring**: 1 point at `minWordLength`, +1 per letter beyond it — see
   docs/decisions.md "Scoring" for the formula, why (not raw word length),
@@ -418,17 +421,10 @@ mechanic without touching anything else.
 
 - Whether/when to add the turn-timer polling sweep (a backend process, not
   today's client-triggered fast-skip — see docs/decisions.md "Turn
-  ownership" below for a related-but-separate item this affects).
-- **Decided, not yet built**: `GameState.turnPlayerIndex` (a raw array
-  position) is being replaced with an identity-based field, since it
-  cycles through disconnected players by position and — combined with the
-  presence fast-skip drawing a real tile per skip — causes a real bug (a
-  single tile-turn click can draw two tiles when a small roster includes
-  an unreachable player). See docs/decisions.md "Turn ownership:
-  `turnPlayerIndex` → identity-based, not array position" for the full
-  root cause, the two options considered, and an implementation sketch.
-  Explicitly does not include the backend polling sweep above — that
-  stays separate and still just an open question.
+  ownership: `turnPlayerIndex` → identity-based, not array position" for
+  the identity-based `turnPlayerId` field this migration landed, which
+  that future sweep will consume/produce). Explicitly not part of that
+  migration — still just an open question.
 - Redis HA approach and timing of adopting it (Sentinel template vs. staying
   single-instance) — revisit once usage data exists.
 - Dictionary derivation data is suffix-only (e.g. UNHAPPY vs. HAPPY isn't

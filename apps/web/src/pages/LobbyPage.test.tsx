@@ -45,7 +45,7 @@ function lobbySnapshot(overrides: Partial<LobbySnapshot> = {}): LobbySnapshot {
     status: "lobby",
     seq: 0,
     config: { turnTimerSec: 30, minWordLength: 3, language: "English" },
-    turnPlayerIndex: 0,
+    turnPlayerId: "host-1",
     turnDeadline: null,
     endGameDeadline: null,
     bankCount: 0,
@@ -210,7 +210,7 @@ describe("LobbyPage", () => {
           players: [HOST, GUEST],
           bankCount: 143,
           pool: ["A"],
-          turnPlayerIndex: 0,
+          turnPlayerId: "host-1",
           turnDeadline: Date.now() + 30_000,
         }),
       });
@@ -227,7 +227,7 @@ describe("LobbyPage", () => {
           players: [HOST],
           bankCount: 143,
           pool: ["A"],
-          turnPlayerIndex: 0,
+          turnPlayerId: "host-1",
           turnDeadline: Date.now() + 30_000,
         }),
       });
@@ -259,7 +259,7 @@ describe("LobbyPage", () => {
           players: [HOST, { ...GUEST, id: "guest-2", presence: "left" }],
           bankCount: 143,
           pool: ["A"],
-          turnPlayerIndex: 0,
+          turnPlayerId: "host-1",
           turnDeadline: Date.now() + 30_000,
         }),
       });

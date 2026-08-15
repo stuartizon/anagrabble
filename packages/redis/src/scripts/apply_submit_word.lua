@@ -152,8 +152,10 @@ for i in pairs(affected) do
 end
 
 -- Playing/stealing a word also becomes the submitter's tile-turn (see
--- docs/decisions.md "Word play transfers the tile-turn").
-state.turnPlayerIndex = submitterIndex - 1
+-- docs/decisions.md "Word play transfers the tile-turn"). The submitter is
+-- reachable by construction (they just made an atomic move), so no
+-- unreachable-walk is needed here — see apply_turn_tile.lua for that.
+state.turnPlayerId = state.players[submitterIndex].id
 state.turnDeadline = now + (state.config.turnTimerSec * 1000)
 
 -- Same lazy reset pattern as apply_turn_tile.lua's bank-empty trigger, but

@@ -2690,11 +2690,19 @@ restored.
 
 ## Turn ownership: `turnPlayerIndex` → identity-based, not array position
 
-**Status: decided, not started.** This section is a hand-off write-up —
-context got large enough mid-conversation that the user asked for this to
-be captured in the repo rather than carried forward in chat history, so a
-fresh session can implement it correctly without having witnessed the
-discussion. Written 2026-08-15, immediately after "Player presence:
+**Status: implemented 2026-08-15**, in a fresh session per the hand-off
+below. The expand/contract question the sketch flagged was raised with the
+user rather than assumed: **single-shot rename**, not a two-rollout
+expand/contract — justified by there being no real deployed users yet to
+break compatibility for. `GameState.turnPlayerIndex: number` became
+`turnPlayerId: string | null` directly, in one PR, across
+`packages/protocol`, both Lua scripts, `apps/server`, and `apps/web`.
+
+The rest of this section is the original hand-off write-up — context got
+large enough mid-conversation that the user asked for this to be captured
+in the repo rather than carried forward in chat history, so a fresh session
+could implement it correctly without having witnessed the discussion.
+Written 2026-08-15, immediately after "Player presence:
 connected/disconnected/left tracking" above, which is what surfaced this.
 
 **The bug** (found live, not by inspection): with a player disconnected
@@ -2793,6 +2801,29 @@ lobby.players[lobby.turnPlayerIndex]` becomes
 **Out of scope, explicitly**: the backend turn-timer polling sweep itself
 — see CLAUDE.md "Still open." Not touched by this migration; still
 client-triggered after this lands.
+
+**What actually landed**, matching the sketch above field-for-field:
+`turnPlayerId: string | null` on `GameState`; `apply_turn_tile.lua`'s
+advance now walks forward from the current player's array position,
+skipping any run of unreachable players without drawing for them, landing
+`turnPlayerId` on the next reachable one (or `cjson.null`, not Lua `nil` —
+assigning a table field to Lua `nil` deletes the key rather than encoding
+JSON `null`, which would have silently dropped the field from the wire
+payload in the all-unreachable case); `apply_submit_word.lua`'s turn
+transfer just sets `turnPlayerId` to the submitter's own id directly (no
+walk needed — the submitter is reachable by construction, since they just
+made an atomic move); `lobby.ts`/`game.ts` seed `turnPlayerId` from the
+verified acting host id, not array position 0; `GameBoard.tsx` looks up
+the current player with `players.find(p => p.id === turnPlayerId)`. Two
+new `applyTurnTile.test.ts` cases cover the walk directly (a 2-player case
+mirroring the exact production bug, and a 3-consecutive-unreachable case)
+— both were confirmed to actually fail against a naive
+always-advance-one-slot implementation before the real fix was restored,
+per CLAUDE.md's TDD convention. `presence.spec.ts`'s existing case was
+extended to assert the bank count drops by exactly one tile on the
+force-advance and then holds steady for a few seconds after, rather than
+just "it changed" — run live against the real docker-compose stack, not
+just Vitest.
 
 ---
 

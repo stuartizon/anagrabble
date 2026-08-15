@@ -126,7 +126,7 @@ describe("game", () => {
       status: "playing",
       seq: 0,
       config: CONFIG,
-      turnPlayerIndex: 0,
+      turnPlayerId: "host-1",
       turnDeadline: Date.now() + CONFIG.turnTimerSec * 1000,
       endGameDeadline: null,
       bankCount: 100,
@@ -180,7 +180,7 @@ describe("game", () => {
       expect(result).not.toHaveProperty("error");
       const { snapshot } = result as { snapshot: LobbySnapshot };
       expect(snapshot.status).toBe("playing");
-      expect(snapshot.turnPlayerIndex).toBe(0);
+      expect(snapshot.turnPlayerId).toBe(HOST_ID);
       expect(snapshot.bankCount).toBe(144);
       expect(snapshot.pool).toEqual([]);
       expect(snapshot.turnDeadline).not.toBeNull();
@@ -232,7 +232,7 @@ describe("game", () => {
       const { snapshot } = result as { snapshot: LobbySnapshot };
       expect(snapshot.pool).toHaveLength(1);
       expect(snapshot.bankCount).toBe(143);
-      expect(snapshot.turnPlayerIndex).toBe(1);
+      expect(snapshot.turnPlayerId).toBe(PLAYER_ID);
     });
 
     it("rejects a player who isn't up before the deadline", async () => {
@@ -247,13 +247,13 @@ describe("game", () => {
     it("lets another player force the turn once the current player has gone stale", async () => {
       await seedTwoPlayerLobby();
       await startGame(redis, startGameCommand(), HOST_ID);
-      await makeHostStale(); // host-1 is turnPlayerIndex 0
+      await makeHostStale(); // host-1 is the initial turnPlayerId
 
       const result = await turnTile(redis, turnTileCommand(), PLAYER_ID);
 
       expect(result).not.toHaveProperty("error");
       const { snapshot } = result as { snapshot: LobbySnapshot };
-      expect(snapshot.turnPlayerIndex).toBe(1);
+      expect(snapshot.turnPlayerId).toBe(PLAYER_ID);
     });
   });
 
@@ -332,7 +332,7 @@ describe("game", () => {
     });
 
     it("applies a pool-only play, stores it uppercase, and transfers the turn", async () => {
-      await seedPlayingState({ pool: ["C", "A", "T"], turnPlayerIndex: 0 });
+      await seedPlayingState({ pool: ["C", "A", "T"], turnPlayerId: "host-1" });
 
       const result = await submitWord(redis, submitWordCommand({ word: "cat" }), HOST_ID);
 
@@ -342,7 +342,7 @@ describe("game", () => {
       expect(success.usedWords).toEqual([]);
       expect(success.usedPoolLetters).toEqual(["C", "A", "T"]);
       expect(success.snapshot.pool).toEqual([]);
-      expect(success.snapshot.turnPlayerIndex).toBe(0);
+      expect(success.snapshot.turnPlayerId).toBe("host-1");
       expect(success.snapshot.players[0]).toMatchObject({ id: "host-1", words: ["CAT"], score: 1 });
     });
 
@@ -365,7 +365,7 @@ describe("game", () => {
       expect(success.snapshot.players[0]).toMatchObject({ words: ["CAST"], score: 2 });
       expect(success.snapshot.players[1]).toMatchObject({ words: [], score: 0 });
       // Playing a word also becomes the submitter's tile-turn.
-      expect(success.snapshot.turnPlayerIndex).toBe(0);
+      expect(success.snapshot.turnPlayerId).toBe("host-1");
     });
 
     it("lets a different player independently claim a word already on the board", async () => {

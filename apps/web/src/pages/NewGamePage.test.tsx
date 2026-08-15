@@ -31,7 +31,7 @@ function sampleSnapshot(overrides: Partial<LobbySnapshot> = {}): LobbySnapshot {
     status: "lobby",
     seq: 0,
     config: { turnTimerSec: 30, minWordLength: 3, language: "English" },
-    turnPlayerIndex: 0,
+    turnPlayerId: "host-1",
     turnDeadline: null,
     endGameDeadline: null,
     bankCount: 0,

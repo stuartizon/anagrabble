@@ -24,7 +24,7 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
     status: "playing",
     seq: 0,
     config: { turnTimerSec: 30, minWordLength: 3, language: "en" },
-    turnPlayerIndex: 0,
+    turnPlayerId: "p1",
     turnDeadline: Date.now() + 30_000,
     endGameDeadline: null,
     bankCount: 5,
@@ -89,7 +89,7 @@ describe("applyTurnTile", () => {
 
   it("lets the current player turn a tile, advancing the turn and resetting the deadline", async () => {
     const now = Date.now();
-    await seed(makeState({ turnPlayerIndex: 0, turnDeadline: now + 30_000 }));
+    await seed(makeState({ turnPlayerId: "p1", turnDeadline: now + 30_000 }));
 
     const result = await applyTurnTile(redis, {
       ...KEYS,
@@ -103,7 +103,7 @@ describe("applyTurnTile", () => {
       state: {
         pool: ["A"],
         bankCount: 4,
-        turnPlayerIndex: 1,
+        turnPlayerId: "p2",
         turnDeadline: now + 30_000,
         seq: 1,
       },
@@ -112,7 +112,7 @@ describe("applyTurnTile", () => {
 
   it("rejects a non-current player before the deadline", async () => {
     const now = Date.now();
-    await seed(makeState({ turnPlayerIndex: 0, turnDeadline: now + 30_000 }));
+    await seed(makeState({ turnPlayerId: "p1", turnDeadline: now + 30_000 }));
 
     const result = await applyTurnTile(redis, {
       ...KEYS,
@@ -129,7 +129,7 @@ describe("applyTurnTile", () => {
 
   it("lets any player turn a tile once the deadline has passed", async () => {
     const now = Date.now();
-    await seed(makeState({ turnPlayerIndex: 0, turnDeadline: now - 1 }));
+    await seed(makeState({ turnPlayerId: "p1", turnDeadline: now - 1 }));
 
     const result = await applyTurnTile(redis, {
       ...KEYS,
@@ -139,14 +139,14 @@ describe("applyTurnTile", () => {
       cmdsTtlSec: 3600,
     });
 
-    expect(result).toMatchObject({ state: { pool: ["A"], turnPlayerIndex: 1 } });
+    expect(result).toMatchObject({ state: { pool: ["A"], turnPlayerId: "p2" } });
   });
 
   it("lets another player force the turn once the current player has gone stale, well before turnDeadline", async () => {
     const now = Date.now();
     await seed(
       makeState({
-        turnPlayerIndex: 0,
+        turnPlayerId: "p1",
         turnDeadline: now + 30_000, // far in the future — not why this succeeds
         players: [
           { id: "p1", name: "One", words: [], score: 0, lastSeenAt: now - 25_000 }, // stale
@@ -164,14 +164,14 @@ describe("applyTurnTile", () => {
       cmdsTtlSec: 3600,
     });
 
-    expect(result).toMatchObject({ state: { pool: ["A"], turnPlayerIndex: 1 } });
+    expect(result).toMatchObject({ state: { pool: ["A"], turnPlayerId: "p2" } });
   });
 
   it("still rejects a non-current player while the current player is only briefly quiet", async () => {
     const now = Date.now();
     await seed(
       makeState({
-        turnPlayerIndex: 0,
+        turnPlayerId: "p1",
         turnDeadline: now + 30_000,
         players: [
           { id: "p1", name: "One", words: [], score: 0, lastSeenAt: now - 5_000 }, // a blip, not stale
@@ -196,7 +196,7 @@ describe("applyTurnTile", () => {
     const now = Date.now();
     await seed(
       makeState({
-        turnPlayerIndex: 0,
+        turnPlayerId: "p1",
         turnDeadline: now + 30_000,
         players: [
           { id: "p1", name: "One", words: [], score: 0, lastSeenAt: now, left: true },
@@ -213,12 +213,82 @@ describe("applyTurnTile", () => {
       cmdsTtlSec: 3600,
     });
 
-    expect(result).toMatchObject({ state: { pool: ["A"], turnPlayerIndex: 1 } });
+    expect(result).toMatchObject({ state: { pool: ["A"], turnPlayerId: "p2" } });
+  });
+
+  it("advancing off a reachable player skips a subsequently-unreachable one, instead of handing them the turn", async () => {
+    // Regression test for the bug in docs/decisions.md "Turn ownership:
+    // turnPlayerIndex -> identity-based, not array position": with a
+    // position-based turnPlayerIndex, p1 (reachable, current) turning a
+    // tile would advance the index straight onto p2 even though p2 is
+    // unreachable — handing them a turn nobody would ever take normally.
+    // That's what let a client's own background fast-skip effect fire a
+    // second TurnTile immediately after this one returned (since the new
+    // "current player" reads as unreachable right away), silently drawing
+    // a second tile for one click. The fix must walk straight past p2 and
+    // land back on p1, the only reachable player, in this same call.
+    const now = Date.now();
+    await seed(
+      makeState({
+        turnPlayerId: "p1",
+        turnDeadline: now + 30_000,
+        bankCount: 5,
+        players: [
+          { id: "p1", name: "One", words: [], score: 0, lastSeenAt: now },
+          { id: "p2", name: "Two", words: [], score: 0, lastSeenAt: now - 25_000 }, // stale
+        ],
+      }),
+    );
+
+    const result = await applyTurnTile(redis, {
+      ...KEYS,
+      commandId: crypto.randomUUID(),
+      playerId: "p1",
+      now,
+      cmdsTtlSec: 3600,
+    });
+
+    // Turn stays with p1 (the only reachable player) — never handed to the
+    // unreachable p2, and only one tile drawn for the one call made.
+    expect(result).toMatchObject({
+      state: { pool: ["A"], bankCount: 4, turnPlayerId: "p1" },
+    });
+  });
+
+  it("walks past a run of several consecutive unreachable players without drawing for any of them", async () => {
+    const now = Date.now();
+    await seed(
+      makeState({
+        turnPlayerId: "p1",
+        turnDeadline: now + 30_000,
+        bankCount: 5,
+        players: [
+          { id: "p1", name: "One", words: [], score: 0, lastSeenAt: now },
+          { id: "p2", name: "Two", words: [], score: 0, lastSeenAt: now - 25_000 }, // stale
+          { id: "p3", name: "Three", words: [], score: 0, lastSeenAt: now - 25_000 }, // stale
+          { id: "p4", name: "Four", words: [], score: 0, lastSeenAt: now },
+        ],
+      }),
+    );
+
+    const result = await applyTurnTile(redis, {
+      ...KEYS,
+      commandId: crypto.randomUUID(),
+      playerId: "p1",
+      now,
+      cmdsTtlSec: 3600,
+    });
+
+    // Exactly one tile drawn (not one per skipped player), landing on p4,
+    // straight past both unreachable players in between.
+    expect(result).toMatchObject({
+      state: { pool: ["A"], bankCount: 4, turnPlayerId: "p4" },
+    });
   });
 
   it("is idempotent when retried with the same commandId", async () => {
     const now = Date.now();
-    await seed(makeState({ turnPlayerIndex: 0, turnDeadline: now + 30_000 }));
+    await seed(makeState({ turnPlayerId: "p1", turnDeadline: now + 30_000 }));
     const commandId = crypto.randomUUID();
 
     const first = await applyTurnTile(redis, {
@@ -241,7 +311,7 @@ describe("applyTurnTile", () => {
 
   it("is a no-op once the bank is empty", async () => {
     const now = Date.now();
-    await seed(makeState({ bankCount: 0, turnPlayerIndex: 0, turnDeadline: now + 30_000 }), []);
+    await seed(makeState({ bankCount: 0, turnPlayerId: "p1", turnDeadline: now + 30_000 }), []);
 
     const result = await applyTurnTile(redis, {
       ...KEYS,
@@ -256,7 +326,7 @@ describe("applyTurnTile", () => {
 
   it("sets endGameDeadline once the last tile is drawn", async () => {
     const now = Date.now();
-    await seed(makeState({ bankCount: 1, turnPlayerIndex: 0, turnDeadline: now + 30_000 }), ["Z"]);
+    await seed(makeState({ bankCount: 1, turnPlayerId: "p1", turnDeadline: now + 30_000 }), ["Z"]);
 
     const result = await applyTurnTile(redis, {
       ...KEYS,
@@ -271,7 +341,7 @@ describe("applyTurnTile", () => {
 
   it("keeps players[].words as an array through the Lua round-trip", async () => {
     const now = Date.now();
-    await seed(makeState({ turnPlayerIndex: 0, turnDeadline: now + 30_000 }));
+    await seed(makeState({ turnPlayerId: "p1", turnDeadline: now + 30_000 }));
 
     const result = await applyTurnTile(redis, {
       ...KEYS,
@@ -298,7 +368,7 @@ describe("applyTurnTile", () => {
     // time its own script body runs — the point of the Lua atomicity is
     // exactly this, no double-advance/lost-update from the race.
     const now = Date.now();
-    await seed(makeState({ turnPlayerIndex: 0, turnDeadline: now - 1, bankCount: 5 }));
+    await seed(makeState({ turnPlayerId: "p1", turnDeadline: now - 1, bankCount: 5 }));
 
     const [a, b] = await Promise.all([
       applyTurnTile(redis, {
@@ -328,6 +398,6 @@ describe("applyTurnTile", () => {
     expect(finalState.bankCount).toBe(4);
     expect(finalState.pool).toHaveLength(1);
     expect(finalState.seq).toBe(1);
-    expect(finalState.turnPlayerIndex).toBe(1);
+    expect(finalState.turnPlayerId).toBe("p2");
   });
 });

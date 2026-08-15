@@ -23,7 +23,7 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
     status: "playing",
     seq: 0,
     config: { turnTimerSec: 30, minWordLength: 3, language: "en" },
-    turnPlayerIndex: 0,
+    turnPlayerId: "p1",
     turnDeadline: Date.now() + 30_000,
     endGameDeadline: null,
     bankCount: 100,
@@ -156,7 +156,7 @@ describe("applySubmitWord", () => {
     await seed(
       makeState({
         pool: ["C", "A", "T"],
-        turnPlayerIndex: 2,
+        turnPlayerId: "p3",
         turnDeadline: now + 5000,
         // No pre-existing claims here — this test is specifically about a
         // fresh pool-only claim, not a steal (see the dedicated steal test
@@ -183,7 +183,7 @@ describe("applySubmitWord", () => {
     expect(result).toMatchObject({
       state: {
         pool: [],
-        turnPlayerIndex: 0, // p1's index
+        turnPlayerId: "p1",
         turnDeadline: now + 30_000,
         seq: 1,
       },
@@ -211,7 +211,7 @@ describe("applySubmitWord", () => {
     expect(result.state.players[0]).toMatchObject({ id: "p1", words: ["cast"], score: 2 });
     expect(result.state.players[1]).toMatchObject({ id: "p2", words: [], score: 0 });
     expect(result.state.pool).toEqual(["C", "A", "T"]);
-    expect(result.state.turnPlayerIndex).toBe(0);
+    expect(result.state.turnPlayerId).toBe("p1");
   });
 
   it("returns StaleState when a used word is no longer owned where it was read", async () => {

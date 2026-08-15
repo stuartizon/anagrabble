@@ -49,7 +49,7 @@ length = the full letter distribution) when the lobby transitions to
   "endGameDeadline": null,
   "bankCount": 143,
   "pool": ["C"],
-  "players": [{ "id": "p1", "name": "Alex", "words": [], "score": 0 }]
+  "players": [{ "id": "p1", "name": "Alex", "words": [], "score": 0, "lastSeenAt": 1750000025000 }]
 }
 ```
 
@@ -80,19 +80,57 @@ endGameDeadline`, the game auto-ends.
 - **`players[].words` / `.score`**: empty/zero until word play lands. There's
   no `.color` field — display color isn't part of the shared game state at
   all; see "Player color" below.
+- **`players[].lastSeenAt`** / **`.left`**: presence — see "Presence" below.
+  Persisted alongside the rest of the player entry, but `lastSeenAt` is
+  never sent to clients directly (clock-skew sensitive); what goes over the
+  wire is a derived `presence: "connected" | "disconnected" | "left"` field,
+  computed fresh into every `LobbySnapshot`.
+
+## Presence
+
+Each `players[]` entry carries `lastSeenAt` (epoch ms, refreshed by a
+client heartbeat — see docs/decisions.md "Player presence:
+connected/disconnected/left tracking") and an optional `left` flag (set by
+an explicit mid-game leave, never by a dropped connection). "Reachable" is
+derived at read time — `!left && now - lastSeenAt < PRESENCE_STALE_MS`
+(`apps/server/src/lobby.ts`'s `isReachable`, mirrored in
+`apply_turn_tile.lua`'s deadline check) — rather than tracked via any
+scheduled timer, which is what makes it safe for any Node process to
+compute the same answer.
+
+Writes go through a small dedicated script,
+`packages/redis/src/scripts/apply_presence.lua` (wrapped by
+`applyPresence.ts`), atomically patching just one player's `lastSeenAt` so
+a heartbeat can't clobber a concurrent gameplay mutation to the same
+`:state` blob. No new Redis key — presence lives inside the existing
+`GameState.players[]` shape above, not a separate key or structure.
+
+Unlike `turnDeadline`/`endGameDeadline`, presence writes deliberately don't
+bump `seq` or get individually broadcast on every heartbeat (that would be
+a lot of Pub/Sub noise for something with no gameplay consequence by
+itself) — see docs/decisions.md for how clients still see it change in a
+reasonable time.
 
 ## Host convention
 
 There's no separate `hostId` field in the persisted state. The host is,
-by convention, `players[0]` — whoever created the game. This is derived,
-not stored, when building the wire-level `LobbySnapshot` (which does carry
-`hostId`, for client convenience, plus `gameId` since that's the Redis key
-rather than a field inside the blob).
+by convention, the first **reachable** player in `players` (falling back to
+`players[0]` if nobody currently is) — whoever created the game, unless
+they've since gone quiet. This is derived, not stored, when building the
+wire-level `LobbySnapshot` (which does carry `hostId`, for client
+convenience, plus `gameId` since that's the Redis key rather than a field
+inside the blob).
 
 One consequence, accepted as reasonable rather than worked around: if the
-host's own tab disconnects before the game starts, they're removed like any
-other player (see "Leaving" below), and the next player in `players` becomes
-host by the same convention — free host migration, not a special case.
+host goes unreachable (closes their tab, loses connectivity) before the
+game starts, host status migrates to the next reachable player automatically
+— free host migration, not a special case, and unlike the old
+`pendingLeaves`-era behavior, the original host isn't removed from
+`players` just for going quiet; they reclaim host status themselves if they
+reconnect while nobody else has grabbed it. Removal from `players` pre-start
+only ever happens via an explicit `POST /games/:gameId/leave`
+(`lobby.ts`'s `leaveGame`, unchanged by the presence work — still a no-op
+once `status !== "lobby"`) — never inferred from a disconnect.
 
 ## Player color
 

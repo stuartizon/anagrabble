@@ -223,13 +223,30 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
       above) survives the reconnect rather than resetting. Does not cover a
       genuinely new late joiner (separate "join a game already in progress"
       story above) or backfilling history for the gap while disconnected
-      (separate story below). Four scope calls made along the way (no
-      heartbeat/liveness detection, no command queueing for a play sent
-      while offline, the server-side reconnect-recognition path is
-      untested, the backoff-vs-`pendingLeaves`-grace-period coupling is
-      unenforced) are documented as explicit follow-ups, not silently
-      dropped — see docs/decisions.md "Reconnect-with-backoff: scope calls
-      made, not blockers".
+      (separate story below). Four scope calls were made along the way and
+      documented as explicit follow-ups, not silently dropped — see
+      docs/decisions.md "Reconnect-with-backoff: scope calls made, not
+      blockers". Two are since resolved (heartbeat/liveness detection now
+      exists, and `pendingLeaves` — along with the grace-period coupling
+      concern — is gone entirely; see the "Player presence" story below).
+      Two remain open: no command queueing for a play sent while offline,
+      and the server-side reconnect-recognition path is still untested.
+- [x] As a player, if another player disconnects or explicitly leaves, the
+      game doesn't stall waiting on them: I see them marked as away (a
+      badge on their name, greyed-out row), a disconnected current player's
+      tile turn is forced forward well before the full turn timer runs
+      out, and — pre-start — if the host disconnects, host status migrates
+      to another reachable player automatically so the game can still be
+      started. Replaces the old `pendingLeaves` in-memory debounce with a
+      Redis-backed presence model (a heartbeat-refreshed `lastSeenAt` per
+      player, reachability derived at read time rather than tracked via a
+      scheduled timer) — see docs/decisions.md "Player presence:
+      connected/disconnected/left tracking" for the full design.
+      `players[]` is never mutated by connection state at any phase — a
+      pre-start leave is now an explicit "Leave game" button
+      (`POST /games/:gameId/leave`), not inferred from a dropped socket;
+      mid-game, a disconnected or explicitly-left player is never removed,
+      keeping their score/words on the board.
 - [ ] As a player who reconnects mid-game or joins a game already in
       progress ("Core gameplay" above), I see the History panel populated
       with plays I missed, not just current state. Split out (2026-08-12)

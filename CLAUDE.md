@@ -150,6 +150,32 @@ build, test]`, `main`-push only — those five run as separate parallel jobs,
   polling sweep / sorted-set reliability layer for MVP — deliberately deferred
   until real evidence (stalled games) justifies it. Adding it later requires no
   redesign: both paths converge on the same idempotent `apply_turn_tile` call.
+- **Disconnected-player fast-skip**: the deadline check above also passes
+  once the current player is unreachable (stale heartbeat or an explicit
+  mid-game leave), so a disconnected current player doesn't make everyone
+  wait out the full `turnTimerSec`. See "Player presence:
+  connected/disconnected/left tracking" below for the full presence model
+  this and host migration both derive from — a `lastSeenAt` timestamp per
+  player, refreshed by a client heartbeat, with reachability computed at
+  read time rather than tracked via any scheduled timer.
+- **Player presence: connected/disconnected/left tracking.** `players[]` is
+  never mutated by connection state, at any phase — pre-start, removal
+  only happens via an explicit `POST /games/:gameId/leave`; mid-game,
+  nobody is ever removed, connected or not (an explicit leave just sets
+  `left: true`, keeping their score/words on the board). Presence lives as
+  `lastSeenAt`/`left` on each `PlayerState`, refreshed by `useGameSocket`
+  sending the `Ping` command on an interval; the server stamps it
+  atomically (`apply_presence.lua`, to avoid clobbering a concurrent
+  gameplay mutation to the same state blob) and replies with a fresh
+  snapshot on `Pong`, so every connected client's own heartbeat doubles as
+  a lightweight resync of everyone else's presence. A graceful `close`
+  marks the player stale immediately rather than waiting on the heartbeat
+  window. Host (`redis-schema.md` "Host convention") is derived as the
+  first _reachable_ player, not raw `players[0]`, so a disconnected host
+  doesn't block anything and doesn't need removing for status to migrate.
+  Replaced the old `pendingLeaves` in-memory debounce entirely — see
+  docs/decisions.md "Player presence: connected/disconnected/left
+  tracking" for the full design and why.
 - **Word formability — the client never specifies HOW a word forms.** The server
   infers the decomposition:
   - Pool letters alone → always valid if letters present.
@@ -393,11 +419,6 @@ mechanic without touching anything else.
 - Whether/when to add the turn-timer polling sweep.
 - Redis HA approach and timing of adopting it (Sentinel template vs. staying
   single-instance) — revisit once usage data exists.
-- Lobby presence tracking (`pendingLeaves` in `apps/server/src/index.ts`) is
-  in-memory and single-process-only — won't survive a reconnect landing on a
-  different Node instance. Fine at one server process; revisit before
-  running more than one. See docs/decisions.md "Lobby slice" section for the
-  fuller reasoning and the two candidate fixes.
 - Dictionary derivation data is suffix-only (e.g. UNHAPPY vs. HAPPY isn't
   caught, unlike CATS vs. CAT) — a data-quality gap, not a code limitation;
   `isDerivedFrom` itself has no concept of position. Root _coverage_ within

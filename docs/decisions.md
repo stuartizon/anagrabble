@@ -954,6 +954,15 @@ this specific case — its first retry attempt (1s) is deliberately inside
 this 3s window. See "Explicitly still open" below for the host-status
 follow-up this raised.
 
+**Superseded** (2026-08-15): `pendingLeaves`/`LEAVE_GRACE_MS` removed
+entirely, along with the "known limitation" above — see "Player presence:
+connected/disconnected/left tracking" below for the replacement (a
+heartbeat-driven `lastSeenAt` per player, derived reachability, no
+scheduled timers anywhere). The single-process gap this section flagged is
+resolved as a side effect, not worked around: presence now lives in Redis,
+readable/writable by any node, so there's nothing left that only one
+process knows about.
+
 ## Player color: computed client-side, not server-assigned
 
 **Decision**: a player's display color isn't part of `GameState` at all —
@@ -2259,6 +2268,16 @@ CLAUDE.md's "Still open" section.
    already makes for the turn-timer sweep. Revisit if real usage shows
    players stuck on a frozen-but-not-visibly-disconnected board longer than
    the backoff schedule would explain.
+
+   **Resolved** — see "Player presence: connected/disconnected/left
+   tracking" below. The evidence this asked to wait for turned out to be a
+   different, more concrete problem (a disconnected player holding up
+   everyone else's tile-turn wait, and a bounced host losing host status)
+   rather than "a frozen board," but the fix is the heartbeat this item
+   anticipated: `useGameSocket` now sends `Ping` on an interval, and the
+   server derives reachability from the resulting `lastSeenAt` rather than
+   purely from `close` events.
+
 2. **No command queueing/replay.** A `SubmitWord`/`TurnTile` sent while the
    socket is down or mid-backoff is silently dropped (`send()` no-ops on a
    closed socket — pre-existing behavior, unchanged by this pass). The
@@ -2267,14 +2286,15 @@ CLAUDE.md's "Still open" section.
    Not addressed; flag if it becomes a real complaint rather than building
    speculative queueing now.
 3. **Server-side reconnect-recognition path is untested.** The
-   `?game=&token=` re-seat + `pendingLeaves` cancellation in `index.ts`'s
-   connection handler predates this pass and works, but nothing exercises
-   it directly — doing so needs the first full WS-round-trip harness
-   (Fastify + a real `ws` client, not just Redis via testcontainers), a
-   bigger lift than this story's actual new code (the client backoff)
-   warranted. TDD focus stayed on what was genuinely new; see CLAUDE.md's
-   testing strategy, "Extends to full WS round-trip tests ... once there's
-   more than the lobby/gameplay slices to exercise that way."
+   `?game=&token=` re-seat in `index.ts`'s connection handler predates this
+   pass and works, but nothing exercises it directly — doing so needs the
+   first full WS-round-trip harness (Fastify + a real `ws` client, not just
+   Redis via testcontainers), a bigger lift than this story's actual new
+   code (the client backoff) warranted. TDD focus stayed on what was
+   genuinely new; see CLAUDE.md's testing strategy, "Extends to full WS
+   round-trip tests ... once there's more than the lobby/gameplay slices to
+   exercise that way." (The `pendingLeaves` cancellation this originally
+   also mentioned is gone — see item 4.)
 4. **The 3000ms `pendingLeaves` grace period was left untouched.** The
    first backoff attempt (1s) comfortably lands inside it today, so no
    coupling change was needed — but the two constants live in different
@@ -2282,11 +2302,19 @@ CLAUDE.md's "Still open" section.
    either changes independently later, re-check that the first retry still
    lands inside the grace window.
 
+   **Resolved, moot** — `pendingLeaves` itself is gone (see "Player
+   presence: connected/disconnected/left tracking" below), removed rather
+   than retuned. There's no grace-period/backoff coupling left to maintain:
+   a reload or reconnect-backoff blip no longer risks any roster mutation
+   at all, so the timing relationship this item worried about doesn't
+   exist anymore.
+
 None of these block the user-facing story (`docs/user-stories.md`
 "connection drops and reconnects mid-game") from being marked done — a
 player who drops and reconnects does see correct current state, which is
-what the story promises. (1) and (3) are the two with a real future action;
-see "Explicitly still open" below.
+what the story promises. (1) and (4) are now resolved (see above); (3) is
+the remaining one with a real future action — see "Explicitly still open"
+below.
 
 **Verified live** (2026-08-12), against the running dev stack, real
 Chromium via Playwright: two browser contexts, host and guest, mid-game.
@@ -2542,20 +2570,100 @@ questions needed resolving in conversation before _it_ was schedulable.
 
 ---
 
+## Player presence: connected/disconnected/left tracking
+
+**Context** (2026-08-15): a disconnected player caused two concrete
+problems. Mid-game, if it was their turn, every other player waited out
+the full `turnTimerSec` before anyone could force the turn forward. Pre-
+start, the only presence signal was `pendingLeaves` (see "Lobby slice"
+above) — a 3-second, single-process debounce whose whole reason for
+existing was buying a grace window before an _irreversible_ mutation
+(removing the player from `players`, which for a host meant silently
+losing host status on a mere reload or backoff blip).
+
+**Decision**: replace inferred-and-immediately-destructive presence with a
+`lastSeenAt` timestamp per player, refreshed by a lightweight client
+heartbeat, with "reachable" derived at read time — `!left && now -
+lastSeenAt < PRESENCE_STALE_MS` — rather than tracked via any scheduled
+timer. This is what makes it multi-instance-safe by construction (a value
+in Redis any node can read/write) and reversible by construction (a blip
+just means the value goes stale and then fresh again — nothing was ever
+mutated that needs to be undone).
+
+- **`players[]` is never mutated by connection state, at any phase.**
+  Pre-start, removal only ever happens via an explicit
+  `POST /games/:gameId/leave` (`handleLeaveGameRequest`, `games.ts`) — no
+  grace period needed, since nothing here is inferred. Mid-game, nobody is
+  ever removed, connected or not — an explicit leave just sets `left:
+true`, distinguished from a disconnect only by UI copy ("left the game"
+  vs. "reconnecting…", `presenceLabel.ts`), and their score/words stay on
+  the board exactly like a disconnect leaves them.
+- **Heartbeat**: `useGameSocket` sends the previously-inert `Ping` command
+  (`packages/protocol/src/ws.ts`, wired but unused since it was added)
+  immediately on open and every `PING_INTERVAL_MS` (8000ms) thereafter.
+  The server stamps `lastSeenAt` atomically (`apply_presence.lua` —
+  needed because a plain `GET`/`SET` here could clobber a concurrent
+  gameplay mutation to the same state blob) and replies with a fresh
+  `LobbySnapshot` on `PongEvent.lobby` (a new optional field), so every
+  connected client's own heartbeat doubles as a lightweight resync of
+  everyone else's presence — no separate server-initiated broadcast on
+  every heartbeat tick needed.
+- **Graceful close is faster than the heartbeat window**: `socket.on
+("close", ...)` marks the player stale immediately (an already-expired
+  `lastSeenAt`) and broadcasts a `LobbyState` resync, rather than waiting
+  for the ~20s heartbeat-staleness window a silent death (cable pulled,
+  phone loses signal) has no better option than.
+- **Turn-timer fast-skip needed no new grace constant.**
+  `apply_turn_tile.lua`'s deadline check gained an OR:
+  `now >= turnDeadline OR currentPlayerUnreachable`. Since "unreachable"
+  already requires either an explicit close or ~20s of heartbeat silence,
+  that already satisfies "don't instantly skip on a network blip" for
+  free.
+- **Host derivation changed from `players[0]` to "first reachable
+  player, falling back to `players[0]`."** Computed fresh on every read
+  (`lobby.ts`'s `deriveHostId`/`isReachable`), so a disconnected host
+  doesn't need to be removed from `players` for host status to migrate —
+  and if they reconnect before anyone else has effectively claimed it (no
+  claim is actually recorded; "claimed" just means someone else is now the
+  first reachable player), they reclaim it automatically, no reconciliation
+  needed. `game.ts`'s `StartGame` authorization now calls the same helper
+  instead of keeping its own separate `players[0]` comparison, so the two
+  can't diverge.
+- **UI**: a small badge (`WifiOff` icon, greyed-out row) next to a
+  non-connected player's name in both `LobbyPage` and `GameBoard`'s player
+  lists, driven by a derived `presence: "connected" | "disconnected" |
+"left"` field computed fresh into every `LobbySnapshot`
+  (`toLobbySnapshot`) rather than sending the raw timestamp to clients
+  (clock-skew sensitive).
+
+**Removed**: `pendingLeaves`, `scheduleLeave`, `cancelPendingLeave`,
+`LEAVE_GRACE_MS` (`apps/server/src/index.ts`) — see "Lobby slice" above for
+the "Superseded" note. This also resolves item 1 and item 4 of
+"Reconnect-with-backoff: scope calls made, not blockers" above, and the two
+`Explicitly still open` bullets about heartbeat detection and the
+`pendingLeaves` host-status-loss edge case (both removed from that list —
+this section is where they landed).
+
+**Alternatives considered**: an explicit `hostId` field instead of
+position/reachability-derived host status. Rejected — it would need its
+own reconciliation logic for exactly the case presence-derivation gets for
+free (a reconnecting original host reclaiming status without an explicit
+handoff step), and CLAUDE.md's `players[0]` convention already had no
+persisted `hostId` for a deliberate reason (see "redis-schema.md 'Host
+convention'"); extending that same "derive, don't store" philosophy to
+reachability was more consistent than introducing storage now.
+
+---
+
 ## Explicitly still open
 
-- **Heartbeat/liveness detection for a silently-dead WS connection** — not
-  built; reconnect currently relies solely on the browser's `close` event.
-  See "Reconnect-with-backoff: scope calls made, not blockers" above (item
-  1. for why this was deferred rather than built speculatively.
 - **A real WS round-trip test harness** (Fastify + a real `ws` client
   against a running server, per CLAUDE.md's testing strategy) to cover the
-  server-side reconnect-recognition path (`?game=&token=` re-seat,
-  `pendingLeaves` cancellation in `index.ts`) — see "Reconnect-with-backoff:
-  scope calls made, not blockers" above (item 3). Untested today; the
-  client-side backoff logic that prompted this write-up has its own
-  coverage (`useGameSocket.test.ts`), but this server-side path predates it
-  and was never exercised directly.
+  server-side reconnect-recognition path (`?game=&token=` re-seat in
+  `index.ts`) — see "Reconnect-with-backoff: scope calls made, not
+  blockers" above (item 3). Untested today; the client-side backoff logic
+  that prompted this write-up has its own coverage (`useGameSocket.test.ts`),
+  but this server-side path predates it and was never exercised directly.
 - **`API_URL` becoming canonical, `WS_URL` derived from it.** See "REST
   endpoints beyond `/health`" above for the full reasoning (written when
   both were still `VITE_API_URL`/`VITE_WS_URL` — see "Runtime-injected
@@ -2652,27 +2760,3 @@ questions needed resolving in conversation before _it_ was schedulable.
   configuration work. A live Backend API lookup per request was also
   considered and is strictly worse than the JWT-template approach for the
   same outcome — not worth building either way.
-- **`pendingLeaves`'s host-status-loss edge case, revisit once mid-game
-  join lands.** Raised 2026-08-12 while explaining the pre-start-only
-  debounce (see the "Correction" note under the original Lobby-slice
-  decision above): if a pre-start player's disconnect outlasts the 3s
-  grace window today, they get silently removed from `players` and have
-  to `JoinGame` again, landing at the back of the list. For a regular
-  player, once mid-game join (`docs/user-stories.md` "Core gameplay")
-  exists, this stops being a real problem — worst case they just rejoin
-  once the game's started, same as any other late joiner, no data lost
-  (`leaveGame()` only ever runs pre-start anyway, so nothing about their
-  in-game state is at risk either way). The **host** case doesn't go away
-  the same way, though: host is derived from `players[0]`, so a host who
-  gets bounced and re-joins comes back as an ordinary player at the end of
-  the list, having silently lost host status (the actual incident that
-  motivated building `pendingLeaves` in the first place). Mid-game join
-  landing doesn't fix that on its own. Not designed here — parked
-  deliberately rather than solved speculatively, per this file's own
-  "raise it when it becomes relevant" pattern (see the ws-vs-Socket.IO and
-  Fastify calls elsewhere in this file for precedent). Candidate
-  directions floated in conversation, none chosen: an explicit `hostId`
-  field instead of position-derived host status; some host-migration/
-  reclaim mechanic; extending the grace window specifically for the host;
-  or deciding the current behavior is rare/tolerable enough to leave as
-  is. Revisit when mid-game join is actually picked up, not before.

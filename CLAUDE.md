@@ -416,7 +416,19 @@ mechanic without touching anything else.
 
 ## Still open / not yet decided
 
-- Whether/when to add the turn-timer polling sweep.
+- Whether/when to add the turn-timer polling sweep (a backend process, not
+  today's client-triggered fast-skip — see docs/decisions.md "Turn
+  ownership" below for a related-but-separate item this affects).
+- **Decided, not yet built**: `GameState.turnPlayerIndex` (a raw array
+  position) is being replaced with an identity-based field, since it
+  cycles through disconnected players by position and — combined with the
+  presence fast-skip drawing a real tile per skip — causes a real bug (a
+  single tile-turn click can draw two tiles when a small roster includes
+  an unreachable player). See docs/decisions.md "Turn ownership:
+  `turnPlayerIndex` → identity-based, not array position" for the full
+  root cause, the two options considered, and an implementation sketch.
+  Explicitly does not include the backend polling sweep above — that
+  stays separate and still just an open question.
 - Redis HA approach and timing of adopting it (Sentinel template vs. staying
   single-instance) — revisit once usage data exists.
 - Dictionary derivation data is suffix-only (e.g. UNHAPPY vs. HAPPY isn't

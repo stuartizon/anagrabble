@@ -2688,6 +2688,114 @@ restored.
 
 ---
 
+## Turn ownership: `turnPlayerIndex` → identity-based, not array position
+
+**Status: decided, not started.** This section is a hand-off write-up —
+context got large enough mid-conversation that the user asked for this to
+be captured in the repo rather than carried forward in chat history, so a
+fresh session can implement it correctly without having witnessed the
+discussion. Written 2026-08-15, immediately after "Player presence:
+connected/disconnected/left tracking" above, which is what surfaced this.
+
+**The bug** (found live, not by inspection): with a player disconnected
+mid-game, the _other_ player's next tile-turn click visibly turns over two
+tiles at once.
+
+**Root cause**: `apply_turn_tile.lua` advances turn ownership with
+`state.turnPlayerIndex = (state.turnPlayerIndex + 1) % #state.players` —
+a position in the _raw_ `players[]` array. That array still includes a
+disconnected player (mid-game nobody is ever removed — see "Player
+presence" above, deliberately, so their score/words stay on the board).
+The presence fast-skip lets _any_ client fire `TurnTile` early once the
+current player is unreachable, and that call draws a real tile exactly
+like a genuine turn — there's no "skip without playing" concept, just
+"anyone may take this turn once eligible." So with 2 players and one
+gone, every other "turn" is a phantom one: player 1 clicks, draws a tile,
+hands the turn to the absent player 2; within ~250ms player 1's own
+background auto-fire effect (`GameBoard.tsx`, the same one added to reach
+the fast-skip branch at all — see "Caught by checking before assuming"
+above) silently skips player 2's turn too, drawing a second tile, before
+handing the turn straight back to player 1. One click, two tiles. With
+more players it's less dramatic (once every N turns instead of every
+other one) but the same underlying issue.
+
+**Two fix directions discussed**:
+
+- **Option A (contained, Lua-only)**: keep `turnPlayerIndex` as a raw
+  array index, but in `apply_turn_tile.lua`, _before_ the existing
+  eligibility check, walk it forward past any run of consecutive
+  unreachable players — no tile drawn during the walk, `turnDeadline`
+  reset at each hop — until it lands on a reachable player. Only then does
+  the existing check-and-draw logic run. No protocol or client changes.
+- **Option B (identity-based)**: stop representing "whose turn" as a
+  position in `players[]` at all. Replace `turnPlayerIndex: number` with
+  an identity-based field, advanced by player id rather than array
+  position. Bigger: a wire protocol change, a Lua rewrite, and every
+  client read site.
+
+**Decision: Option B.** Reasoning (the user's, worth preserving exactly):
+CLAUDE.md already has an unrelated-but-adjacent "Still open" item — an
+eventual _backend_ turn-timer polling sweep, replacing today's mechanism
+where the fast-skip only ever fires because some other client's browser
+tab happens to be open running the background auto-fire effect. That
+backend sweep is **explicitly not being built as part of this piece of
+work** — the trigger stays exactly as it is today (client-triggered),
+unchanged. But whenever the sweep does get built, it will need to
+consume/produce whatever "whose turn is it" representation exists at that
+time. Doing the identity-based migration now avoids doing it twice: a
+contained Lua fix today, then a bigger refactor later when the sweep
+lands and position-based indexing turns out not to be enough for it
+anyway. So B is a "pay once" call, not a "let's be fancy" call — and the
+user confirmed scope explicitly: **just the data-model change**, not the
+backend-sweep move.
+
+**Implementation sketch, for whoever picks this up**:
+
+- `packages/protocol/src/ws.ts`: `GameState.turnPlayerIndex: number` is
+  replaced by an identity-based field — `turnPlayerId: string | null`
+  is the natural shape (`null` only for the pathological case where
+  literally every player is unreachable; decide/document what that means
+  for eligibility — most likely "nobody can currently take a turn," not a
+  crash). This is a genuine field rename/repurpose, not additive, so it
+  doesn't fit CLAUDE.md's normal within-one-PR expand/contract shape
+  cleanly. Two honest options for the fresh session to raise with the
+  user rather than assume: (a) do the full two-rollout expand/contract
+  (backend populates both fields for one deploy, then a later PR drops
+  `turnPlayerIndex`), or (b) a single-shot rename, justified by there
+  being no real deployed users yet to break compatibility for. Don't pick
+  silently — this is exactly the kind of call CLAUDE.md's "Schema
+  evolution" section cares about.
+- `apply_turn_tile.lua`: turn advance becomes "walk to the next player
+  _by id_, skipping consecutive unreachable ids, no draw during the
+  walk" — same skip-without-draw mechanic Option A described, just keyed
+  by id instead of array index.
+- `apps/server/src/game.ts` (`startGame`) / `lobby.ts`: initial turn
+  assignment sets `turnPlayerId` to the host's id instead of
+  `turnPlayerIndex: 0`.
+- `apps/web/src/pages/GameBoard.tsx`: `currentPlayer =
+lobby.players[lobby.turnPlayerIndex]` becomes
+  `lobby.players.find(p => p.id === lobby.turnPlayerId)`.
+- Tests to update/extend: `packages/redis/src/applyTurnTile.test.ts` (the
+  walk-past-unreachable-without-drawing behavior is the key _new_ case;
+  existing assertions on `turnPlayerIndex` become `turnPlayerId`),
+  `apps/server/src/game.test.ts`, `apps/web/src/pages/GameBoard.test.tsx`.
+- Live verification: this deserves the same treatment as "Player
+  presence" above got (see its "Verified live" note) — extend
+  `apps/web/e2e/presence.spec.ts` or add a case confirming a single click
+  never draws more than one tile even with an absent player in a
+  2-player game, before considering this done. The existing test in that
+  file already force-closes a socket right after `StartGame` with a 60s
+  timer; the natural extension is asserting the bank count only ever
+  changes by one tile per observed step, not verifying "it changed" alone
+  (which is exactly what let the original bug ship unnoticed by the first
+  version of that test).
+
+**Out of scope, explicitly**: the backend turn-timer polling sweep itself
+— see CLAUDE.md "Still open." Not touched by this migration; still
+client-triggered after this lands.
+
+---
+
 ## Explicitly still open
 
 - **A real WS round-trip test harness** (Fastify + a real `ws` client

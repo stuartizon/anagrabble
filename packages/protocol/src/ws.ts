@@ -16,8 +16,10 @@ export interface BaseEvent {
   gameId: string;
 }
 
-// Placeholder command/event — real game commands (TurnTile, SubmitWord, ...)
-// land alongside packages/game implementation.
+/** Sent periodically by a connected client (see apps/web's useGameSocket)
+ * purely to keep GameState.players[].lastSeenAt fresh — the presence
+ * heartbeat, not a general-purpose keepalive. See docs/decisions.md "Player
+ * presence: connected/disconnected/left tracking". */
 export interface PingCommand extends BaseCommand {
   type: "Ping";
 }
@@ -46,6 +48,25 @@ export interface PlayerState {
   /** Claimed words — always empty until word play lands. */
   words: string[];
   score: number;
+  /** Epoch ms of the last heartbeat/command received from this player's
+   * connection — persisted, never sent to clients directly (clock-skew
+   * sensitive). "Reachable" is derived from it at read time rather than
+   * tracked via a scheduled timer — see apps/server/src/lobby.ts's
+   * `isReachable` and docs/decisions.md "Player presence:
+   * connected/disconnected/left tracking". Absent for a player who has
+   * never connected (shouldn't happen in practice — set on join/create). */
+  lastSeenAt?: number;
+  /** True once this player has explicitly left a game already in progress
+   * (mid-game leave never removes them from `players` — see
+   * docs/decisions.md, same section as above). Never set pre-start: a
+   * pre-start leave removes the player from `players` outright instead
+   * (`leaveGame` in apps/server/src/lobby.ts). */
+  left?: boolean;
+  /** Derived, wire-only — computed fresh into every LobbySnapshot
+   * (apps/server/src/lobby.ts's `toLobbySnapshot`), never persisted
+   * alongside `lastSeenAt`/`left` in Redis. Absent from an older server's
+   * snapshot during a rollout window; treat as `"connected"`. */
+  presence?: "connected" | "disconnected" | "left";
 }
 
 export interface GameState {

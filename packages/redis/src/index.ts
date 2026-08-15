@@ -22,3 +22,9 @@ export {
   type ApplyEndGameKeys,
   type ApplyEndGameResult,
 } from "./applyEndGame.js";
+export {
+  applyPresence,
+  type ApplyPresenceArgs,
+  type ApplyPresenceError,
+  type ApplyPresenceResult,
+} from "./applyPresence.js";

@@ -39,4 +39,15 @@ Object.defineProperty(globalThis, "localStorage", {
   configurable: true,
 });
 
+// useGameSocket.ts/fetchPlayerStats.ts throw at import time if these are
+// unset (no localhost fallback, by design — see CLAUDE.md). Normally set by
+// env.js (see public/env.example.js), loaded via a <script> tag before the
+// app runs — the test runner has no such script, so it's stubbed here
+// instead; this is test-runner-only and doesn't weaken the real
+// throw-if-unset check.
+window.__ENV__ = {
+  WS_URL: "ws://localhost:8080",
+  API_URL: "http://localhost:8080",
+};
+
 afterEach(() => cleanup());

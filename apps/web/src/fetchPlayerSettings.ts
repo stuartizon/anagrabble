@@ -1,9 +1,7 @@
 import type { PlayerSettingsResponse } from "@anagrabble/protocol";
+import { API_URL } from "./env";
 
 export type { PlayerSettingsResponse };
-
-const API_URL = import.meta.env.VITE_API_URL;
-if (!API_URL) throw new Error("VITE_API_URL is not set");
 
 export async function fetchPlayerSettings(token: string): Promise<PlayerSettingsResponse> {
   const res = await fetch(`${API_URL}/settings`, { headers: { Authorization: `Bearer ${token}` } });

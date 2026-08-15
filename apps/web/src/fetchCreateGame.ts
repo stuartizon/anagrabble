@@ -1,7 +1,5 @@
 import type { CreateGameRequest, LobbySnapshot } from "@anagrabble/protocol";
-
-const API_URL = import.meta.env.VITE_API_URL;
-if (!API_URL) throw new Error("VITE_API_URL is not set");
+import { API_URL } from "./env";
 
 /** Thrown with the server's error code (e.g. "Unauthorized") rather than a
  * generic message, so callers can distinguish a real rejection from an

@@ -89,6 +89,13 @@ load-bearing for any piece of state.
   environment for both. See docs/decisions.md "Evaluating Cloudflare Pages for
   frontend hosting" for the full history, including the shadow-deploy period
   this cutover replaced.
+- **Frontend config is runtime-injected, not baked into the JS bundle at
+  build time.** `apps/web` builds once, unparameterized; CI then writes
+  `dist/env.js` (`window.__ENV__ = {...}`) from that job's environment
+  right before deploy, loaded via a `<script>` tag in `index.html` ahead of
+  the app bundle — `src/env.ts` is the only place that reads it. See
+  docs/decisions.md "Runtime-injected frontend config, not build-time
+  `VITE_*` vars".
 - Everything is Dockerized and cloud-agnostic in principle; Railway is a deployment
   choice, not an architectural dependency. AWS remains the fallback if/when real HA
   or infra control requirements emerge (see docs/decisions.md for the full
@@ -384,13 +391,14 @@ mechanic without touching anything else.
 ## Still open / not yet decided
 
 - Whether/when to add the turn-timer polling sweep.
-- Frontend config is still baked into the JS bundle at build time
-  (`import.meta.env.VITE_*`, four call sites plus `apps/web`'s build step),
-  rather than read from a runtime object populated after the build. Now that
-  Cloudflare Pages is the only frontend target (see "Deployment" above), this
-  is a single-platform change: a build-once artifact plus a generated
-  `env.js` stamped in by the CI deploy step, matching the reasoning in
-  docs/decisions.md "Evaluating Cloudflare Pages for frontend hosting".
+- The new `CLERK_PUBLISHABLE_KEY_DEV`/`CLERK_PUBLISHABLE_KEY_PROD` GitHub
+  Actions **Variables** (not Secrets — see docs/decisions.md
+  "Runtime-injected frontend config, not build-time `VITE_*` vars") still
+  need creating from the values the old `VITE_CLERK_PUBLISHABLE_KEY_DEV`/
+  `_PROD` Secrets held, and those old Secrets (plus the now-unused
+  `VITE_API_URL_*`/`VITE_WS_URL_*` ones — `API_URL`/`WS_URL` are hardcoded
+  literals in the workflow files now, not vars) deleted once confirmed
+  working — manual, dashboard-side, not something CI does for you.
 - Redis HA approach and timing of adopting it (Sentinel template vs. staying
   single-instance) — revisit once usage data exists.
 - Lobby presence tracking (`pendingLeaves` in `apps/server/src/index.ts`) is

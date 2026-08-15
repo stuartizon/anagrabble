@@ -157,10 +157,21 @@ jobs:
 
       - name: Build
         run: pnpm --filter @anagrabble/web build
+
+      - name: Write runtime env
+        working-directory: apps/web
+        run: |
+          node -e '
+            const fs = require("fs");
+            const env = {
+              API_URL: "https://api-dev.anagrabble.com",
+              WS_URL: "wss://api-dev.anagrabble.com",
+              CLERK_PUBLISHABLE_KEY: process.env.CLERK_PUBLISHABLE_KEY,
+            };
+            fs.writeFileSync("dist/env.js", `window.__ENV__ = ${JSON.stringify(env, null, 2)};\n`);
+          '
         env:
-          VITE_API_URL: ${{ secrets.VITE_API_URL_DEV }}
-          VITE_WS_URL: ${{ secrets.VITE_WS_URL_DEV }}
-          VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY_DEV }}
+          CLERK_PUBLISHABLE_KEY: ${{ vars.CLERK_PUBLISHABLE_KEY_DEV }}
 
       - name: Install Wrangler
         run: npm install -g wrangler@latest

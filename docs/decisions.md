@@ -329,6 +329,95 @@ has run on `main` a few times without needing a rollback.
 
 ---
 
+## Runtime-injected frontend config, not build-time `VITE_*` vars
+
+**Decision**, 2026-08-15: `apps/web`'s deployed config (`API_URL`, `WS_URL`,
+`CLERK_PUBLISHABLE_KEY`) is no longer baked into the JS bundle at build
+time via `import.meta.env.VITE_*`. Instead: CI runs one unparameterized
+`pnpm --filter @anagrabble/web build`, then a separate step writes
+`dist/env.js` (`window.__ENV__ = { API_URL: "...", ... }`), immediately
+before `wrangler pages deploy`. The app reads `window.__ENV__` via
+`src/env.ts`, populated by a plain `<script src="/env.js">` tag added to
+`index.html` before the app's module script. `VITE_AUTH_MODE` is
+unaffected — it's genuinely build-time (only read via `pnpm dev`/`docker
+compose`, never part of the CI build), so it keeps the `VITE_` prefix and
+stays in `apps/web/.env`.
+
+**Why the `VITE_` prefix is dropped for the other three**: it only ever
+signaled Vite's build-time static-replace-at-`import.meta.env` mechanism.
+Once the values are read from `window.__ENV__` at runtime instead, keeping
+the prefix would misleadingly imply a build-time var that no longer exists.
+
+**`API_URL`/`WS_URL` are literal strings hardcoded in the workflow files,
+not a GitHub Actions Variable or Secret at all** — `https://api-dev.anagrabble.com`/
+`wss://api-dev.anagrabble.com` in `ci.yml`, `https://api.anagrabble.com`/
+`wss://api.anagrabble.com` in `deploy-production.yml`. Both hostnames are
+already the established, stable backend origins (see README's environments
+table), not values that vary or need rotating — the indirection through a
+repo Variable would have bought nothing for a value that's already public
+knowledge and effectively permanent per environment. `CLERK_PUBLISHABLE_KEY`
+stays as a GitHub Actions **Variable** (`CLERK_PUBLISHABLE_KEY_DEV`/`_PROD`),
+not a Secret: it ends up readable in the shipped bundle regardless
+(view-source away) — Clerk's own docs describe the publishable key as safe
+to expose client-side — and it genuinely does vary per Clerk application/
+environment, unlike the URLs, so it still warrants being configurable
+without a code change. GitHub Secrets are masked in logs and write-only in
+the UI, friction bought for a confidentiality guarantee this value doesn't
+need. `RAILWAY_TOKEN_*`, `CLOUDFLARE_API_TOKEN`, etc. stay Secrets — those
+really do need to stay confidential. Not done as part of this change:
+creating `CLERK_PUBLISHABLE_KEY_DEV`/`_PROD` as repo Variables from the
+values the old `VITE_CLERK_PUBLISHABLE_KEY_DEV`/`_PROD` Secrets held, and
+deleting those old Secrets along with the now-entirely-unused
+`VITE_API_URL_*`/`VITE_WS_URL_*` ones — manual, dashboard-side (or `gh
+variable set`), not something this change can do unattended since it
+requires the actual values.
+
+**Why a `<script>` tag over a dynamic `import()`/`fetch()` awaited in
+`main.tsx`** (the mechanism originally sketched when Cloudflare was still
+being evaluated — see "Evaluating Cloudflare Pages for frontend hosting"):
+a classic (non-`module`) `<script src="/env.js">` is discovered and fetched
+by the HTML parser in parallel with the module bundle, and since
+`<script type="module">` is deferred by spec, `window.__ENV__` is
+guaranteed to exist before any module script runs — no `await` needed
+anywhere in `main.tsx`, no async boot path, no separate error-handling
+story for a config fetch failing. A dynamic `import()`/`fetch()` inside
+`main.tsx` can only fire after the bundle has already loaded and started
+executing, making it a genuine serial waterfall (bundle load → then fetch
+config → then render) instead of a parallel one. Static `import` isn't
+viable at all here — Vite would try to resolve `/env.js` at build time and
+fail, since the file doesn't exist until CI generates it after the build.
+
+**One throw-if-unset check, not four**: `src/env.ts` centralizes the
+"missing config" error that each of the four `import.meta.env.VITE_*` call
+sites used to duplicate. `API_URL`/`WS_URL` are exported as eager top-level
+consts (matching the original per-call-site behavior — they already threw
+at each importing module's first evaluation). `CLERK_PUBLISHABLE_KEY`
+can't be: `clerkAuth.tsx`'s module is imported unconditionally by
+`auth/index.tsx` even in mock-auth mode, where the key is legitimately
+unset, so it's exposed as `requireClerkPublishableKey()`, a function called
+only inside `AuthProvider`'s render — the same lazy timing the original
+code already had, just centralized.
+
+**Local dev**: `apps/web/public/env.js` (gitignored) mirrors the
+`.env`/`.env.example` split — `public/env.example.js` is the checked-in
+template. Vite serves `public/` files verbatim in dev and copies them
+into `dist/` on build, so no code change was needed for local dev to pick
+this up; CI's stamp step simply overwrites the copied `dist/env.js` before
+deploy. The Vitest suite has no `<script>` tag to load, so
+`vitest.setup.ts` stubs `window.__ENV__` directly (replacing the
+`test.env`-based `VITE_WS_URL`/`VITE_API_URL` stub it used before).
+
+**Implementation gotcha worth remembering**: a global type augmentation
+file (`declare global { interface Window { __ENV__: ... } }`) must not
+share a basename with a same-directory `.ts` file — TypeScript silently
+drops a `foo.d.ts` sitting next to `foo.ts` from the program (treats them
+as the same module slot) rather than erroring, so the augmentation never
+takes effect and every `window.__ENV__` access fails to typecheck with no
+obvious cause. Named `src/globalEnv.d.ts` (not `src/env.d.ts`) to avoid
+colliding with `src/env.ts`.
+
+---
+
 ## Game rules
 
 ### Tile turning vs. word stealing are different concurrency problems
@@ -2455,12 +2544,14 @@ questions needed resolving in conversation before _it_ was schedulable.
   client-side backoff logic that prompted this write-up has its own
   coverage (`useGameSocket.test.ts`), but this server-side path predates it
   and was never exercised directly.
-- **`VITE_API_URL` becoming canonical, `VITE_WS_URL` derived from it.** See
-  "REST endpoints beyond `/health`" above for the full reasoning. Do this
-  once `VITE_API_URL` is confirmed set in every deployed environment: (1)
-  refactor `useGameSocket.ts` to derive its WS URL from `VITE_API_URL`
-  (scheme swap: `http:`→`ws:`, `https:`→`wss:`); (2) remove the standalone
-  `VITE_WS_URL` var.
+- **`API_URL` becoming canonical, `WS_URL` derived from it.** See "REST
+  endpoints beyond `/health`" above for the full reasoning (written when
+  both were still `VITE_API_URL`/`VITE_WS_URL` — see "Runtime-injected
+  frontend config, not build-time VITE_* vars" for the rename). Do this
+  once `API_URL` is confirmed set in every deployed environment: (1)
+  refactor `useGameSocket.ts` to derive its WS URL from `API_URL` (scheme
+  swap: `http:`→`ws:`, `https:`→`wss:`); (2) remove the standalone `WS_URL`
+  entry from `env.js`.
 - **Hand-written Lua vs. a query-builder/wrapper for `packages/redis`.** Not
   yet discussed with the user at all — flagged 2026-08-11 as worth an actual
   pros/cons conversation before treating "hand-written Lua" as settled

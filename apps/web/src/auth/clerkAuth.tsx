@@ -9,11 +9,10 @@ import {
 } from "@clerk/react";
 import { useSignIn, useSignUp } from "@clerk/react/legacy";
 import type { AuthModule } from "./types";
+import { requireClerkPublishableKey } from "../env";
 
 function AuthProvider({ children }: { children: ReactNode }) {
-  const key = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
-  if (!key) throw new Error("VITE_CLERK_PUBLISHABLE_KEY is not set");
-  return <ClerkProvider publishableKey={key}>{children}</ClerkProvider>;
+  return <ClerkProvider publishableKey={requireClerkPublishableKey()}>{children}</ClerkProvider>;
 }
 
 // Cast, not a structural check: Clerk's real hooks return richer objects

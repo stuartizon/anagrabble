@@ -8,6 +8,14 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <title>Anagrabble</title>
+    <!-- Runtime config, not build-time: sets window.__ENV__, read by
+         src/env.ts. A plain classic script (not type="module") so it's
+         guaranteed to run before the deferred module script below,
+         regardless of load order — see docs/decisions.md "Runtime-injected
+         frontend config, not build-time VITE_* vars". Generated per-deploy
+         by CI (see public/env.example.js for the local-dev copy this
+         overwrites in dist/). -->
+    <script src="/env.js"></script>
   </head>
   <body>
     <div id="app"></div>

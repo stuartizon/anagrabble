@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "./auth";
+import { WS_URL } from "./env";
 import {
   PROTOCOL_VERSION,
   type Command,
@@ -8,9 +9,6 @@ import {
   type LobbySnapshot,
   type UsedWord,
 } from "@anagrabble/protocol";
-
-const WS_URL = import.meta.env.VITE_WS_URL;
-if (!WS_URL) throw new Error("VITE_WS_URL is not set");
 
 /** Backoff schedule for reconnect attempts after an unexpected close (server
  * restart, network blip) — capped exponential, retried indefinitely rather

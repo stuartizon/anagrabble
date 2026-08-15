@@ -105,12 +105,18 @@ up -d --build`) when the toolchain itself changes (Node/pnpm version, or
 
 ### Environment variables
 
-`apps/web` reads local config from its own `.env` (gitignored; see
-`apps/web/.env.example` for the full list with comments) — `VITE_WS_URL`
+`apps/web` reads most config at runtime, not build time — see
+`docs/decisions.md` "Runtime-injected frontend config, not build-time
+VITE_* vars". Copy `apps/web/public/env.example.js` to
+`apps/web/public/env.js` (gitignored) and fill in `WS_URL`
 (`ws://localhost:8080` for local dev) to reach the backend's WebSocket, and
-`VITE_API_URL` (`http://localhost:8080`) for its REST endpoints (`/stats`
-and beyond); neither has a built-in default, both throw on startup if
-unset.
+`API_URL` (`http://localhost:8080`) for its REST endpoints (`/stats` and
+beyond); neither has a built-in default, both throw on startup if unset.
+
+The one var still read from `apps/web`'s own `.env` (gitignored; see
+`apps/web/.env.example`) is `VITE_AUTH_MODE` — genuinely build-time, since
+it's only ever read locally via `pnpm dev`/`docker compose`, never part of
+a deployed build.
 
 **Auth defaults to a fully offline mock** — `docker-compose.yml` sets the
 backend's `AUTH_MODE=mock`, and `VITE_AUTH_MODE=mock` is `apps/web/.env.example`'s
@@ -128,24 +134,27 @@ Diana is left with none on purpose, to check the empty state. See
 To instead run against a real (dev) Clerk instance — e.g. to sanity-check
 something mock auth can't exercise, like actual sign-up/password-reset
 flows — blank `VITE_AUTH_MODE` in `apps/web/.env` and fill in
-`VITE_CLERK_PUBLISHABLE_KEY`, and on the backend side, `export
-CLERK_SECRET_KEY=...` in your shell before `docker compose up` (it's read
-from the host environment, not a `.env` file — see `${CLERK_SECRET_KEY:-}`
-in `docker-compose.yml`) and change `AUTH_MODE: mock` to blank in that same
-file for the `server` service:
+`CLERK_PUBLISHABLE_KEY` in `apps/web/public/env.js`, and on the backend
+side, `export CLERK_SECRET_KEY=...` in your shell before `docker compose
+up` (it's read from the host environment, not a `.env` file — see
+`${CLERK_SECRET_KEY:-}` in `docker-compose.yml`) and change `AUTH_MODE:
+mock` to blank in that same file for the `server` service:
 
 - Create a free application at [clerk.com](https://clerk.com) (or reuse an
   existing one).
 - Dashboard → API Keys → copy the **Publishable key** into
-  `VITE_CLERK_PUBLISHABLE_KEY` and the **Secret key** into
-  `CLERK_SECRET_KEY`. Both are required outside mock mode — each side
-  throws on startup without its key.
+  `CLERK_PUBLISHABLE_KEY` (in `apps/web/public/env.js`) and the **Secret
+  key** into `CLERK_SECRET_KEY`. Both are required outside mock mode — each
+  side throws on startup without its key.
 - Both keys must come from the **same** Clerk application. A mismatch fails
   silently at connect time — the socket just never verifies — though it
   surfaces immediately after: every command comes back `Unauthorized` since
   the connection never got a verified identity.
 - Restart both (`docker compose up -d --build web server`) after changing
-  any of these.
+  `VITE_AUTH_MODE` or `CLERK_SECRET_KEY` — both are read at process
+  startup. `public/env.js` isn't: it's a static file the dev server
+  re-reads on every page load, so editing `CLERK_PUBLISHABLE_KEY` there
+  just needs a browser refresh.
 
 Open `http://localhost:5173`, create a game, then open the invite link
 (shown in the lobby) in a second tab/browser to join it — players should

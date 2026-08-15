@@ -2653,6 +2653,39 @@ persisted `hostId` for a deliberate reason (see "redis-schema.md 'Host
 convention'"); extending that same "derive, don't store" philosophy to
 reachability was more consistent than introducing storage now.
 
+**Caught by checking before assuming** (2026-08-15, same day): the
+server-side fast-skip (`apply_turn_tile.lua`'s `currentPlayerUnreachable`
+OR condition) shipped first, on the assumption that CLAUDE.md's existing
+"any connected client fires TurnTile once its local countdown hits zero"
+client behavior would exercise it automatically. It didn't — `GameBoard`'s
+background auto-fire effect only ever checked `Date.now() >= turnDeadline`
+(the _original_ deadline), so the new early-accept branch had no client
+code path that could ever reach it; the fast-skip was fully inert in
+practice. Found by reading the actual effect before writing a Playwright
+test that would have either passed for the wrong reason (waiting out the
+full 60s timer) or failed outright, rather than assuming the server-side
+change was sufficient. Fixed the same day: the effect now also fires
+early once `currentPlayer.presence !== "connected"`, reusing the existing
+per-deadline dedup guard.
+
+**Verified live** (2026-08-15), against the running dev stack, real
+Chromium via Playwright (`apps/web/e2e/presence.spec.ts`, same
+force-close-the-real-`WebSocket` technique as `reconnect.spec.ts` — see
+"Reconnect-with-backoff" above): two browser contexts, host and guest.
+Force-closed the host's socket immediately after `StartGame` (host has the
+first turn, `turnPlayerIndex` starts at 0), with a 60s `turnTimerSec` so
+the ordinary deadline can't be what advances things. Confirmed the guest's
+bank count changes within ~2s — well before the 60s timer, and entirely
+without the host ever reconnecting — proving the full round trip: real WS
+close → server's close handler → `applyPresence` → published `LobbyState`
+→ guest's `useGameSocket` adopts the new snapshot → `GameBoard` recomputes
+`currentPlayerUnreachable` → its effect fires `TurnTile` early → the Lua
+script's fast-skip branch accepts it. Also confirmed the test is a real
+regression guard, not a false positive: temporarily reverted the
+client-side fix above and re-ran the same test — it failed (20s timeout,
+bank count never moved), then passed again (~2s) once the fix was
+restored.
+
 ---
 
 ## Explicitly still open

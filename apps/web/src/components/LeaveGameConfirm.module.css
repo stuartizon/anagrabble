@@ -1,0 +1,63 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(27, 27, 24, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.panel {
+  background: var(--surface-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  max-width: 400px;
+  width: 100%;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-xl);
+  color: var(--ink);
+}
+
+.body {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+}
+
+.error {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--error);
+}
+
+/* Side-by-side above 400px (matches design-system/In Game.dc.html); below
+   that, two `lg` buttons can't share a row without either button's
+   `white-space: nowrap` text (Button.module.css) forcing it wider than its
+   half of the row — flex items don't shrink below their content's intrinsic
+   width by default, so the narrower button just overflows the dialog
+   instead of actually shrinking. Stacking avoids needing either button to
+   shrink at all, and stays correct if the copy gets longer later (e.g. a
+   translated locale — see CLAUDE.md's still-open interface-language work). */
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+@media (max-width: 400px) {
+  .actions {
+    flex-direction: column;
+  }
+}

@@ -75,6 +75,37 @@
   }
 }
 
+/* Desktop-only leave-game button — inverse breakpoint of .menuButton, since
+   the mobile menu carries its own leave button instead (.mobileLeaveButton
+   below). Matches design-system/In Game.dc.html's header leave button
+   exactly (border/color/hover), which shares its `settingsIconDisplay`
+   desktop-only visibility with the (not-yet-built) settings icon. */
+.leaveButton {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 6px 12px;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.leaveButton:hover {
+  border-color: var(--border-strong);
+  color: var(--ink);
+}
+
+@media (min-width: 840px) {
+  .leaveButton {
+    display: flex;
+  }
+}
+
 /* Full-screen takeover, not a dimmed dialog — matches design-system/In
    Game.dc.html's mobileMenuOpen treatment (opaque --surface-card, no
    backdrop scrim). Sits above everything else in the page. Content fills
@@ -138,6 +169,27 @@
   overflow-y: auto;
   min-height: 0;
   flex: 1;
+}
+
+/* Bottom of the mobile menu — matches design-system/In Game.dc.html's own
+   mobileMenuOpen leave button (error-colored text, not the header button's
+   muted/neutral treatment, since there's no separate settings icon next to
+   it here competing for attention). */
+.mobileLeaveButton {
+  margin-top: 4px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--error);
 }
 
 .poolLabel {

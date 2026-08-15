@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Show, useClerk, useUser } from "../auth";
 import styles from "./Header.module.css";
@@ -14,10 +14,22 @@ import { getDisplayName } from "../clerkDisplayName";
 // design-system/In Game.dc.html has no account/login element anywhere in
 // its header or its mobile menu (Players/Invite/Game settings/Your
 // settings only), so an in-progress game shows no account status at all.
-export function Header({ children }: { children?: ReactNode }) {
+//
+// `onWordmarkClick`, if provided, replaces the wordmark's normal
+// navigation — GameBoard uses this to intercept the click and open its
+// leave-game confirmation instead of navigating straight to "/", matching
+// design-system/In Game.dc.html's onClick={{ openLeaveConfirm }} on the
+// wordmark. The caller is responsible for calling preventDefault().
+export function Header({
+  children,
+  onWordmarkClick,
+}: {
+  children?: ReactNode;
+  onWordmarkClick?: (e: ReactMouseEvent) => void;
+}) {
   return (
     <header className={styles.header}>
-      <Link to="/">
+      <Link to="/" onClick={onWordmarkClick}>
         <Wordmark size="md" />
       </Link>
       <div className={styles.actions}>{children ?? <AccountStatus />}</div>

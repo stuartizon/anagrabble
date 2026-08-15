@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Menu, UserMinus, WifiOff, X } from "lucide-react";
+import { LogOut, Menu, UserMinus, WifiOff, X } from "lucide-react";
 import type { Command, LobbySnapshot, UsedWord } from "@anagrabble/protocol";
 import { Header } from "../components/Header";
 import { Input } from "../components/Input";
@@ -8,6 +8,7 @@ import { InviteCode } from "../components/InviteCode";
 import { LetterTile } from "../components/LetterTile";
 import { TurnTileButton } from "../components/TurnTileButton";
 import { EndGameCountdown } from "../components/EndGameCountdown";
+import { LeaveGameConfirm } from "../components/LeaveGameConfirm";
 import { makeCommandId } from "../gameId";
 import { assignPlayerColors } from "../playerColors";
 import type { GameSocketError, SocketStatus, WordPlayNarration } from "../useGameSocket";
@@ -35,6 +36,9 @@ interface GameBoardProps {
   wordPlay: WordPlayNarration | null;
   history: WordPlayNarration[];
   status: SocketStatus;
+  onLeaveGame: () => void;
+  leaving: boolean;
+  leaveError: string | null;
 }
 
 function remainingSeconds(deadline: number | null): number {
@@ -252,6 +256,9 @@ export function GameBoard({
   wordPlay,
   history,
   status,
+  onLeaveGame,
+  leaving,
+  leaveError,
 }: GameBoardProps) {
   const colors = assignPlayerColors(lobby.players, playerId);
   const currentPlayer = lobby.players.find((p) => p.id === lobby.turnPlayerId);
@@ -355,6 +362,33 @@ export function GameBoard({
   const shareLink = `${window.location.origin}/${gameId}`;
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  // Closes the mobile menu underneath — design-system/In Game.dc.html's
+  // openLeaveConfirm sets mobileMenuOpen: false (and settingsModalOpen:
+  // false, once that not-yet-built story lands) in the same setState, so
+  // the confirm dialog never stacks over the full-screen mobile menu.
+  const openLeaveConfirm = () => {
+    setLeaveConfirmOpen(true);
+    setMenuOpen(false);
+  };
+  const closeLeaveConfirm = () => setLeaveConfirmOpen(false);
+
+  // Native "leave site?" prompt for an actual browser-level navigation away
+  // (closing the tab, refreshing, typing a new URL, following an external
+  // link) — matches design-system/In Game.dc.html's beforeunload handler.
+  // Doesn't need a "we're leaving on purpose" guard: every in-app way of
+  // leaving (confirming the dialog above, or the game ending) is a
+  // client-side route change via react-router, which never fires
+  // `beforeunload` in the first place.
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, []);
+
   const [wordValue, setWordValue] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   // Read inside the wordPlay effect via ref rather than as a dependency —
@@ -425,10 +459,19 @@ export function GameBoard({
 
   return (
     <div className={styles.page}>
-      <Header>
+      <Header
+        onWordmarkClick={(e) => {
+          e.preventDefault();
+          openLeaveConfirm();
+        }}
+      >
         <span className={styles.bankCount}>{lobby.bankCount} tiles left</span>
         <button className={styles.menuButton} aria-label="Menu" onClick={() => setMenuOpen(true)}>
           <Menu size={20} color="var(--text-muted)" />
+        </button>
+        <button className={styles.leaveButton} onClick={openLeaveConfirm}>
+          <LogOut size={16} />
+          Leave game
         </button>
       </Header>
 
@@ -446,8 +489,22 @@ export function GameBoard({
           </div>
           <div className={styles.menuBody}>
             <PlayersAndInviteSections lobby={lobby} colors={colors} shareLink={shareLink} />
+            <button className={styles.mobileLeaveButton} onClick={openLeaveConfirm}>
+              <LogOut size={18} />
+              Leave game
+            </button>
           </div>
         </div>
+      )}
+
+      {leaveConfirmOpen && (
+        <LeaveGameConfirm
+          gameCode={lobby.gameId}
+          leaving={leaving}
+          error={leaveError}
+          onKeepPlaying={closeLeaveConfirm}
+          onLeave={onLeaveGame}
+        />
       )}
 
       <div className={styles.layout}>

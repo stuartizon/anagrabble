@@ -62,11 +62,15 @@ export function LobbyPage() {
     });
   };
 
-  // A deliberate, explicit leave — REST rather than a WS command, and
-  // pre-start only (the button is only ever rendered from the lobby view
-  // below). See docs/decisions.md "Player presence:
-  // connected/disconnected/left tracking" for why this doesn't go through
-  // the same debounced-disconnect path a dropped connection does.
+  // A deliberate, explicit leave — REST rather than a WS command. Rendered
+  // both from the pre-start lobby view below and, via GameBoard, from a
+  // live game (design-system/In Game.dc.html's leave-game button/confirm
+  // dialog) — the backend already treats a mid-game leave as just setting
+  // `left: true` and keeping the player's words/score on the board, so
+  // there's no separate mid-game codepath needed here. See
+  // docs/decisions.md "Player presence: connected/disconnected/left
+  // tracking" for why this doesn't go through the same debounced-disconnect
+  // path a dropped connection does.
   const leaveGame = async () => {
     setLeaving(true);
     setLeaveError(null);
@@ -217,6 +221,9 @@ export function LobbyPage() {
         wordPlay={wordPlay}
         history={history}
         status={status}
+        onLeaveGame={leaveGame}
+        leaving={leaving}
+        leaveError={leaveError}
       />
     );
   }

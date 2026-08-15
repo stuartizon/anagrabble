@@ -8,6 +8,7 @@ import { mockSignedOutClerk } from "../testUtils/clerkTestMock";
 import { GameBoard } from "./GameBoard";
 
 const send = vi.fn();
+const onLeaveGame = vi.fn();
 const makeCommandIdMock = vi.fn(() => "cmd-1");
 
 vi.mock("../gameId", () => ({
@@ -42,6 +43,8 @@ type BoardProps = {
   wordPlay?: WordPlayNarration | null;
   history?: WordPlayNarration[];
   status?: SocketStatus;
+  leaving?: boolean;
+  leaveError?: string | null;
 };
 
 function boardElement(props: BoardProps = {}) {
@@ -55,6 +58,9 @@ function boardElement(props: BoardProps = {}) {
         wordPlay={props.wordPlay ?? null}
         history={props.history ?? []}
         status={props.status ?? "open"}
+        onLeaveGame={onLeaveGame}
+        leaving={props.leaving ?? false}
+        leaveError={props.leaveError ?? null}
       />
     </MemoryRouter>
   );
@@ -66,6 +72,7 @@ function renderBoard(props: BoardProps = {}) {
 
 beforeEach(() => {
   send.mockClear();
+  onLeaveGame.mockClear();
   makeCommandIdMock.mockReset();
   makeCommandIdMock.mockReturnValue("cmd-1");
 });
@@ -586,5 +593,94 @@ describe("GameBoard", () => {
   it("shows no reconnecting indicator while the socket is open", () => {
     renderBoard({ status: "open" });
     expect(screen.queryByText(/reconnecting/i)).not.toBeInTheDocument();
+  });
+
+  describe("leave game", () => {
+    it("opens the confirm dialog from the desktop header's Leave game button", async () => {
+      renderBoard();
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Leave game" }));
+
+      expect(screen.getByRole("dialog", { name: "Leave this game?" })).toBeInTheDocument();
+    });
+
+    it("opens the confirm dialog from the mobile menu's Leave game button, closing the mobile menu underneath it", async () => {
+      renderBoard();
+
+      await userEvent.click(screen.getByRole("button", { name: "Menu" }));
+      const menu = within(screen.getByTestId("mobile-menu"));
+      await userEvent.click(menu.getByRole("button", { name: "Leave game" }));
+
+      expect(screen.getByRole("dialog", { name: "Leave this game?" })).toBeInTheDocument();
+      // Not dialog-over-menu-over-board — the mobile menu closes underneath,
+      // matching design-system/In Game.dc.html's openLeaveConfirm.
+      expect(screen.queryByTestId("mobile-menu")).not.toBeInTheDocument();
+    });
+
+    it("opens the confirm dialog when clicking the wordmark instead of navigating away", async () => {
+      renderBoard();
+
+      await userEvent.click(screen.getByRole("link"));
+
+      expect(screen.getByRole("dialog", { name: "Leave this game?" })).toBeInTheDocument();
+    });
+
+    it("mentions the game code so a player knows how to rejoin", async () => {
+      renderBoard();
+
+      await userEvent.click(screen.getByRole("button", { name: "Leave game" }));
+
+      const dialog = within(screen.getByRole("dialog", { name: "Leave this game?" }));
+      expect(dialog.getByText(/ABCDE/)).toBeInTheDocument();
+    });
+
+    it("closes the dialog without leaving when 'Keep playing' is clicked", async () => {
+      renderBoard();
+
+      await userEvent.click(screen.getByRole("button", { name: "Leave game" }));
+      await userEvent.click(screen.getByRole("button", { name: "Keep playing" }));
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(onLeaveGame).not.toHaveBeenCalled();
+    });
+
+    it("calls onLeaveGame when confirming from the dialog", async () => {
+      renderBoard();
+
+      await userEvent.click(screen.getByRole("button", { name: "Leave game" }));
+      const dialog = within(screen.getByRole("dialog", { name: "Leave this game?" }));
+      await userEvent.click(dialog.getByRole("button", { name: "Leave game" }));
+
+      expect(onLeaveGame).toHaveBeenCalled();
+    });
+
+    it("shows a disabled, pending leave button while the leave request is in flight", async () => {
+      renderBoard({ leaving: true });
+
+      await userEvent.click(screen.getByRole("button", { name: "Leave game" }));
+
+      const dialog = within(screen.getByRole("dialog", { name: "Leave this game?" }));
+      expect(dialog.getByRole("button", { name: "Leaving…" })).toBeDisabled();
+    });
+
+    it("shows an error message in the dialog when leaving fails", async () => {
+      renderBoard({ leaveError: "Something went wrong leaving the game. Try again." });
+
+      await userEvent.click(screen.getByRole("button", { name: "Leave game" }));
+
+      expect(
+        screen.getByText("Something went wrong leaving the game. Try again."),
+      ).toBeInTheDocument();
+    });
+
+    it("shows the browser's native leave-site prompt on an actual page unload", () => {
+      renderBoard();
+
+      const event = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(event);
+
+      expect(event.defaultPrevented).toBe(true);
+    });
   });
 });

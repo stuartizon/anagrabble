@@ -23,11 +23,17 @@ vi.mock("./auth.js", () => ({
 }));
 
 const createGame = vi.fn();
+const leaveGame = vi.fn();
+const loadGameState = vi.fn();
+const toLobbySnapshot = vi.fn();
 vi.mock("./lobby.js", () => ({
   createGame: (...args: unknown[]) => createGame(...args),
+  leaveGame: (...args: unknown[]) => leaveGame(...args),
+  loadGameState: (...args: unknown[]) => loadGameState(...args),
+  toLobbySnapshot: (...args: unknown[]) => toLobbySnapshot(...args),
 }));
 
-const { handleCreateGameRequest } = await import("./games.js");
+const { handleCreateGameRequest, handleLeaveGameRequest } = await import("./games.js");
 
 // createGame is mocked above — the real Redis client is never touched.
 const FAKE_REDIS = {} as Redis;
@@ -215,5 +221,63 @@ describe("handleCreateGameRequest", () => {
     expect(errorSpy).toHaveBeenCalled();
 
     errorSpy.mockRestore();
+  });
+});
+
+describe("handleLeaveGameRequest", () => {
+  it("returns 401 when the Authorization header is missing", async () => {
+    const result = await handleLeaveGameRequest(FAKE_REDIS, "sk_test", undefined, "GAME1");
+
+    expect(result).toEqual({ status: 401, body: { error: "Unauthorized" } });
+    expect(loadGameState).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 when the game doesn't exist", async () => {
+    verifySessionToken.mockResolvedValue({ userId: "user_1" });
+    loadGameState.mockResolvedValue(null);
+
+    const result = await handleLeaveGameRequest(
+      FAKE_REDIS,
+      "sk_test",
+      "Bearer good-token",
+      "GAME1",
+    );
+
+    expect(result).toEqual({ status: 404, body: { error: "GameNotFound" } });
+    expect(leaveGame).not.toHaveBeenCalled();
+  });
+
+  it("removes the player and returns the new snapshot on success", async () => {
+    verifySessionToken.mockResolvedValue({ userId: "user_1" });
+    loadGameState.mockResolvedValue(sampleSnapshot("GAME1"));
+    const afterLeave = { ...sampleSnapshot("GAME1"), players: [] };
+    leaveGame.mockResolvedValue(afterLeave);
+
+    const result = await handleLeaveGameRequest(
+      FAKE_REDIS,
+      "sk_test",
+      "Bearer good-token",
+      "GAME1",
+    );
+
+    expect(leaveGame).toHaveBeenCalledWith(FAKE_REDIS, "GAME1", "user_1");
+    expect(result).toEqual({ status: 200, body: afterLeave, playerId: "user_1", removed: true });
+  });
+
+  it("no-ops (removed: false) with the current snapshot once the game has started", async () => {
+    verifySessionToken.mockResolvedValue({ userId: "user_1" });
+    const before = sampleSnapshot("GAME1");
+    loadGameState.mockResolvedValue(before);
+    leaveGame.mockResolvedValue(null);
+    toLobbySnapshot.mockReturnValue(before);
+
+    const result = await handleLeaveGameRequest(
+      FAKE_REDIS,
+      "sk_test",
+      "Bearer good-token",
+      "GAME1",
+    );
+
+    expect(result).toEqual({ status: 200, body: before, playerId: "user_1", removed: false });
   });
 });

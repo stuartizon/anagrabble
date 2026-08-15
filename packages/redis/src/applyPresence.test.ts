@@ -67,7 +67,11 @@ describe("applyPresence", () => {
     await seed(makeState());
     const now = Date.now();
 
-    const result = await applyPresence(redis, { stateKey: STATE_KEY, playerId: "p1", lastSeenAt: now });
+    const result = await applyPresence(redis, {
+      stateKey: STATE_KEY,
+      playerId: "p1",
+      lastSeenAt: now,
+    });
 
     expect(result).toMatchObject({
       state: {
@@ -80,9 +84,17 @@ describe("applyPresence", () => {
   });
 
   it("can mark a player stale immediately (the on-close path)", async () => {
-    await seed(makeState({ players: [{ id: "p1", name: "One", words: [], score: 0, lastSeenAt: Date.now() }] }));
+    await seed(
+      makeState({
+        players: [{ id: "p1", name: "One", words: [], score: 0, lastSeenAt: Date.now() }],
+      }),
+    );
 
-    const result = await applyPresence(redis, { stateKey: STATE_KEY, playerId: "p1", lastSeenAt: 0 });
+    const result = await applyPresence(redis, {
+      stateKey: STATE_KEY,
+      playerId: "p1",
+      lastSeenAt: 0,
+    });
 
     expect(result).toMatchObject({ state: { players: [{ id: "p1", lastSeenAt: 0 }] } });
   });
@@ -96,7 +108,14 @@ describe("applyPresence", () => {
       lastSeenAt: Date.now(),
     });
 
-    expect(result).toMatchObject({ state: { players: [{ id: "p1", lastSeenAt: 0 }, { id: "p2", lastSeenAt: 0 }] } });
+    expect(result).toMatchObject({
+      state: {
+        players: [
+          { id: "p1", lastSeenAt: 0 },
+          { id: "p2", lastSeenAt: 0 },
+        ],
+      },
+    });
   });
 
   it("doesn't clobber a concurrent state change (round-trips other fields untouched)", async () => {

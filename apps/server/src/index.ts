@@ -5,7 +5,7 @@ import "dotenv/config";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { WebSocketServer, WebSocket } from "ws";
-import { createRedisClient } from "@anagrabble/redis";
+import { applyPresence, createRedisClient } from "@anagrabble/redis";
 import {
   createDb,
   createPostgresClient,
@@ -22,12 +22,12 @@ import {
   type HandshakeMessage,
   type LobbySnapshot,
 } from "@anagrabble/protocol";
-import { createGame, joinGame, leaveGame, loadLobbySnapshot } from "./lobby.js";
+import { createGame, joinGame, loadLobbySnapshot, stateKey, toLobbySnapshot } from "./lobby.js";
 import { endGame, startGame, submitWord, turnTile } from "./game.js";
 import { resolveActingPlayerId, verifyMockSessionToken, verifySessionToken } from "./auth.js";
 import { handleStatsRequest } from "./stats.js";
 import { handleGetSettingsRequest, handleSaveSettingsRequest } from "./settings.js";
-import { handleCreateGameRequest } from "./games.js";
+import { handleCreateGameRequest, handleLeaveGameRequest } from "./games.js";
 
 const PORT = Number(process.env.PORT ?? 8080);
 
@@ -125,56 +125,29 @@ function leaveRoom(socket: WebSocket, gameId: string) {
   if (sockets.size === 0) rooms.delete(gameId);
 }
 
-// A client's WS connection is scoped to one page (see apps/web
-// useGameSocket), so a same-player Lobby page reload, or this hook's own
-// reconnect-with-backoff after an unexpected drop, closes one socket and
-// opens another for the *same* player a moment later — that's not the
-// player leaving. Debounce the actual Redis/broadcast removal so a prompt
-// reconnect (same gameId+playerId) cancels it instead of bouncing the
-// player out of their own lobby. Only bites pre-start: leaveGame() below
-// is a no-op once status !== "lobby", so a mid-game drop was never going
-// to remove anyone from `players` regardless of this window — what's
-// actually at stake is a pre-start player (worst case the host, since host
-// is derived from `players[0]`) getting visibly bounced from the lobby's
-// player list and having to re-join at the back of the queue. (Originally
-// also covered the New Game -> Lobby transition — that no longer applies
-// now that CreateGame is a plain POST /games and NewGamePage never holds a
-// socket at all; see docs/decisions.md "CreateGame as a REST endpoint".)
-const LEAVE_GRACE_MS = 3000;
-const pendingLeaves = new Map<string, ReturnType<typeof setTimeout>>();
-
-function leaveKey(gameId: string, playerId: string) {
-  return `${gameId}:${playerId}`;
-}
-
-function scheduleLeave(gameId: string, playerId: string) {
-  const key = leaveKey(gameId, playerId);
-  const timer = setTimeout(async () => {
-    pendingLeaves.delete(key);
-    try {
-      const snapshot = await leaveGame(redis, gameId, playerId);
-      if (snapshot) {
-        await publish({ type: "PlayerLeft", seq: snapshot.seq, gameId, playerId, lobby: snapshot });
-      }
-    } catch (err) {
-      console.error("[ws] error handling debounced leave", err);
-    }
-  }, LEAVE_GRACE_MS);
-  pendingLeaves.set(key, timer);
-}
-
-/** Cancels a pending leave if this playerId reconnects to the same game in
- * time — called both for a passive `?game=` reconnect (identity comes from
- * the verified Clerk session token, not a query param — see "Command
- * identity" in docs/decisions.md) and for a JoinGame retry from an
- * already-seated player. */
-function cancelPendingLeave(gameId: string, playerId: string) {
-  const key = leaveKey(gameId, playerId);
-  const timer = pendingLeaves.get(key);
-  if (timer) {
-    clearTimeout(timer);
-    pendingLeaves.delete(key);
-  }
+/** Marks a player's connection as gone the moment its socket closes — see
+ * docs/decisions.md "Player presence: connected/disconnected/left
+ * tracking". Replaces the old pendingLeaves debounce (an in-memory,
+ * per-process Map of setTimeouts that couldn't survive a reconnect landing
+ * on a different Node instance): there's nothing to schedule or cancel
+ * anymore, since a graceful close never mutates `players` — it just patches
+ * lastSeenAt, which a reconnect naturally overwrites with a fresh value on
+ * its own next heartbeat, no timer bookkeeping required. Also broadcasts a
+ * LobbyState resync so other connected clients see the presence badge
+ * update immediately rather than waiting on their own next heartbeat's
+ * Pong-carried snapshot. */
+function markDisconnected(gameId: string, playerId: string) {
+  applyPresence(redis, { stateKey: stateKey(gameId), playerId, lastSeenAt: 0 })
+    .then((result) => {
+      if ("error" in result) return;
+      return publish({
+        type: "LobbyState",
+        seq: result.state.seq,
+        gameId,
+        lobby: toLobbySnapshot(gameId, result.state),
+      });
+    })
+    .catch((err) => console.error("[ws] error marking presence stale on close", err));
 }
 
 async function publish(event: Event) {
@@ -269,6 +242,32 @@ fastify.post("/games", async (request, reply) => {
   return reply.code(result.status).send(result.body);
 });
 
+// Explicit, deliberate pre-start leave — see docs/decisions.md "Player
+// presence: connected/disconnected/left tracking". Unlike CreateGame above,
+// other players are already watching this lobby, so (unlike that route)
+// this one publishes on success — handleLeaveGameRequest itself stays a
+// pure auth/validation/mutation wrapper around lobby.ts's leaveGame(), same
+// shape as handleCreateGameRequest.
+fastify.post<{ Params: { gameId: string } }>("/games/:gameId/leave", async (request, reply) => {
+  const result = await handleLeaveGameRequest(
+    redis,
+    CLERK_SECRET_KEY ?? "",
+    request.headers.authorization,
+    request.params.gameId,
+    AUTH_MODE,
+  );
+  if (result.status === 200 && result.removed) {
+    await publish({
+      type: "PlayerLeft",
+      seq: result.body.seq,
+      gameId: request.params.gameId,
+      playerId: result.playerId,
+      lobby: result.body,
+    });
+  }
+  return reply.code(result.status).send(result.body);
+});
+
 // Raw `ws` attaches directly to the underlying node http.Server's native
 // `upgrade` event, bypassing Fastify's own route table entirely — same
 // mechanism as before, just reached through Fastify. `fastify.server` is
@@ -343,7 +342,6 @@ wss.on("connection", (socket, req) => {
         const reconnectingPlayerId = resolveActingPlayerId(meta);
         if (reconnectingPlayerId && snapshot.players.some((p) => p.id === reconnectingPlayerId)) {
           meta.playerId = reconnectingPlayerId;
-          cancelPendingLeave(gameId, reconnectingPlayerId);
         }
         send(socket, lobbyStateEvent(snapshot));
       })
@@ -382,7 +380,6 @@ wss.on("connection", (socket, req) => {
           meta.gameId = command.gameId;
           meta.playerId = hostId;
           joinRoom(socket, command.gameId);
-          cancelPendingLeave(command.gameId, hostId);
           send(socket, lobbyStateEvent(result.snapshot));
           break;
         }
@@ -406,7 +403,6 @@ wss.on("connection", (socket, req) => {
           meta.gameId = command.gameId;
           meta.playerId = playerId;
           joinRoom(socket, command.gameId);
-          cancelPendingLeave(command.gameId, playerId);
           if (result.isNew) {
             await publish({
               type: "PlayerJoined",
@@ -555,9 +551,32 @@ wss.on("connection", (socket, req) => {
           });
           break;
         }
-        case "Ping":
+        case "Ping": {
+          // The presence heartbeat — see PingCommand's doc comment
+          // (packages/protocol/src/ws.ts). Only a seated player has
+          // anything to stamp; an unjoined viewer's Ping is just a no-op
+          // keepalive. The reply carries a fresh snapshot so the sender's
+          // own view of everyone else's presence stays current too, without
+          // a separate server-initiated broadcast on every heartbeat tick.
+          if (meta.playerId && meta.gameId) {
+            const result = await applyPresence(redis, {
+              stateKey: stateKey(meta.gameId),
+              playerId: meta.playerId,
+              lastSeenAt: Date.now(),
+            });
+            if (!("error" in result)) {
+              send(socket, {
+                type: "Pong",
+                seq: 0,
+                gameId: command.gameId,
+                lobby: toLobbySnapshot(meta.gameId, result.state),
+              });
+              break;
+            }
+          }
           send(socket, { type: "Pong", seq: 0, gameId: command.gameId });
           break;
+        }
         default:
           console.log("[ws] unhandled command", (command as { type?: string }).type);
       }
@@ -578,7 +597,7 @@ wss.on("connection", (socket, req) => {
     if (!meta.gameId) return;
     leaveRoom(socket, meta.gameId);
     if (!meta.playerId) return;
-    scheduleLeave(meta.gameId, meta.playerId);
+    markDisconnected(meta.gameId, meta.playerId);
   });
 });
 

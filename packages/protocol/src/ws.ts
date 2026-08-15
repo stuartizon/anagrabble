@@ -26,6 +26,11 @@ export interface PingCommand extends BaseCommand {
 
 export interface PongEvent extends BaseEvent {
   type: "Pong";
+  /** Present when the pinging connection is seated as a player — lets each
+   * client's own heartbeat double as a lightweight resync of everyone
+   * else's presence, without a separate server-initiated broadcast on every
+   * heartbeat tick. Absent for a viewer who hasn't joined/isn't seated. */
+  lobby?: LobbySnapshot;
 }
 
 // --- Game state shape ---

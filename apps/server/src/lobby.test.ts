@@ -217,7 +217,7 @@ describe("lobby", () => {
       expect(snapshot?.hostId).toBe(HOST_ID);
     });
 
-    it("surfaces an explicit mid-game leave as presence \"left\", not removed from players", async () => {
+    it('surfaces an explicit mid-game leave as presence "left", not removed from players', async () => {
       await createGame(redis, createGameCommand(), HOST_ID);
       await joinGame(redis, joinGameCommand(), PLAYER_ID);
       await seedGameState(redis, "game-1", (state) => ({

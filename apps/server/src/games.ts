@@ -1,12 +1,16 @@
 import type { Redis } from "@anagrabble/redis";
 import type { CreateGameRequest, LobbySnapshot } from "@anagrabble/protocol";
-import { createGame } from "./lobby.js";
+import { createGame, leaveGame, loadGameState, toLobbySnapshot } from "./lobby.js";
 import { verifyMockSessionToken, verifySessionToken } from "./auth.js";
 
 export interface CreateGameRequestResult {
   status: 201 | 400 | 401 | 409 | 500;
   body: LobbySnapshot | { error: string };
 }
+
+export type LeaveGameRequestResult =
+  | { status: 200; body: LobbySnapshot; playerId: string; removed: boolean }
+  | { status: 401 | 404; body: { error: string } };
 
 function parseBearerToken(authorizationHeader: string | undefined): string | null {
   if (!authorizationHeader) return null;
@@ -109,4 +113,43 @@ export async function handleCreateGameRequest(
     console.error("[http] error creating game", err);
     return { status: 500, body: { error: "Internal error" } };
   }
+}
+
+/** POST /games/:gameId/leave — see docs/decisions.md "Player presence:
+ * connected/disconnected/left tracking". A deliberate, explicit leave,
+ * distinct from a connection dropping: no grace period, since nothing here
+ * is inferred. Delegates to lobby.ts's leaveGame() (unchanged by this
+ * feature — it's already correctly a no-op once the game has started).
+ * `removed: false` on success means leaveGame() no-opped (already started,
+ * or this player wasn't actually seated) — the caller (apps/server/src/
+ * index.ts) uses that to decide whether a PlayerLeft broadcast is
+ * warranted, since a no-op has nothing to announce. */
+export async function handleLeaveGameRequest(
+  redis: Redis,
+  clerkSecretKey: string,
+  authorizationHeader: string | undefined,
+  gameId: string,
+  authMode?: string,
+): Promise<LeaveGameRequestResult> {
+  const auth = await authenticate(clerkSecretKey, authorizationHeader, authMode);
+  if (!auth) {
+    return { status: 401, body: { error: "Unauthorized" } };
+  }
+
+  const before = await loadGameState(redis, gameId);
+  if (!before) {
+    return { status: 404, body: { error: "GameNotFound" } };
+  }
+
+  const snapshot = await leaveGame(redis, gameId, auth.userId);
+  if (!snapshot) {
+    return {
+      status: 200,
+      body: toLobbySnapshot(gameId, before),
+      playerId: auth.userId,
+      removed: false,
+    };
+  }
+
+  return { status: 200, body: snapshot, playerId: auth.userId, removed: true };
 }

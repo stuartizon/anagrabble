@@ -456,6 +456,45 @@ just deferred until real evidence (actually-stalled games) justifies it.
 fire-and-forget; a notification with no subscriber connected at that instant is
 lost permanently, which is a worse reliability property than either alternative.
 
+### Two-player double-tile-draw bug: `observedTurnDeadline` staleness guard
+
+**Bug**: in a two-player game, every timer expiry drew two tiles instead of
+one. Root cause: the client-triggered pattern above has _every_ connected
+client fire `TurnTile` once the shared deadline passes, not just the current
+player's client (this is what lets a fast-skip happen even if the current
+player's own tab is dead). `apply_turn_tile.lua`'s guard is `isCurrentPlayer
+OR deadlinePassed` — sufficient with 3+ players, where a losing racer's stale
+call still fails `isCurrentPlayer` against whoever the turn _actually_
+advanced to. With exactly two players there is only one other player, so the
+loser's stale call is _always_ processed after `turnPlayerId` has already
+flipped onto them — making `isCurrentPlayer` trivially true for the wrong
+reason, and drawing a second tile.
+
+**Fix**: `TurnTileCommand.observedTurnDeadline` (optional, additive per
+"Schema evolution" in CLAUDE.md) — set only by the background auto-fire
+effect (`GameBoard.tsx`) to the `turnDeadline` it observed when deciding to
+fire, never by the manual "turn a tile" click. `apply_turn_tile.lua` rejects
+a call whose `observedTurnDeadline` no longer matches the state's current
+`turnDeadline`, regardless of `isCurrentPlayer` — i.e. "something else
+already handled the deadline I was reacting to." Regression test:
+`packages/redis/src/applyTurnTile.test.ts` "draws exactly once in a
+two-player game when both the current player's own auto-fire and the other
+client's redundant fast-skip fire for the same missed deadline."
+
+**This is scaffolding for the client-triggered era only, not a permanent
+feature.** The race it guards against — multiple clients independently
+racing the same shared deadline — cannot happen once the turn-timer polling
+sweep above lands, because there's exactly one authoritative caller (the
+sweep) instead of every connected client. At that point
+`observedTurnDeadline` becomes dead: the field on `TurnTileCommand`, the
+guard block in `apply_turn_tile.lua`, the corresponding `ApplyTurnTileArgs`
+plumbing in `packages/redis`/`apps/server`, and the background auto-fire
+`useEffect` in `GameBoard.tsx` it's threaded from should all be deleted in
+the same PR that lands the sweep — see CLAUDE.md "Still open" for the
+tracking bullet. Left in place, it's harmless (a no-op once nothing sends
+the field), but it's cruft worth actually removing rather than a permanent
+fixture, since the sweep removes the very race it exists to prevent.
+
 ### Word formability and steal resolution
 
 The client never specifies _how_ a word forms — the server infers the

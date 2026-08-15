@@ -273,7 +273,12 @@ export function GameBoard({
       const due = Date.now() >= turnDeadline || currentPlayerUnreachable;
       if (due && firedForDeadline.current !== turnDeadline) {
         firedForDeadline.current = turnDeadline;
-        send({ type: "TurnTile", commandId: makeCommandId(), gameId });
+        send({
+          type: "TurnTile",
+          commandId: makeCommandId(),
+          gameId,
+          observedTurnDeadline: turnDeadline,
+        });
       }
     };
 

@@ -547,6 +547,7 @@ describe("GameBoard", () => {
       type: "TurnTile",
       commandId: "cmd-1",
       gameId: "ABCDE",
+      observedTurnDeadline: expect.any(Number),
     });
   });
 

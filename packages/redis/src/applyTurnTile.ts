@@ -18,6 +18,9 @@ export interface ApplyTurnTileArgs extends ApplyTurnTileKeys {
   playerId: string;
   now: number;
   cmdsTtlSec: number;
+  /** See TurnTileCommand in @anagrabble/protocol — omitted (undefined/null)
+   * for a manual current-player click, which should always succeed. */
+  observedTurnDeadline?: number | null;
 }
 
 export type ApplyTurnTileError = "GameNotFound" | "GameNotStarted" | "NotYourTurn";
@@ -41,6 +44,7 @@ export async function applyTurnTile(
     args.playerId,
     String(args.now),
     String(args.cmdsTtlSec),
+    args.observedTurnDeadline != null ? String(args.observedTurnDeadline) : "",
   )) as string;
 
   const parsed = JSON.parse(raw) as GameState | { error: ApplyTurnTileError };

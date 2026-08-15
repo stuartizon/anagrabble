@@ -99,6 +99,7 @@ export async function turnTile(
     playerId,
     now: Date.now(),
     cmdsTtlSec: CMDS_TTL_SEC,
+    observedTurnDeadline: cmd.observedTurnDeadline,
   });
 
   if ("error" in result) return { error: result.error };

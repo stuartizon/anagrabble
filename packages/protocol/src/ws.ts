@@ -131,9 +131,22 @@ export interface StartGameCommand extends BaseCommand {
  * enforcement") any connected client once its local countdown says the
  * deadline has passed. The server is the source of truth either way — see
  * packages/redis apply_turn_tile.lua. No client-supplied actor id — same
- * reasoning as StartGameCommand above. */
+ * reasoning as StartGameCommand above.
+ *
+ * `observedTurnDeadline`: set only by the background auto-fire (never the
+ * manual "turn a tile" click) to the `turnDeadline` it was reacting to. Every
+ * connected client races the same deadline, so in a two-player game the
+ * loser's stale call would otherwise land just after the winner's already
+ * advanced `turnPlayerId` onto them — making the loser pass the ordinary
+ * `isCurrentPlayer` check for the wrong reason and draw a second tile. The
+ * Lua script rejects a call whose observed deadline no longer matches
+ * current state, regardless of who's current by then. Purely a client-
+ * triggered-era concern: once a server-side sweep (CLAUDE.md "Still open")
+ * is the sole caller, there's no race to guard against and this field goes
+ * unused. */
 export interface TurnTileCommand extends BaseCommand {
   type: "TurnTile";
+  observedTurnDeadline?: number | null;
 }
 
 /** Any player, any time — see CLAUDE.md "Word submission/stealing is

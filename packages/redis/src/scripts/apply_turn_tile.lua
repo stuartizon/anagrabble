@@ -74,6 +74,19 @@ if not isCurrentPlayer and not deadlinePassed then
   return cjson.encode({ error = 'NotYourTurn' })
 end
 
+-- ARGV[5], observedTurnDeadline: set only by a client's background auto-fire
+-- (see TurnTileCommand in @anagrabble/protocol), never a manual click. Every
+-- connected client races the same deadline, so in a two-player game the
+-- *only* other player is always exactly who turnPlayerId advances to —
+-- meaning the loser's stale call can arrive just after the winner's call
+-- has already made the loser isCurrentPlayer, for the wrong reason. Reject
+-- if the deadline this call was reacting to no longer matches current
+-- state: something else already handled it.
+local observedTurnDeadline = (ARGV[5] ~= nil and ARGV[5] ~= '') and tonumber(ARGV[5]) or nil
+if observedTurnDeadline ~= nil and observedTurnDeadline ~= state.turnDeadline then
+  return cjson.encode({ error = 'NotYourTurn' })
+end
+
 local letter = redis.call('LPOP', KEYS[4])
 if not letter then
   return stateRaw

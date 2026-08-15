@@ -424,7 +424,14 @@ mechanic without touching anything else.
   ownership: `turnPlayerIndex` → identity-based, not array position" for
   the identity-based `turnPlayerId` field this migration landed, which
   that future sweep will consume/produce). Explicitly not part of that
-  migration — still just an open question.
+  migration — still just an open question. **When it lands**: delete
+  `TurnTileCommand.observedTurnDeadline`, the matching guard block in
+  `apply_turn_tile.lua`, its plumbing through `ApplyTurnTileArgs`
+  (`packages/redis`/`apps/server`), and the background auto-fire
+  `useEffect` in `GameBoard.tsx` — see docs/decisions.md "Two-player
+  double-tile-draw bug: `observedTurnDeadline` staleness guard" for why
+  that whole mechanism only exists to guard a multi-client race the sweep
+  makes structurally impossible.
 - Redis HA approach and timing of adopting it (Sentinel template vs. staying
   single-instance) — revisit once usage data exists.
 - Dictionary derivation data is suffix-only (e.g. UNHAPPY vs. HAPPY isn't

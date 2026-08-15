@@ -400,4 +400,53 @@ describe("applyTurnTile", () => {
     expect(finalState.seq).toBe(1);
     expect(finalState.turnPlayerId).toBe("p2");
   });
+
+  it("draws exactly once in a two-player game when both the current player's own auto-fire and the other client's redundant fast-skip fire for the same missed deadline", async () => {
+    // Regression test for the double-tile bug: in a two-player game, the
+    // *other* player is always exactly who turnPlayerId advances to. So
+    // when both clients race the same expired deadline (every connected
+    // client fires, not just the current player's — see CLAUDE.md "Turn
+    // timer enforcement"), the loser's stale call arrives just after the
+    // winner's call has already made the loser the current player — which
+    // satisfies isCurrentPlayer for the wrong reason and would draw a
+    // second tile. observedTurnDeadline is what lets the script tell "I'm
+    // current because it's genuinely my turn" apart from "I'm current only
+    // because a stale call of mine landed after someone else's already
+    // advanced onto me."
+    const now = Date.now();
+    const originalDeadline = now - 1;
+    await seed(makeState({ turnPlayerId: "p1", turnDeadline: originalDeadline, bankCount: 5 }));
+
+    const [a, b] = await Promise.all([
+      applyTurnTile(redis, {
+        ...KEYS,
+        commandId: crypto.randomUUID(),
+        playerId: "p1",
+        now,
+        cmdsTtlSec: 3600,
+        observedTurnDeadline: originalDeadline,
+      }),
+      applyTurnTile(redis, {
+        ...KEYS,
+        commandId: crypto.randomUUID(),
+        playerId: "p2",
+        now,
+        cmdsTtlSec: 3600,
+        observedTurnDeadline: originalDeadline,
+      }),
+    ]);
+
+    const results = [a, b];
+    const winners = results.filter((r) => !("error" in r));
+    const losers = results.filter((r) => "error" in r);
+    expect(winners).toHaveLength(1);
+    expect(losers).toEqual([{ error: "NotYourTurn" }]);
+
+    const raw = await redis.get(KEYS.stateKey);
+    const finalState = JSON.parse(raw!) as GameState;
+    expect(finalState.bankCount).toBe(4);
+    expect(finalState.pool).toHaveLength(1);
+    expect(finalState.seq).toBe(1);
+    expect(finalState.turnPlayerId).toBe("p2");
+  });
 });

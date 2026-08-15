@@ -369,6 +369,20 @@
   font-weight: 700;
   font-size: var(--text-base);
   color: var(--gold);
+  /* Fixed width (monospace font, so `ch` is exact) so a badge/name to its
+     left doesn't shift right when a neighboring row's score gains a digit. */
+  min-width: 3ch;
+  text-align: right;
+}
+
+.presenceBadge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
 /* Grows to fill whatever height .sidebar has left — today that's the

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Menu, WifiOff, X } from "lucide-react";
+import { Menu, UserMinus, WifiOff, X } from "lucide-react";
 import type { Command, LobbySnapshot, UsedWord } from "@anagrabble/protocol";
 import { Header } from "../components/Header";
 import { Input } from "../components/Input";
@@ -178,13 +178,26 @@ function PlayersAndInviteSections({
         <div className={styles.poolLabel}>Players</div>
         {lobby.players.map((p) => {
           const label = presenceLabel(p.presence);
+          const dotColor = colors.get(p.id);
+          // Design (In Game.dc.html) hollows out the swatch to a colored
+          // ring rather than fully greying it out, so the player's color
+          // stays identifiable even while they're not connected.
+          const dotStyle = label
+            ? { background: "transparent", boxShadow: `inset 0 0 0 2px ${dotColor}` }
+            : { background: dotColor };
+          const PresenceIcon = p.presence === "left" ? UserMinus : WifiOff;
           return (
             <div key={p.id} className={cx(styles.playerRow, label && styles.playerRowMuted)}>
-              <span className={styles.playerDot} style={{ background: colors.get(p.id) }} />
+              <span className={styles.playerDot} style={dotStyle} />
               <span className={styles.playerName} data-testid="sidebar-player-name">
                 {p.name}
               </span>
-              {label && <WifiOff size={14} color="var(--text-muted)" aria-label={label} />}
+              {label && (
+                <span className={styles.presenceBadge} title={label}>
+                  <PresenceIcon size={14} color="var(--text-muted)" aria-hidden="true" />
+                  {label}
+                </span>
+              )}
               <span className={styles.playerScore}>{p.score}</span>
             </div>
           );

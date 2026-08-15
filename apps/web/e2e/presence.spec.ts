@@ -52,7 +52,7 @@ test("a disconnected current player's turn is force-advanced for other players w
   await hostPage.evaluate(() => window.__lastSocket?.close(4000, "simulated drop"));
 
   // The guest sees Alice marked away...
-  await expect(guestPage.locator('svg[aria-label="Reconnecting…"]')).toBeVisible({
+  await expect(guestPage.getByText("Reconnecting…")).toBeVisible({
     timeout: 15_000,
   });
 
@@ -94,7 +94,7 @@ test("a disconnected current player's turn is force-advanced for other players w
   // handshake now stamps presence and broadcasts it itself, so the guest's
   // badge should clear promptly, well inside a single heartbeat interval —
   // a tight bound here is the actual assertion, not just "eventually".
-  await expect(guestPage.locator('svg[aria-label="Reconnecting…"]')).toBeHidden({
+  await expect(guestPage.getByText("Reconnecting…")).toBeHidden({
     timeout: 3_000,
   });
 

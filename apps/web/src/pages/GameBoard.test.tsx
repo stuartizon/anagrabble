@@ -123,24 +123,39 @@ describe("GameBoard", () => {
       lobby: lobbySnapshot({ players: [{ ...ME }, { ...OPPONENT, presence: "connected" }] }),
     });
 
-    expect(screen.queryByLabelText("Reconnecting…")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Left the game")).not.toBeInTheDocument();
+    expect(screen.queryByText("Reconnecting…")).not.toBeInTheDocument();
+    expect(screen.queryByText("Left the game")).not.toBeInTheDocument();
   });
 
-  it("shows a Reconnecting badge for a disconnected player", () => {
+  it("shows a Reconnecting badge with a wifi-off icon for a disconnected player", () => {
     renderBoard({
       lobby: lobbySnapshot({ players: [{ ...ME }, { ...OPPONENT, presence: "disconnected" }] }),
     });
 
-    expect(screen.getByLabelText("Reconnecting…")).toBeInTheDocument();
+    const badge = screen.getByText("Reconnecting…");
+    expect(badge).toHaveAttribute("title", "Reconnecting…");
+    expect(badge.querySelector("svg")).toHaveClass("lucide-wifi-off");
   });
 
-  it("shows a Left the game badge for a player who explicitly left mid-game", () => {
+  it("shows a Left the game badge with a user-minus icon for a player who explicitly left mid-game", () => {
     renderBoard({
       lobby: lobbySnapshot({ players: [{ ...ME }, { ...OPPONENT, presence: "left" }] }),
     });
 
-    expect(screen.getByLabelText("Left the game")).toBeInTheDocument();
+    const badge = screen.getByText("Left the game");
+    expect(badge).toHaveAttribute("title", "Left the game");
+    expect(badge.querySelector("svg")).toHaveClass("lucide-user-minus");
+  });
+
+  it("hollows out a non-connected player's color swatch to a ring instead of a filled dot", () => {
+    renderBoard({
+      lobby: lobbySnapshot({ players: [{ ...ME }, { ...OPPONENT, presence: "disconnected" }] }),
+    });
+
+    const names = screen.getAllByTestId("sidebar-player-name");
+    const opponentDot = names[1].previousElementSibling as HTMLElement;
+    expect(opponentDot.style.background).toBe("transparent");
+    expect(opponentDot.style.boxShadow).toContain("inset");
   });
 
   it("shows the invite code in the sidebar, positioned after Players and before History", () => {

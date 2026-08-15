@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu, WifiOff, X } from "lucide-react";
 import type { Command, LobbySnapshot, UsedWord } from "@anagrabble/protocol";
 import { Header } from "../components/Header";
 import { Input } from "../components/Input";
@@ -12,6 +12,8 @@ import { makeCommandId } from "../gameId";
 import { assignPlayerColors } from "../playerColors";
 import type { GameSocketError, SocketStatus, WordPlayNarration } from "../useGameSocket";
 import { useVisualViewportHeight } from "../useVisualViewportHeight";
+import { presenceLabel } from "../presenceLabel";
+import { cx } from "../cx";
 import styles from "./GameBoard.module.css";
 
 // Minimal slice of design-system/In Game.dc.html: tile-turning, word
@@ -174,15 +176,19 @@ function PlayersAndInviteSections({
     <>
       <div className={styles.playersSection}>
         <div className={styles.poolLabel}>Players</div>
-        {lobby.players.map((p) => (
-          <div key={p.id} className={styles.playerRow}>
-            <span className={styles.playerDot} style={{ background: colors.get(p.id) }} />
-            <span className={styles.playerName} data-testid="sidebar-player-name">
-              {p.name}
-            </span>
-            <span className={styles.playerScore}>{p.score}</span>
-          </div>
-        ))}
+        {lobby.players.map((p) => {
+          const label = presenceLabel(p.presence);
+          return (
+            <div key={p.id} className={cx(styles.playerRow, label && styles.playerRowMuted)}>
+              <span className={styles.playerDot} style={{ background: colors.get(p.id) }} />
+              <span className={styles.playerName} data-testid="sidebar-player-name">
+                {p.name}
+              </span>
+              {label && <WifiOff size={14} color="var(--text-muted)" aria-label={label} />}
+              <span className={styles.playerScore}>{p.score}</span>
+            </div>
+          );
+        })}
       </div>
 
       <div>

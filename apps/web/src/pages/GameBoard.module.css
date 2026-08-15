@@ -345,6 +345,10 @@
   border-bottom: 1px solid var(--border);
 }
 
+.playerRowMuted {
+  opacity: 0.55;
+}
+
 .playerDot {
   width: 12px;
   height: 12px;

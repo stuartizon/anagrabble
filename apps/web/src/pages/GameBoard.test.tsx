@@ -118,6 +118,31 @@ describe("GameBoard", () => {
     expect(screen.getByText("7")).toBeInTheDocument();
   });
 
+  it("shows no presence badge for a connected player", () => {
+    renderBoard({
+      lobby: lobbySnapshot({ players: [{ ...ME }, { ...OPPONENT, presence: "connected" }] }),
+    });
+
+    expect(screen.queryByLabelText("Reconnecting…")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Left the game")).not.toBeInTheDocument();
+  });
+
+  it("shows a Reconnecting badge for a disconnected player", () => {
+    renderBoard({
+      lobby: lobbySnapshot({ players: [{ ...ME }, { ...OPPONENT, presence: "disconnected" }] }),
+    });
+
+    expect(screen.getByLabelText("Reconnecting…")).toBeInTheDocument();
+  });
+
+  it("shows a Left the game badge for a player who explicitly left mid-game", () => {
+    renderBoard({
+      lobby: lobbySnapshot({ players: [{ ...ME }, { ...OPPONENT, presence: "left" }] }),
+    });
+
+    expect(screen.getByLabelText("Left the game")).toBeInTheDocument();
+  });
+
   it("shows the invite link in the sidebar, positioned after Players and before History", () => {
     renderBoard();
 

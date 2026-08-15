@@ -127,6 +127,10 @@
   padding: 4px 2px 6px;
 }
 
+.playerRowMuted {
+  opacity: 0.55;
+}
+
 .playerDot {
   width: 9px;
   height: 9px;

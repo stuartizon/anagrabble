@@ -132,7 +132,7 @@ jobs:
         run: railway up --service "$RAILWAY_SERVICE_ID" --environment development --ci
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEVELOPMENT }}
-          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+          RAILWAY_SERVICE_ID: ${{ vars.RAILWAY_SERVICE_ID }}
 
   deploy-frontend:
     name: Deploy frontend (Cloudflare Pages, development)
@@ -181,4 +181,4 @@ jobs:
         run: wrangler pages deploy dist --project-name=anagrabble --branch=dev
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}

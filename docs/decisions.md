@@ -278,6 +278,18 @@ protocol changes plus expand/contract rollouts (below) remain the actual
 mechanism for tolerating that gap; this change only keeps a red build from
 reaching either platform at all.
 
+**`RAILWAY_SERVICE_ID`/`CLOUDFLARE_ACCOUNT_ID` reclassified as GitHub
+Actions Variables, not Secrets, 2026-08-15**: same reasoning as
+`CLERK_PUBLISHABLE_KEY` in "Runtime-injected frontend config, not
+build-time `VITE_*` vars" below — both are identifiers, not credentials.
+A Railway/Cloudflare service or account ID names _which_ resource to act
+on; it grants no access by itself (that's what `RAILWAY_TOKEN_*`/
+`CLOUDFLARE_API_TOKEN` are for), and `CLOUDFLARE_ACCOUNT_ID` is already
+visible in the Cloudflare dashboard's own URL. Treating them as Secrets
+bought masked-logs/write-only friction for values that were never
+confidential. `CLOUDFLARE_API_TOKEN` and both `RAILWAY_TOKEN_*` stay
+Secrets — those are real bearer credentials.
+
 **Superseded 2026-08-15**: the Vercel-specific mechanics above (dashboard
 domain assignment, `VERCEL_TOKEN`/`VERCEL_ORG_ID`/`VERCEL_PROJECT_ID`,
 `vercel deploy --prod`) describe how the Dev/Production frontend deploy jobs

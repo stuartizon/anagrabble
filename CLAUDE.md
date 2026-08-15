@@ -391,14 +391,6 @@ mechanic without touching anything else.
 ## Still open / not yet decided
 
 - Whether/when to add the turn-timer polling sweep.
-- The new `CLERK_PUBLISHABLE_KEY_DEV`/`CLERK_PUBLISHABLE_KEY_PROD` GitHub
-  Actions **Variables** (not Secrets — see docs/decisions.md
-  "Runtime-injected frontend config, not build-time `VITE_*` vars") still
-  need creating from the values the old `VITE_CLERK_PUBLISHABLE_KEY_DEV`/
-  `_PROD` Secrets held, and those old Secrets (plus the now-unused
-  `VITE_API_URL_*`/`VITE_WS_URL_*` ones — `API_URL`/`WS_URL` are hardcoded
-  literals in the workflow files now, not vars) deleted once confirmed
-  working — manual, dashboard-side, not something CI does for you.
 - Redis HA approach and timing of adopting it (Sentinel template vs. staying
   single-instance) — revisit once usage data exists.
 - Lobby presence tracking (`pendingLeaves` in `apps/server/src/index.ts`) is

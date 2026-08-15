@@ -376,6 +376,15 @@ mechanic without touching anything else.
 ## Still open / not yet decided
 
 - Whether/when to add the turn-timer polling sweep.
+- Evaluating Cloudflare Pages as a replacement for Vercel frontend
+  hosting, prompted by Vercel's non-prod environments needing a paid tier.
+  `deploy-frontend-cloudflare`/`deploy-frontend-production-cloudflare`
+  (`.github/workflows/`) are shadow deploys to Cloudflare's own `.pages.dev`
+  URLs only — `dev.anagrabble.com` and production still run on Vercel, so
+  these can be deleted with no effect on either. See docs/decisions.md
+  "Evaluating Cloudflare Pages for frontend hosting" for the full reasoning
+  and what's still open (DNS cutover, dropping the Vercel jobs, build-time
+  vs runtime-injected config).
 - Redis HA approach and timing of adopting it (Sentinel template vs. staying
   single-instance) — revisit once usage data exists.
 - Lobby presence tracking (`pendingLeaves` in `apps/server/src/index.ts`) is

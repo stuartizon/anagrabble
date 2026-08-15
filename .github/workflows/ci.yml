@@ -178,3 +178,45 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+  # Shadow deploy evaluating Cloudflare Pages as a Vercel replacement — does
+  # not affect dev.anagrabble.com (still pointed at Vercel) or the
+  # deploy-frontend job above. Safe to delete/disable independently. See
+  # docs/decisions.md "Evaluating Cloudflare Pages for frontend hosting".
+  deploy-frontend-cloudflare:
+    name: Deploy frontend (Cloudflare Pages, shadow)
+    needs: [lint, format, typecheck, build, test]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-frontend-cloudflare-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm --filter @anagrabble/web build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL_DEV }}
+          VITE_WS_URL: ${{ secrets.VITE_WS_URL_DEV }}
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY_DEV }}
+
+      - name: Install Wrangler
+        run: npm install -g wrangler@latest
+
+      - name: Deploy to Cloudflare Pages (dev alias)
+        working-directory: apps/web
+        run: wrangler pages deploy dist --project-name=anagrabble-web --branch=dev
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

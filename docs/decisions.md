@@ -2418,6 +2418,29 @@ questions needed resolving in conversation before _it_ was schedulable.
   precedent for anything else (e.g. it was cited, questionably, as prior art
   for the original plain-`pg`-no-ORM pick above).
 - **Turn-timer polling sweep** — see "Game rules" above.
+- **Evaluating Cloudflare Pages for frontend hosting**, raised 2026-08-14
+  after repeated friction getting a permanent Dev environment working on
+  Vercel: Vercel ties a stable custom domain to either the Production
+  environment or a paid-tier non-prod environment, which is why
+  `dev.anagrabble.com` is aliased to a Vercel Production deploy today (see
+  "🔥 Deploy the Dev frontend to Vercel production, not preview"). Cloudflare
+  Pages gives every branch alias a stable subdomain on the free tier, which
+  would let Dev and Production be genuinely separate environments instead
+  of overloading Vercel's Production env for both. Nothing is decided yet —
+  `deploy-frontend-cloudflare` (`ci.yml`) and
+  `deploy-frontend-production-cloudflare` (`deploy-production.yml`) are
+  shadow deploys added alongside the existing Vercel jobs, deploying to
+  Cloudflare's own `.pages.dev` URLs only; `dev.anagrabble.com` and the
+  production domain are untouched and still served by Vercel, so these can
+  be deleted with zero effect on either. Still open once/if this is
+  actually adopted: DNS cutover, dropping the Vercel jobs, and whether to
+  keep baking `VITE_*` values in at build time (current shadow jobs mirror
+  Vercel's existing per-environment build) or move to a runtime-injected,
+  environment-agnostic bundle — discussed but deliberately deferred; a
+  generated-`env.js`-imported-at-runtime approach was favored over a
+  Cloudflare/Vercel-native edge-function approach specifically because it
+  stays portable between the two platforms rather than committing to one
+  mid-evaluation.
 - **Redis HA timing** — see "Redis hosting" above.
 - **Linking games/stats to a Clerk user ID durably** — nothing writes
   history to Postgres yet at all (gameplay is Redis-only, per "Backend

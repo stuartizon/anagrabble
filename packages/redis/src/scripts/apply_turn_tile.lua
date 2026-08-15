@@ -35,7 +35,23 @@ end
 local now = tonumber(ARGV[3])
 local currentPlayer = state.players[state.turnPlayerIndex + 1]
 local isCurrentPlayer = currentPlayer ~= nil and currentPlayer.id == ARGV[2]
-local deadlinePassed = type(state.turnDeadline) == 'number' and now >= state.turnDeadline
+
+-- Fast-skip: don't make everyone wait out the full turnTimerSec for a
+-- player who's gone quiet. "Unreachable" mirrors apps/server/src/lobby.ts's
+-- isReachable() exactly (PRESENCE_STALE_MS must stay in sync between the
+-- two, Lua can't share the TS constant) — see docs/decisions.md "Player
+-- presence: connected/disconnected/left tracking". Missing lastSeenAt
+-- (shouldn't happen for a real game, but possible for state persisted
+-- before this field existed) defaults to "just seen" rather than "long
+-- gone", failing open during a rollout window instead of mass-skipping
+-- every in-flight game's current turn the instant this deploys.
+local PRESENCE_STALE_MS = 20000
+local lastSeenAt = (currentPlayer ~= nil and currentPlayer.lastSeenAt) or now
+local currentPlayerUnreachable = currentPlayer ~= nil
+  and (currentPlayer.left == true or (now - lastSeenAt) >= PRESENCE_STALE_MS)
+
+local deadlinePassed = (type(state.turnDeadline) == 'number' and now >= state.turnDeadline)
+  or currentPlayerUnreachable
 if not isCurrentPlayer and not deadlinePassed then
   return cjson.encode({ error = 'NotYourTurn' })
 end

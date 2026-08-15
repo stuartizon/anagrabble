@@ -142,6 +142,80 @@ describe("applyTurnTile", () => {
     expect(result).toMatchObject({ state: { pool: ["A"], turnPlayerIndex: 1 } });
   });
 
+  it("lets another player force the turn once the current player has gone stale, well before turnDeadline", async () => {
+    const now = Date.now();
+    await seed(
+      makeState({
+        turnPlayerIndex: 0,
+        turnDeadline: now + 30_000, // far in the future — not why this succeeds
+        players: [
+          { id: "p1", name: "One", words: [], score: 0, lastSeenAt: now - 25_000 }, // stale
+          { id: "p2", name: "Two", words: [], score: 0, lastSeenAt: now },
+          { id: "p3", name: "Three", words: [], score: 0, lastSeenAt: now },
+        ],
+      }),
+    );
+
+    const result = await applyTurnTile(redis, {
+      ...KEYS,
+      commandId: crypto.randomUUID(),
+      playerId: "p2",
+      now,
+      cmdsTtlSec: 3600,
+    });
+
+    expect(result).toMatchObject({ state: { pool: ["A"], turnPlayerIndex: 1 } });
+  });
+
+  it("still rejects a non-current player while the current player is only briefly quiet", async () => {
+    const now = Date.now();
+    await seed(
+      makeState({
+        turnPlayerIndex: 0,
+        turnDeadline: now + 30_000,
+        players: [
+          { id: "p1", name: "One", words: [], score: 0, lastSeenAt: now - 5_000 }, // a blip, not stale
+          { id: "p2", name: "Two", words: [], score: 0, lastSeenAt: now },
+          { id: "p3", name: "Three", words: [], score: 0, lastSeenAt: now },
+        ],
+      }),
+    );
+
+    const result = await applyTurnTile(redis, {
+      ...KEYS,
+      commandId: crypto.randomUUID(),
+      playerId: "p2",
+      now,
+      cmdsTtlSec: 3600,
+    });
+
+    expect(result).toEqual({ error: "NotYourTurn" });
+  });
+
+  it("treats a current player who explicitly left as unreachable too", async () => {
+    const now = Date.now();
+    await seed(
+      makeState({
+        turnPlayerIndex: 0,
+        turnDeadline: now + 30_000,
+        players: [
+          { id: "p1", name: "One", words: [], score: 0, lastSeenAt: now, left: true },
+          { id: "p2", name: "Two", words: [], score: 0, lastSeenAt: now },
+        ],
+      }),
+    );
+
+    const result = await applyTurnTile(redis, {
+      ...KEYS,
+      commandId: crypto.randomUUID(),
+      playerId: "p2",
+      now,
+      cmdsTtlSec: 3600,
+    });
+
+    expect(result).toMatchObject({ state: { pool: ["A"], turnPlayerIndex: 1 } });
+  });
+
   it("is idempotent when retried with the same commandId", async () => {
     const now = Date.now();
     await seed(makeState({ turnPlayerIndex: 0, turnDeadline: now + 30_000 }));

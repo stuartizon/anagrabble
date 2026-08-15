@@ -13,6 +13,7 @@ import { getDisplayName } from "../clerkDisplayName";
 import { makeCommandId } from "../gameId";
 import { assignPlayerColors } from "../playerColors";
 import { useCopyLink } from "../useCopyLink";
+import { leaveGame as leaveGameRequest } from "../fetchLeaveGame";
 import { cx } from "../cx";
 import { GameBoard } from "./GameBoard";
 import { GameOverSummary } from "./GameOverSummary";
@@ -29,11 +30,13 @@ import styles from "./LobbyPage.module.css";
 export function LobbyPage() {
   const { gameId = "" } = useParams();
   const navigate = useNavigate();
-  const { userId } = useAuth();
+  const { userId, getToken } = useAuth();
   const { user } = useUser();
   const playerName = getDisplayName(user);
   const [starting, setStarting] = useState(false);
   const [joining, setJoining] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
 
   const { status, lobby, error, wordPlay, history, send } = useGameSocket(gameId);
 
@@ -57,6 +60,25 @@ export function LobbyPage() {
       commandId: makeCommandId(),
       gameId,
     });
+  };
+
+  // A deliberate, explicit leave — REST rather than a WS command, and
+  // pre-start only (the button is only ever rendered from the lobby view
+  // below). See docs/decisions.md "Player presence:
+  // connected/disconnected/left tracking" for why this doesn't go through
+  // the same debounced-disconnect path a dropped connection does.
+  const leaveGame = async () => {
+    setLeaving(true);
+    setLeaveError(null);
+    try {
+      const token = await getToken();
+      if (!token) throw new Error("Unauthorized");
+      await leaveGameRequest(token, gameId);
+      navigate("/");
+    } catch {
+      setLeaveError("Something went wrong leaving the game. Try again.");
+      setLeaving(false);
+    }
   };
 
   // Only a missing game warrants replacing the whole page — every other
@@ -270,6 +292,14 @@ export function LobbyPage() {
             {!isHost && isJoined && (
               <div className={styles.waitingText}>Waiting for the host to start the game…</div>
             )}
+            {isJoined && (
+              <div className={styles.leaveRow}>
+                <Button variant="ghost" size="lg" disabled={leaving} onClick={leaveGame} fullWidth>
+                  {leaving ? "Leaving…" : "Leave game"}
+                </Button>
+              </div>
+            )}
+            {leaveError && <div className={styles.errorText}>{leaveError}</div>}
           </Card>
         </NarrowColumn>
       </CenteredContent>

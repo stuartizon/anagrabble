@@ -156,3 +156,13 @@
   color: var(--text-muted);
   margin-bottom: 12px;
 }
+
+.leaveRow {
+  margin-top: 12px;
+}
+
+.errorText {
+  margin-top: 12px;
+  font-size: var(--text-sm);
+  color: var(--error);
+}

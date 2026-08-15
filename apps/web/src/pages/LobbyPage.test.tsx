@@ -20,6 +20,11 @@ vi.mock("../gameId", () => ({
   makeCommandId: () => "cmd-1",
 }));
 
+const leaveGameRequest = vi.fn();
+vi.mock("../fetchLeaveGame", () => ({
+  leaveGame: (...args: unknown[]) => leaveGameRequest(...args),
+}));
+
 const HOST: PlayerState = {
   id: "host-1",
   name: "Host",
@@ -82,6 +87,7 @@ function renderAsPlayer(playerId: string) {
 
 beforeEach(() => {
   send.mockClear();
+  leaveGameRequest.mockReset();
   useGameSocketMock.mockReset();
   mockSocket({});
 });
@@ -155,6 +161,30 @@ describe("LobbyPage", () => {
         commandId: "cmd-1",
         gameId: "ABCDE",
       });
+    });
+
+    it("can leave via POST /games/:gameId/leave, then navigates home", async () => {
+      leaveGameRequest.mockResolvedValue(lobbySnapshot({ players: [GUEST] }));
+      mockSocket({ lobby: lobbySnapshot({ players: [HOST, GUEST] }) });
+      renderAsPlayer("host-1");
+
+      await userEvent.click(screen.getByRole("button", { name: "Leave game" }));
+
+      expect(leaveGameRequest).toHaveBeenCalledWith("test-token", "ABCDE");
+      expect(await screen.findByText("Home")).toBeInTheDocument();
+    });
+
+    it("shows an error and stays put if leaving fails", async () => {
+      leaveGameRequest.mockRejectedValue(new Error("GameNotFound"));
+      mockSocket({ lobby: lobbySnapshot({ players: [HOST, GUEST] }) });
+      renderAsPlayer("host-1");
+
+      await userEvent.click(screen.getByRole("button", { name: "Leave game" }));
+
+      expect(
+        await screen.findByText("Something went wrong leaving the game. Try again."),
+      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Leave game" })).toBeEnabled();
     });
   });
 
@@ -247,6 +277,13 @@ describe("LobbyPage", () => {
         playerName: "Guest",
       });
     });
+
+    it("has no Leave game button — there's nothing to leave yet", () => {
+      mockSocket({ lobby: lobbySnapshot({ players: [HOST] }) });
+      renderAsPlayer("guest-1");
+
+      expect(screen.queryByRole("button", { name: "Leave game" })).not.toBeInTheDocument();
+    });
   });
 
   describe("as a joined non-host player", () => {
@@ -259,6 +296,17 @@ describe("LobbyPage", () => {
       expect(
         screen.queryByRole("button", { name: /Start game|Waiting for players/ }),
       ).not.toBeInTheDocument();
+    });
+
+    it("can also leave via Leave game", async () => {
+      leaveGameRequest.mockResolvedValue(lobbySnapshot({ players: [HOST] }));
+      mockSocket({ lobby: lobbySnapshot({ players: [HOST, GUEST] }) });
+      renderAsPlayer("guest-1");
+
+      await userEvent.click(screen.getByRole("button", { name: "Leave game" }));
+
+      expect(leaveGameRequest).toHaveBeenCalledWith("test-token", "ABCDE");
+      expect(await screen.findByText("Home")).toBeInTheDocument();
     });
   });
 });

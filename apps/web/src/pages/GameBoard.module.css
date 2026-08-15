@@ -234,7 +234,7 @@
   background: var(--surface-card);
   border: 1px solid var(--border);
   font-family: var(--font-display);
-  font-weight: 700;
+  font-weight: 600;
   font-size: var(--text-sm);
   color: var(--ink);
 }

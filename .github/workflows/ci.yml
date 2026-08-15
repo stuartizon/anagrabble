@@ -85,6 +85,14 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Upload frontend build artifact
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: apps/web/dist
+          retention-days: 90
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -143,20 +151,15 @@ jobs:
       group: deploy-frontend-${{ github.ref }}
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v7
-
-      - uses: pnpm/action-setup@v6
-
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-          cache: pnpm
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build
-        run: pnpm --filter @anagrabble/web build
+      - name: Download frontend build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: apps/web/dist
 
       - name: Write runtime env
         working-directory: apps/web

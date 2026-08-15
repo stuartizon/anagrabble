@@ -37,58 +37,10 @@ jobs:
           RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
 
   deploy-frontend-production:
-    name: Deploy frontend (Vercel production)
+    name: Deploy frontend (Cloudflare Pages, production)
     runs-on: ubuntu-latest
     concurrency:
       group: deploy-frontend-production
-      cancel-in-progress: false
-    defaults:
-      run:
-        working-directory: apps/web
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: pnpm/action-setup@v6
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install Vercel CLI
-        run: npm install -g vercel@latest
-
-      - name: Pull Vercel environment
-        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
-      - name: Build
-        run: vercel build --prod --token="$VERCEL_TOKEN"
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
-      - name: Deploy
-        run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
-  # Shadow deploy evaluating Cloudflare Pages — does not affect the real
-  # production domain (still pointed at Vercel) or the
-  # deploy-frontend-production job above. Safe to delete/disable
-  # independently. See docs/decisions.md "Evaluating Cloudflare Pages for
-  # frontend hosting".
-  deploy-frontend-production-cloudflare:
-    name: Deploy frontend (Cloudflare Pages, shadow — production)
-    runs-on: ubuntu-latest
-    concurrency:
-      group: deploy-frontend-production-cloudflare
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v7

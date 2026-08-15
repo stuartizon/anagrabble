@@ -201,5 +201,5 @@ if you're wondering why something was built a particular way.
 
 ## Deployment
 
-Backend + Redis: Railway. Postgres: Neon. Frontend: Vercel. See
+Backend + Redis: Railway. Postgres: Neon. Frontend: Cloudflare Pages. See
 `docs/decisions.md` for why.

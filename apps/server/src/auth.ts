@@ -30,7 +30,7 @@ export async function verifySessionToken(
  * sends as a "token" (its mock `useAuth().getToken()` just returns the
  * mock session's id). Only ever reachable when a developer explicitly sets
  * AUTH_MODE=mock locally — never set in Railway, mirroring how
- * VITE_AUTH_MODE=mock is never set in Vercel.
+ * VITE_AUTH_MODE=mock is never set in the Cloudflare Pages deploys.
  */
 export function verifyMockSessionToken(token: string): AuthResult | null {
   return token ? { userId: token } : null;

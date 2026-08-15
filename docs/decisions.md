@@ -278,6 +278,55 @@ protocol changes plus expand/contract rollouts (below) remain the actual
 mechanism for tolerating that gap; this change only keeps a red build from
 reaching either platform at all.
 
+**Superseded 2026-08-15**: the Vercel-specific mechanics above (dashboard
+domain assignment, `VERCEL_TOKEN`/`VERCEL_ORG_ID`/`VERCEL_PROJECT_ID`,
+`vercel deploy --prod`) describe how the Dev/Production frontend deploy jobs
+worked before the Cloudflare Pages cutover — see "Frontend hosting cutover:
+Vercel to Cloudflare Pages" below. Kept here as the historical record of why
+the CI-side-alias approach was tried and abandoned in favor of a
+dashboard-assigned domain, which is the same shape the Cloudflare cutover
+reused (branch alias + dashboard custom-domain assignment, no CI-side alias
+step either).
+
+---
+
+## Frontend hosting cutover: Vercel to Cloudflare Pages
+
+**Decision**: `deploy-frontend`/`deploy-frontend-production` (`ci.yml`/
+`deploy-production.yml`) now deploy to Cloudflare Pages (`wrangler pages
+deploy`) instead of Vercel. `dev.anagrabble.com` and the production domain
+are both repointed at Cloudflare Pages custom domains (on the `dev` and
+`production` branch aliases respectively), and the Vercel deploy jobs are
+removed entirely rather than kept as a second, now-redundant deploy path.
+
+**Why now**: the `deploy-frontend-cloudflare`/`deploy-frontend-production-
+cloudflare` shadow jobs (see "Explicitly still open" below for the
+evaluation that added them) had been running alongside the real Vercel jobs
+since 2026-08-14, deploying to Cloudflare's own `.pages.dev` URLs with no
+effect on either live domain. Once that shadow run was confirmed working,
+the DNS/custom-domain cutover was done first (both domains repointed to
+Cloudflare, verified serving real traffic) — and only once that held was the
+CI change made: promote the `-cloudflare` jobs to be `deploy-frontend`/
+`deploy-frontend-production` and delete the Vercel jobs outright, rather than
+leaving both in place. Doing the DNS cutover before the CI change avoided a
+window where the CI job was already gone but a domain was still silently
+pointed at a Vercel deploy that would no longer update.
+
+**Sequencing rationale for pairing this with the environment-agnostic
+frontend build** (see "Explicitly still open" in CLAUDE.md): the two
+platforms' shadow jobs had genuinely different build mechanics (Vercel's
+`vercel pull`/`vercel build` baking `VITE_*` via Vercel's own env-pull step,
+Cloudflare's job baking them via plain `pnpm build` + GitHub Actions
+secrets), so making the bundle environment-agnostic would otherwise have
+meant implementing the runtime-config stamp step twice. Doing the platform
+cutover first means it's only ever implemented against Cloudflare.
+
+**Not done as part of this change**: the `VERCEL_TOKEN`/`VERCEL_ORG_ID`/
+`VERCEL_PROJECT_ID` repo secrets and the Vercel project/dashboard settings
+(auto-deploy toggle, domain assignments) are unused now but not deleted —
+low-risk to leave dangling short-term, worth cleaning up once the cutover
+has run on `main` a few times without needing a rollback.
+
 ---
 
 ## Game rules
@@ -2426,21 +2475,14 @@ questions needed resolving in conversation before _it_ was schedulable.
   "🔥 Deploy the Dev frontend to Vercel production, not preview"). Cloudflare
   Pages gives every branch alias a stable subdomain on the free tier, which
   would let Dev and Production be genuinely separate environments instead
-  of overloading Vercel's Production env for both. Nothing is decided yet —
-  `deploy-frontend-cloudflare` (`ci.yml`) and
-  `deploy-frontend-production-cloudflare` (`deploy-production.yml`) are
-  shadow deploys added alongside the existing Vercel jobs, deploying to
-  Cloudflare's own `.pages.dev` URLs only; `dev.anagrabble.com` and the
-  production domain are untouched and still served by Vercel, so these can
-  be deleted with zero effect on either. Still open once/if this is
-  actually adopted: DNS cutover, dropping the Vercel jobs, and whether to
-  keep baking `VITE_*` values in at build time (current shadow jobs mirror
-  Vercel's existing per-environment build) or move to a runtime-injected,
-  environment-agnostic bundle — discussed but deliberately deferred; a
-  generated-`env.js`-imported-at-runtime approach was favored over a
-  Cloudflare/Vercel-native edge-function approach specifically because it
-  stays portable between the two platforms rather than committing to one
-  mid-evaluation.
+  of overloading Vercel's Production env for both. **Resolved 2026-08-15**:
+  adopted — DNS/custom domains cut over and the Vercel deploy jobs dropped
+  entirely, see "Frontend hosting cutover: Vercel to Cloudflare Pages"
+  above for the full decision. Still open: whether to keep baking `VITE_*`
+  values in at build time or move to a runtime-injected, environment-agnostic
+  bundle — deferred until after this cutover specifically so it would only
+  need implementing against one platform; see CLAUDE.md "Still open / not
+  yet decided" for the current state of that follow-up.
 - **Redis HA timing** — see "Redis hosting" above.
 - **Linking games/stats to a Clerk user ID durably** — nothing writes
   history to Postgres yet at all (gameplay is Redis-only, per "Backend

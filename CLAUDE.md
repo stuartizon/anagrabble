@@ -78,9 +78,17 @@ load-bearing for any piece of state.
 - **Postgres**: Neon (free tier, scale-to-zero) rather than Railway's
   always-metered Postgres — durable history is written infrequently, so this is
   effectively free for a long time.
-- **Frontend**: Vercel (or Cloudflare Pages) — static/CDN hosting, free tier, kept
-  separate from Railway since there's no reason to serve static assets from a
-  metered compute container.
+- **Frontend**: Cloudflare Pages — static/CDN hosting, free tier, kept separate
+  from Railway since there's no reason to serve static assets from a metered
+  compute container. Was Vercel until 2026-08-15; switched because Vercel ties a
+  stable custom domain to either the Production environment or a paid-tier
+  non-prod environment, whereas Cloudflare Pages gives every branch alias a
+  stable subdomain on the free tier, letting Dev and Production be genuinely
+  separate environments (`dev.anagrabble.com` on the `dev` branch alias,
+  production on the `production` branch alias) instead of overloading one
+  environment for both. See docs/decisions.md "Evaluating Cloudflare Pages for
+  frontend hosting" for the full history, including the shadow-deploy period
+  this cutover replaced.
 - Everything is Dockerized and cloud-agnostic in principle; Railway is a deployment
   choice, not an architectural dependency. AWS remains the fallback if/when real HA
   or infra control requirements emerge (see docs/decisions.md for the full
@@ -89,11 +97,11 @@ load-bearing for any piece of state.
   `deploy-backend`/`deploy-frontend` jobs (`needs: [lint, format, typecheck,
 build, test]`, `main`-push only — those five run as separate parallel jobs,
   not one combined job)
-  call the Railway/Vercel CLIs directly rather than relying on either
-  platform's push-triggered auto-deploy, targeting Dev (Railway's
-  `development` environment; Vercel as a Production build/deploy, with
-  `dev.anagrabble.com` connected to that Vercel project's production
-  environment via the Vercel UI rather than CI-side aliasing). Production
+  call the Railway CLI / `wrangler pages deploy` directly rather than relying on
+  either platform's push-triggered auto-deploy, targeting Dev (Railway's
+  `development` environment; Cloudflare Pages' `dev` branch alias, with
+  `dev.anagrabble.com` connected to that alias via Cloudflare's custom-domain
+  UI rather than CI-side aliasing). Production
   deploys are a separate workflow file,
   `.github/workflows/deploy-production.yml` (`deploy-backend-production`/
   `deploy-frontend-production`), triggered only by `workflow_dispatch` — kept
@@ -218,8 +226,8 @@ build, test]`, `main`-push only — those five run as separate parallel jobs,
     have upgraded.
   - Include a `protocolVersion` field in the WS handshake so the backend can detect
     a stale client and prompt a refresh rather than silently misbehaving.
-  - Rationale: backend and frontend deploy independently (Railway + Vercel,
-    separate auto-deploy pipelines, no cross-platform ordering guarantee) — a
+  - Rationale: backend and frontend deploy independently (Railway + Cloudflare
+    Pages, separate auto-deploy pipelines, no cross-platform ordering guarantee) — a
     single commit touching both apps will not deploy atomically, so both versions
     must tolerate briefly talking to each other.
 
@@ -376,15 +384,13 @@ mechanic without touching anything else.
 ## Still open / not yet decided
 
 - Whether/when to add the turn-timer polling sweep.
-- Evaluating Cloudflare Pages as a replacement for Vercel frontend
-  hosting, prompted by Vercel's non-prod environments needing a paid tier.
-  `deploy-frontend-cloudflare`/`deploy-frontend-production-cloudflare`
-  (`.github/workflows/`) are shadow deploys to Cloudflare's own `.pages.dev`
-  URLs only — `dev.anagrabble.com` and production still run on Vercel, so
-  these can be deleted with no effect on either. See docs/decisions.md
-  "Evaluating Cloudflare Pages for frontend hosting" for the full reasoning
-  and what's still open (DNS cutover, dropping the Vercel jobs, build-time
-  vs runtime-injected config).
+- Frontend config is still baked into the JS bundle at build time
+  (`import.meta.env.VITE_*`, four call sites plus `apps/web`'s build step),
+  rather than read from a runtime object populated after the build. Now that
+  Cloudflare Pages is the only frontend target (see "Deployment" above), this
+  is a single-platform change: a build-once artifact plus a generated
+  `env.js` stamped in by the CI deploy step, matching the reasoning in
+  docs/decisions.md "Evaluating Cloudflare Pages for frontend hosting".
 - Redis HA approach and timing of adopting it (Sentinel template vs. staying
   single-instance) — revisit once usage data exists.
 - Lobby presence tracking (`pendingLeaves` in `apps/server/src/index.ts`) is

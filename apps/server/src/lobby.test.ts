@@ -13,7 +13,7 @@ import type {
   LobbySnapshot,
 } from "@anagrabble/protocol";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { createGame, joinGame, leaveGame } from "./lobby.js";
+import { createGame, joinGame, leaveGame, loadLobbySnapshot } from "./lobby.js";
 
 const CONFIG = { turnTimerSec: 30, minWordLength: 3, language: "en" };
 const HOST_ID = "host-1";
@@ -171,6 +171,65 @@ describe("lobby", () => {
       const snapshot = await leaveGame(redis, "game-1", "player-2");
 
       expect(snapshot).toBeNull();
+    });
+  });
+
+  describe("presence", () => {
+    it("marks a freshly created/joined player as connected", async () => {
+      await createGame(redis, createGameCommand(), HOST_ID);
+      await joinGame(redis, joinGameCommand(), PLAYER_ID);
+
+      const snapshot = await loadLobbySnapshot(redis, "game-1");
+
+      expect(snapshot?.players).toEqual([
+        expect.objectContaining({ id: "host-1", presence: "connected" }),
+        expect.objectContaining({ id: "player-2", presence: "connected" }),
+      ]);
+    });
+
+    it("host migrates to the next reachable player without removing the stale host from players", async () => {
+      await createGame(redis, createGameCommand(), HOST_ID);
+      await joinGame(redis, joinGameCommand(), PLAYER_ID);
+      await seedGameState(redis, "game-1", (state) => ({
+        ...state,
+        players: state.players.map((p) =>
+          p.id === HOST_ID ? { ...p, lastSeenAt: Date.now() - 25_000 } : p,
+        ),
+      }));
+
+      const snapshot = await loadLobbySnapshot(redis, "game-1");
+
+      expect(snapshot?.hostId).toBe(PLAYER_ID);
+      expect(snapshot?.players.map((p) => p.id)).toEqual([HOST_ID, PLAYER_ID]);
+      expect(snapshot?.players.find((p) => p.id === HOST_ID)?.presence).toBe("disconnected");
+    });
+
+    it("falls back to players[0] as host when nobody is currently reachable", async () => {
+      await createGame(redis, createGameCommand(), HOST_ID);
+      await joinGame(redis, joinGameCommand(), PLAYER_ID);
+      await seedGameState(redis, "game-1", (state) => ({
+        ...state,
+        players: state.players.map((p) => ({ ...p, lastSeenAt: Date.now() - 25_000 })),
+      }));
+
+      const snapshot = await loadLobbySnapshot(redis, "game-1");
+
+      expect(snapshot?.hostId).toBe(HOST_ID);
+    });
+
+    it("surfaces an explicit mid-game leave as presence \"left\", not removed from players", async () => {
+      await createGame(redis, createGameCommand(), HOST_ID);
+      await joinGame(redis, joinGameCommand(), PLAYER_ID);
+      await seedGameState(redis, "game-1", (state) => ({
+        ...state,
+        status: "playing",
+        players: state.players.map((p) => (p.id === PLAYER_ID ? { ...p, left: true } : p)),
+      }));
+
+      const snapshot = await loadLobbySnapshot(redis, "game-1");
+
+      expect(snapshot?.players.map((p) => p.id)).toEqual([HOST_ID, PLAYER_ID]);
+      expect(snapshot?.players.find((p) => p.id === PLAYER_ID)?.presence).toBe("left");
     });
   });
 });

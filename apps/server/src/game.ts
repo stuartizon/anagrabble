@@ -24,6 +24,7 @@ import {
   CMDS_TTL_SEC,
   bagKey,
   cmdsKey,
+  deriveHostId,
   loadGameState,
   loadLobbySnapshot,
   markCommandSeen,
@@ -58,10 +59,10 @@ export async function startGame(
   }
 
   if (state.status !== "lobby") return { error: "GameAlreadyStarted" };
-  if (state.players[0]?.id !== hostId) return { error: "NotHost" };
+  const now = Date.now();
+  if (deriveHostId(state, now) !== hostId) return { error: "NotHost" };
 
   const bag = createShuffledBag();
-  const now = Date.now();
   const seq = await nextSeq(redis, cmd.gameId);
   const nextState: GameState = {
     ...state,

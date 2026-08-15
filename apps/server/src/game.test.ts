@@ -106,6 +106,18 @@ describe("game", () => {
     await joinGame(redis, joinGameCommand(), PLAYER_ID);
   }
 
+  /** Backdates the host's lastSeenAt past PRESENCE_STALE_MS, so
+   * deriveHostId (lobby.ts) treats them as unreachable and host status
+   * migrates to the next reachable player. */
+  async function makeHostStale() {
+    const raw = await redis.get(stateKey("game-1"));
+    const state = JSON.parse(raw!) as GameState;
+    state.players = state.players.map((p) =>
+      p.id === HOST_ID ? { ...p, lastSeenAt: Date.now() - 25_000 } : p,
+    );
+    await redis.set(stateKey("game-1"), JSON.stringify(state));
+  }
+
   /** A deterministic `playing` state (pool/claimed words as given), bypassing
    * startGame's random bag shuffle — submitWord tests need to control
    * exactly what's on the board, not just that a game has started. */
@@ -189,6 +201,18 @@ describe("game", () => {
       const bagLength = await redis.llen("game:{game-1}:bag");
       expect(bagLength).toBe(144);
     });
+
+    it("lets a reachable player start once the original host has gone stale", async () => {
+      await seedTwoPlayerLobby();
+      await makeHostStale();
+
+      const result = await startGame(redis, startGameCommand(), PLAYER_ID);
+
+      expect(result).not.toHaveProperty("error");
+      const { snapshot } = result as { snapshot: LobbySnapshot };
+      expect(snapshot.status).toBe("playing");
+      expect(snapshot.players.map((p) => p.id)).toEqual([HOST_ID, PLAYER_ID]);
+    });
   });
 
   describe("turnTile", () => {
@@ -218,6 +242,18 @@ describe("game", () => {
       const result = await turnTile(redis, turnTileCommand(), PLAYER_ID);
 
       expect(result).toEqual({ error: "NotYourTurn" });
+    });
+
+    it("lets another player force the turn once the current player has gone stale", async () => {
+      await seedTwoPlayerLobby();
+      await startGame(redis, startGameCommand(), HOST_ID);
+      await makeHostStale(); // host-1 is turnPlayerIndex 0
+
+      const result = await turnTile(redis, turnTileCommand(), PLAYER_ID);
+
+      expect(result).not.toHaveProperty("error");
+      const { snapshot } = result as { snapshot: LobbySnapshot };
+      expect(snapshot.turnPlayerIndex).toBe(1);
     });
   });
 

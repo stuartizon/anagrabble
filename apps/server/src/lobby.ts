@@ -22,17 +22,49 @@ export const CMDS_TTL_SEC = 3600;
 
 export type LobbyError = "GameNotFound" | "GameIdTaken" | "GameAlreadyStarted" | "GameAlreadyEnded";
 
-/** The host is, by convention, whoever is first in `players` — set once at
- * creation and never reordered. No separate hostId is persisted; if the
- * host's own socket disconnects pre-start, leaveGame() removes them and the
- * next player in line becomes host by the same convention (host migration,
- * effectively free). Documented in docs/redis-schema.md. */
-function deriveHostId(state: GameState): string {
-  return state.players[0]?.id ?? "";
+/** How long without a heartbeat before a player is treated as unreachable.
+ * Mirrored exactly in apply_turn_tile.lua's PRESENCE_STALE_MS — the two must
+ * stay in sync, Lua can't import this constant. See docs/decisions.md
+ * "Player presence: connected/disconnected/left tracking". */
+const PRESENCE_STALE_MS = 20_000;
+
+/** "Reachable" is derived at read time from `lastSeenAt`, never tracked via
+ * a scheduled timer — this is what let this replace the old pendingLeaves
+ * debounce (a per-process setTimeout Map) with something any node can
+ * compute the same way. Missing `lastSeenAt` (shouldn't happen for a real
+ * player — set on join/create below) defaults to "just seen" rather than
+ * "long gone", failing open rather than treating incomplete data as absence. */
+export function isReachable(player: PlayerState, now: number): boolean {
+  if (player.left) return false;
+  const lastSeenAt = player.lastSeenAt ?? now;
+  return now - lastSeenAt < PRESENCE_STALE_MS;
 }
 
-export function toLobbySnapshot(gameId: string, state: GameState): LobbySnapshot {
-  return { ...state, gameId, hostId: deriveHostId(state) };
+function presenceOf(player: PlayerState, now: number): NonNullable<PlayerState["presence"]> {
+  if (player.left) return "left";
+  return isReachable(player, now) ? "connected" : "disconnected";
+}
+
+/** The host is, by convention, the first *reachable* player in `players`,
+ * falling back to `players[0]` if nobody currently is — set once at
+ * creation and never reordered, no separate hostId persisted. This means a
+ * disconnected host doesn't have to be removed from `players` for host
+ * status to migrate: it's computed fresh on every read, same as
+ * `presenceOf` above. Documented in docs/redis-schema.md. Exported so
+ * game.ts's StartGame authorization check derives host the same way this
+ * does, rather than keeping its own separate `players[0]` comparison that
+ * could silently diverge from what's displayed as host. */
+export function deriveHostId(state: GameState, now: number): string {
+  return (state.players.find((p) => isReachable(p, now)) ?? state.players[0])?.id ?? "";
+}
+
+export function toLobbySnapshot(gameId: string, state: GameState, now = Date.now()): LobbySnapshot {
+  return {
+    ...state,
+    gameId,
+    hostId: deriveHostId(state, now),
+    players: state.players.map((p) => ({ ...p, presence: presenceOf(p, now) })),
+  };
 }
 
 export async function loadGameState(redis: Redis, gameId: string): Promise<GameState | null> {
@@ -99,6 +131,7 @@ export async function createGame(
     name: cmd.hostName,
     words: [],
     score: 0,
+    lastSeenAt: Date.now(),
   };
   const state: GameState = {
     status: "lobby",
@@ -150,6 +183,7 @@ export async function joinGame(
     name: cmd.playerName,
     words: [],
     score: 0,
+    lastSeenAt: Date.now(),
   };
 
   const seq = await nextSeq(redis, cmd.gameId);

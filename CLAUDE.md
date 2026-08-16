@@ -493,3 +493,24 @@ mechanic without touching anything else.
   Clerk's Backend API (`PUT /v1/templates/email/{slug}`, also reachable via
   `npx clerk@latest api templates/email/<slug>`) run per environment/
   account, not a Terraform resource.
+- **Presence timing (`PRESENCE_STALE_MS`/`PING_INTERVAL_MS`) is still a
+  hardcoded constant, not yet ops-tunable.** `PRESENCE_STALE_MS` is exported
+  from `apps/server/src/lobby.ts` and passed into `apply_turn_tile.lua` as
+  an `EVAL` argument (Redis's sandboxed Lua has no `io`/`os` libraries, so
+  it can't read a config file or env var itself — this is the only way to
+  give it a runtime-supplied value without duplicating the literal). But
+  `lobby.ts`'s own value is still a source-level constant, and
+  `apps/web/src/useGameSocket.ts`'s `PING_INTERVAL_MS` is a second,
+  independently-hardcoded constant in a different deployable — "must be
+  kept roughly in sync by hand" per that file's comment. Planned follow-up:
+  read `PRESENCE_STALE_MS` from an environment variable on the server
+  (ops-tunable without a redeploy), and have the client learn the value
+  from the server at connect time (e.g. on the handshake or
+  `LobbySnapshot`) instead of hardcoding its own guess — same "client
+  trusts a server-derived value" pattern presence itself already uses,
+  and it sidesteps the skew risk a shared build-time constant would still
+  have across `apps/server`/`apps/web`'s independently-deployed builds.
+  Deliberately not done yet: once the turn-timer polling sweep above
+  lands, `GameBoard.tsx` won't need to know the timing at all — the only
+  thing the frontend actually needs from presence is which players to
+  show as offline, not the thresholds themselves.

@@ -20,10 +20,10 @@ export const RECONNECT_DELAYS_MS = [1000, 2000, 5000, 10000, 30000];
  * PingCommand's doc comment (packages/protocol/src/ws.ts) and
  * docs/decisions.md "Player presence: connected/disconnected/left
  * tracking". Kept well under the server's PRESENCE_STALE_MS
- * (apps/server/src/lobby.ts, currently 20000ms) so a couple of missed beats
+ * (apps/server/src/lobby.ts, currently 10000ms) so a couple of missed beats
  * don't false-positive a still-connected player as stale; the two constants
  * live in separate packages and must be kept roughly in sync by hand. */
-export const PING_INTERVAL_MS = 8000;
+export const PING_INTERVAL_MS = 3000;
 
 export type SocketStatus = "connecting" | "open" | "reconnecting" | "closed";
 

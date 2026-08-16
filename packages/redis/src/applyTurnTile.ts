@@ -21,6 +21,10 @@ export interface ApplyTurnTileArgs extends ApplyTurnTileKeys {
   /** See TurnTileCommand in @anagrabble/protocol — omitted (undefined/null)
    * for a manual current-player click, which should always succeed. */
   observedTurnDeadline?: number | null;
+  /** apps/server/src/lobby.ts's PRESENCE_STALE_MS — passed in rather than
+   * duplicated as a Lua literal, since Redis's sandboxed Lua can't read a
+   * config file or env var itself. */
+  presenceStaleMs: number;
 }
 
 export type ApplyTurnTileError = "GameNotFound" | "GameNotStarted" | "NotYourTurn";
@@ -45,6 +49,7 @@ export async function applyTurnTile(
     String(args.now),
     String(args.cmdsTtlSec),
     args.observedTurnDeadline != null ? String(args.observedTurnDeadline) : "",
+    String(args.presenceStaleMs),
   )) as string;
 
   const parsed = JSON.parse(raw) as GameState | { error: ApplyTurnTileError };

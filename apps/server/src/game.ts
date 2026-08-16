@@ -22,6 +22,7 @@ import type {
 } from "@anagrabble/protocol";
 import {
   CMDS_TTL_SEC,
+  PRESENCE_STALE_MS,
   bagKey,
   cmdsKey,
   deriveHostId,
@@ -100,6 +101,7 @@ export async function turnTile(
     now: Date.now(),
     cmdsTtlSec: CMDS_TTL_SEC,
     observedTurnDeadline: cmd.observedTurnDeadline,
+    presenceStaleMs: PRESENCE_STALE_MS,
   });
 
   if ("error" in result) return { error: result.error };

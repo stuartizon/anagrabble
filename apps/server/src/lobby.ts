@@ -23,10 +23,15 @@ export const CMDS_TTL_SEC = 3600;
 export type LobbyError = "GameNotFound" | "GameIdTaken" | "GameAlreadyStarted" | "GameAlreadyEnded";
 
 /** How long without a heartbeat before a player is treated as unreachable.
- * Mirrored exactly in apply_turn_tile.lua's PRESENCE_STALE_MS — the two must
- * stay in sync, Lua can't import this constant. See docs/decisions.md
- * "Player presence: connected/disconnected/left tracking". */
-const PRESENCE_STALE_MS = 20_000;
+ * Passed into apply_turn_tile.lua as an EVAL argument (see game.ts's
+ * turnTile) rather than duplicated as a Lua literal — Redis's sandboxed Lua
+ * can't read a config file or env var to get it independently, so this is
+ * the single source of truth and Lua just receives whatever it's given.
+ * See docs/decisions.md "Player presence: connected/disconnected/left
+ * tracking". Still a hardcoded constant here, not yet an env var — see
+ * CLAUDE.md "Still open" for the planned follow-up making it ops-tunable
+ * without a redeploy. */
+export const PRESENCE_STALE_MS = 10_000;
 
 /** "Reachable" is derived at read time from `lastSeenAt`, never tracked via
  * a scheduled timer — this is what let this replace the old pendingLeaves

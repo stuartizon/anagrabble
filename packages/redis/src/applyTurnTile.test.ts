@@ -68,6 +68,7 @@ describe("applyTurnTile", () => {
       playerId: "p1",
       now: Date.now(),
       cmdsTtlSec: 3600,
+      presenceStaleMs: 10_000,
     });
 
     expect(result).toEqual({ error: "GameNotFound" });
@@ -82,6 +83,7 @@ describe("applyTurnTile", () => {
       playerId: "p1",
       now: Date.now(),
       cmdsTtlSec: 3600,
+      presenceStaleMs: 10_000,
     });
 
     expect(result).toEqual({ error: "GameNotStarted" });
@@ -97,6 +99,7 @@ describe("applyTurnTile", () => {
       playerId: "p1",
       now,
       cmdsTtlSec: 3600,
+      presenceStaleMs: 10_000,
     });
 
     expect(result).toMatchObject({
@@ -120,6 +123,7 @@ describe("applyTurnTile", () => {
       playerId: "p2",
       now,
       cmdsTtlSec: 3600,
+      presenceStaleMs: 10_000,
     });
 
     expect(result).toEqual({ error: "NotYourTurn" });
@@ -137,6 +141,7 @@ describe("applyTurnTile", () => {
       playerId: "p2",
       now,
       cmdsTtlSec: 3600,
+      presenceStaleMs: 10_000,
     });
 
     expect(result).toMatchObject({ state: { pool: ["A"], turnPlayerId: "p2" } });
@@ -162,6 +167,7 @@ describe("applyTurnTile", () => {
       playerId: "p2",
       now,
       cmdsTtlSec: 3600,
+      presenceStaleMs: 10_000,
     });
 
     expect(result).toMatchObject({ state: { pool: ["A"], turnPlayerId: "p2" } });
@@ -187,6 +193,7 @@ describe("applyTurnTile", () => {
       playerId: "p2",
       now,
       cmdsTtlSec: 3600,
+      presenceStaleMs: 10_000,
     });
 
     expect(result).toEqual({ error: "NotYourTurn" });
@@ -211,6 +218,7 @@ describe("applyTurnTile", () => {
       playerId: "p2",
       now,
       cmdsTtlSec: 3600,
+      presenceStaleMs: 10_000,
     });
 
     expect(result).toMatchObject({ state: { pool: ["A"], turnPlayerId: "p2" } });
@@ -246,6 +254,7 @@ describe("applyTurnTile", () => {
       playerId: "p1",
       now,
       cmdsTtlSec: 3600,
+      presenceStaleMs: 10_000,
     });
 
     // Turn stays with p1 (the only reachable player) — never handed to the
@@ -277,6 +286,7 @@ describe("applyTurnTile", () => {
       playerId: "p1",
       now,
       cmdsTtlSec: 3600,
+      presenceStaleMs: 10_000,
     });
 
     // Exactly one tile drawn (not one per skipped player), landing on p4,
@@ -297,6 +307,7 @@ describe("applyTurnTile", () => {
       playerId: "p1",
       now,
       cmdsTtlSec: 3600,
+      presenceStaleMs: 10_000,
     });
     const second = await applyTurnTile(redis, {
       ...KEYS,
@@ -304,6 +315,7 @@ describe("applyTurnTile", () => {
       playerId: "p1",
       now: now + 5000,
       cmdsTtlSec: 3600,
+      presenceStaleMs: 10_000,
     });
 
     expect(second).toEqual(first);
@@ -319,6 +331,7 @@ describe("applyTurnTile", () => {
       playerId: "p1",
       now,
       cmdsTtlSec: 3600,
+      presenceStaleMs: 10_000,
     });
 
     expect(result).toMatchObject({ state: { bankCount: 0, pool: [] } });
@@ -334,6 +347,7 @@ describe("applyTurnTile", () => {
       playerId: "p1",
       now,
       cmdsTtlSec: 3600,
+      presenceStaleMs: 10_000,
     });
 
     expect(result).toMatchObject({ state: { bankCount: 0, endGameDeadline: now + 60_000 } });
@@ -349,6 +363,7 @@ describe("applyTurnTile", () => {
       playerId: "p1",
       now,
       cmdsTtlSec: 3600,
+      presenceStaleMs: 10_000,
     });
 
     if (!("state" in result)) throw new Error("expected success");
@@ -377,6 +392,7 @@ describe("applyTurnTile", () => {
         playerId: "p2",
         now,
         cmdsTtlSec: 3600,
+        presenceStaleMs: 10_000,
       }),
       applyTurnTile(redis, {
         ...KEYS,
@@ -384,6 +400,7 @@ describe("applyTurnTile", () => {
         playerId: "p3",
         now,
         cmdsTtlSec: 3600,
+        presenceStaleMs: 10_000,
       }),
     ]);
 
@@ -424,6 +441,7 @@ describe("applyTurnTile", () => {
         playerId: "p1",
         now,
         cmdsTtlSec: 3600,
+        presenceStaleMs: 10_000,
         observedTurnDeadline: originalDeadline,
       }),
       applyTurnTile(redis, {
@@ -432,6 +450,7 @@ describe("applyTurnTile", () => {
         playerId: "p2",
         now,
         cmdsTtlSec: 3600,
+        presenceStaleMs: 10_000,
         observedTurnDeadline: originalDeadline,
       }),
     ]);

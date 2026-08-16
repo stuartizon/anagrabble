@@ -32,15 +32,17 @@ if state.bankCount <= 0 then
   return stateRaw
 end
 
--- "Unreachable" mirrors apps/server/src/lobby.ts's isReachable() exactly
--- (PRESENCE_STALE_MS must stay in sync between the two, Lua can't share the
--- TS constant) — see docs/decisions.md "Player presence:
--- connected/disconnected/left tracking". Missing lastSeenAt (shouldn't
--- happen for a real game, but possible for state persisted before this
--- field existed) defaults to "just seen" rather than "long gone", failing
--- open during a rollout window instead of mass-skipping every in-flight
--- game's current turn the instant this deploys.
-local PRESENCE_STALE_MS = 20000
+-- "Unreachable" mirrors apps/server/src/lobby.ts's isReachable() exactly.
+-- PRESENCE_STALE_MS arrives as ARGV[6] rather than a Lua literal — Redis's
+-- sandboxed Lua has no io/os libraries, so it can't read a config file or
+-- env var itself; apps/server/src/lobby.ts's exported constant is the sole
+-- source of truth, passed in on every call. See docs/decisions.md "Player
+-- presence: connected/disconnected/left tracking". Missing lastSeenAt
+-- (shouldn't happen for a real game, but possible for state persisted
+-- before this field existed) defaults to "just seen" rather than "long
+-- gone", failing open during a rollout window instead of mass-skipping
+-- every in-flight game's current turn the instant this deploys.
+local PRESENCE_STALE_MS = tonumber(ARGV[6])
 local now = tonumber(ARGV[3])
 
 local function isReachable(player)

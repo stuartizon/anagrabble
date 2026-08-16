@@ -2972,11 +2972,42 @@ just Vitest.
   refactor `useGameSocket.ts` to derive its WS URL from `API_URL` (scheme
   swap: `http:`→`ws:`, `https:`→`wss:`); (2) remove the standalone `WS_URL`
   entry from `env.js`.
-- **Hand-written Lua vs. a query-builder/wrapper for `packages/redis`.** Not
-  yet discussed with the user at all — flagged 2026-08-11 as worth an actual
-  pros/cons conversation before treating "hand-written Lua" as settled
-  precedent for anything else (e.g. it was cited, questionably, as prior art
-  for the original plain-`pg`-no-ORM pick above).
+- **Hand-written Lua vs. a query-builder/wrapper for `packages/redis`.**
+  Flagged 2026-08-11 as worth an actual pros/cons conversation before
+  treating "hand-written Lua" as settled precedent for anything else (e.g.
+  it was cited, questionably, as prior art for the original plain-`pg`-no-
+  ORM pick above). **Discussed 2026-08-17, kept as-is**: there isn't really
+  a "Redis query builder" category the way SQL has Kysely/Knex — the
+  complexity in these scripts is business logic (turn-ownership walking,
+  reachability, dedup), not command composition, so a builder/DSL wouldn't
+  earn its keep, especially given CLAUDE.md's "Word resolution
+  implementation split" already keeps Lua scripts small/auditable by
+  policy. Two smaller, concrete alternatives were prototyped and both
+  backed out rather than adopted:
+  - **`defineCommand`-registered custom commands** (`redis.applyTurnTile`
+    etc.) instead of each wrapper calling `redis.eval(SCRIPT, numberOfKeys,
+...)` by hand — built and fully working (ioredis manages
+    `EVALSHA`-with-fallback, `numberOfKeys` declared once), but reverted:
+    the actual wins (one fewer literal to duplicate, wire bandwidth that
+    doesn't matter at this script size) didn't clearly justify the added
+    surface area (a new file's worth of `declare module "ioredis"`
+    boilerplate per command) at only 4 scripts total. Same "revisit once
+    real usage justifies it" bar this file applies to Redis HA and the
+    turn-timer sweep — not ruled out for later, just not worth it yet.
+  - **Consolidating the `words:{}`/`pool:{}` → `[]` empty-array patch**
+    (lua-cjson can't distinguish an empty table from an empty object) into
+    one shared TS helper — considered, found not viable rather than just
+    not worth it: the patch happens _before_ each script's own
+    `redis.call('SET', ...)`, so it fixes the **persisted** value, not just
+    the return value. Moving it to a TS-side post-processing step would
+    silently reintroduce the bug in storage while only masking it for
+    whoever reads it back through that one wrapper — caught by the existing
+    test that asserts the raw stored bytes, not just the returned value.
+    Redis's sandboxed Lua also has no `require`/shared globals across
+    separate `EVAL` scripts, so there's no way to factor it into shared
+    _Lua_ code either. That duplication (4 near-identical `string.gsub`
+    pairs, one per script) is inherent to the architecture, not a refactor
+    target.
 - **Turn-timer polling sweep** — see "Game rules" above.
 - **Evaluating Cloudflare Pages for frontend hosting**, raised 2026-08-14
   after repeated friction getting a permanent Dev environment working on

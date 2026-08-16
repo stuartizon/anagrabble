@@ -69,7 +69,8 @@ an actor model, why Railway over AWS, why these deployment/hosting picks, etc.).
 
 ```
 docker-compose.yml  Local dev stack — Redis, Postgres, the backend server, a
-                     one-shot mock-stats seed, and Adminer
+                     one-shot mock-stats seed, and (opt-in via the `tools`
+                     profile) Adminer and RedisInsight
 apps/server/     Stateless WebSocket/HTTP gateway
 apps/web/        Frontend — React + Vite
 packages/game/   Domain logic: word resolution, steal rules, dictionary validation
@@ -102,6 +103,17 @@ watch`/`vite` respectively, so editing `apps/server`, `apps/web`, or
 `packages/*` reloads live — no rebuild needed. Only rebuild (`docker compose
 up -d --build`) when the toolchain itself changes (Node/pnpm version, or
 `infrastructure/dev.Dockerfile`).
+
+Two more containers — Adminer (Postgres tables, `http://localhost:8081`) and
+RedisInsight (live Redis game/lobby state, `http://localhost:8082`,
+pre-connected to the `redis` service, no manual "add database" step) — sit
+behind the `tools` Compose profile, so a plain `docker compose up` skips
+them:
+
+```bash
+docker compose --profile tools up -d
+# or: COMPOSE_PROFILES=tools docker compose up -d, to have them up by default
+```
 
 ### Environment variables
 
@@ -187,8 +199,8 @@ reusing them if already running), independent of the `server` container in
 `docker-compose.yml` — so this needs:
 
 - Just `docker compose up redis postgres -d` (the dockerized `server`,
-  `seed-mock-stats`, and `adminer` aren't used by this path, no need to
-  bring them up).
+  `seed-mock-stats`, and the `tools`-profile containers aren't used by this
+  path, no need to bring them up).
 - `apps/server/.env` set up (`cp apps/server/.env.example apps/server/.env`,
   then set `AUTH_MODE=mock` in it — blank by default in the template),
   since Playwright's spawned server reads its config from that file, not

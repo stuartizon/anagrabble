@@ -31,14 +31,41 @@ services:
   # Local dev only, for visually inspecting the postgres service's tables —
   # not part of the deployed stack. Login form at ADMINER_DEFAULT_SERVER,
   # credentials same as the postgres service above (user/pass/db: anagrabble).
+  # Opt-in via the `tools` profile (not started by a plain `docker compose
+  # up`) — see redisinsight below for the same pattern.
   adminer:
     image: adminer
+    profiles: ["tools"]
     environment:
       ADMINER_DEFAULT_SERVER: postgres
     ports:
       - "8081:8080"
     depends_on:
       postgres:
+        condition: service_healthy
+
+  # Local dev only, for visually inspecting live Redis game/lobby state —
+  # not part of the deployed stack. Opt-in via the `tools` profile, same as
+  # adminer above: `docker compose --profile tools up`, or add
+  # `COMPOSE_PROFILES=tools` to your shell/.env for it up by default
+  # locally. UI at localhost:8082, pre-connected to the `redis` service via
+  # RI_REDIS_* (RedisInsight's own preconfiguration convention) — no manual
+  # "add database" step needed. Note this env-based config is re-applied,
+  # and any manually-added connections wiped, on every container restart —
+  # fine here since RI_REDIS_* already covers the only database we want.
+  redisinsight:
+    image: redis/redisinsight:latest
+    profiles: ["tools"]
+    environment:
+      RI_REDIS_HOST: redis
+      RI_REDIS_PORT: 6379
+      RI_REDIS_ALIAS: anagrabble-dev
+    ports:
+      - "8082:5540"
+    volumes:
+      - redisinsight-data:/data
+    depends_on:
+      redis:
         condition: service_healthy
 
   server:
@@ -169,6 +196,7 @@ services:
 
 volumes:
   postgres-data:
+  redisinsight-data:
   pnpm-store:
   server_root_node_modules:
   server_app_node_modules:

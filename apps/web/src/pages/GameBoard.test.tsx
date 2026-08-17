@@ -3,7 +3,12 @@ import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LobbySnapshot, PlayerState } from "@anagrabble/protocol";
-import type { GameSocketError, SocketStatus, WordPlayNarration } from "../useGameSocket";
+import type {
+  GameSocketError,
+  HistoryEntry,
+  SocketStatus,
+  WordPlayNarration,
+} from "../useGameSocket";
 import { mockSignedOutClerk } from "../testUtils/clerkTestMock";
 import { GameBoard } from "./GameBoard";
 import styles from "./GameBoard.module.css";
@@ -42,7 +47,7 @@ type BoardProps = {
   lobby?: LobbySnapshot;
   error?: GameSocketError | null;
   wordPlay?: WordPlayNarration | null;
-  history?: WordPlayNarration[];
+  history?: HistoryEntry[];
   status?: SocketStatus;
   leaving?: boolean;
   leaveError?: string | null;
@@ -426,10 +431,10 @@ describe("GameBoard", () => {
     expect(screen.getByText("raw server message")).toBeInTheDocument();
   });
 
-  it("shows empty-state copy for history when nobody has played yet", () => {
+  it("shows empty-state copy for history when nothing has happened yet", () => {
     renderBoard();
 
-    expect(screen.getByText("No words played yet.")).toBeInTheDocument();
+    expect(screen.getByText("Nothing has happened yet.")).toBeInTheDocument();
   });
 
   it("opens the mobile menu with players and invite link (no history — not part of the design's mobile menu), and closes via the close button", async () => {
@@ -440,7 +445,7 @@ describe("GameBoard", () => {
           { ...OPPONENT, score: 7 },
         ],
       }),
-      history: [{ seq: 2, playerId: "me-1", word: "TAR", usedWords: [] }],
+      history: [{ kind: "wordPlay", seq: 2, playerId: "me-1", word: "TAR", usedWords: [] }],
     });
 
     expect(screen.queryByTestId("mobile-menu")).not.toBeInTheDocument();
@@ -473,8 +478,14 @@ describe("GameBoard", () => {
   it("lists history entries newest-first, narrated in the third person for every player", () => {
     renderBoard({
       history: [
-        { seq: 2, playerId: "me-1", word: "TAR", usedWords: [] },
-        { seq: 3, playerId: "opp-1", word: "CAST", usedWords: [{ word: "CAT", ownerId: "me-1" }] },
+        { kind: "wordPlay", seq: 2, playerId: "me-1", word: "TAR", usedWords: [] },
+        {
+          kind: "wordPlay",
+          seq: 3,
+          playerId: "opp-1",
+          word: "CAST",
+          usedWords: [{ word: "CAT", ownerId: "me-1" }],
+        },
       ],
     });
 
@@ -483,6 +494,18 @@ describe("GameBoard", () => {
       "Sam stole CAT from Me → CAST",
       "Me played TAR",
     ]);
+  });
+
+  it("narrates a player joining the game in the history panel", () => {
+    renderBoard({
+      history: [
+        { kind: "wordPlay", seq: 2, playerId: "me-1", word: "TAR", usedWords: [] },
+        { kind: "playerJoined", seq: 3, playerId: "opp-1" },
+      ],
+    });
+
+    const rows = screen.getAllByText(/played|joined/);
+    expect(rows.map((r) => r.textContent)).toEqual(["Sam joined the game", "Me played TAR"]);
   });
 
   it("shows the idle countdown once the bank is empty but the game is still playing", () => {

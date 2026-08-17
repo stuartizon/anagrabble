@@ -140,7 +140,10 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
       surviving a reconnect — see docs/decisions.md "History panel is
       client-side only, not persisted anywhere server-side". Player
       word-count badges are a separate follow-up piece of work, not bundled
-      here.
+      here. Extended (2026-08-17) to also narrate a player joining the game
+      (from the existing `PlayerJoined` event); connect/disconnect/reconnect
+      narration was considered and deliberately left out as likely noise —
+      see the same docs/decisions.md entry's 2026-08-17 update.
 - [x] As a player, once the tile bank is empty, the game auto-ends after an idle
       period with no new words played (idle countdown resets on every play — see
       CLAUDE.md "Game-end condition"). Not a live-consensus mechanic for MVP.

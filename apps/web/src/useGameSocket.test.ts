@@ -239,6 +239,43 @@ describe("useGameSocket reconnection", () => {
     expect(result.current.history).toHaveLength(1);
     expect(result.current.lobby).toEqual(lobby);
   });
+
+  it("appends a playerJoined history entry from a PlayerJoined event", async () => {
+    const { result } = renderHook(() => useGameSocket("game-1"));
+    await flush();
+    const socket1 = MockWebSocket.instances[0]!;
+    await act(async () => socket1.emitOpen());
+
+    const lobby = {
+      gameId: "game-1",
+      hostId: "host-1",
+      status: "playing",
+      seq: 2,
+      config: { turnTimerSec: 30, minWordLength: 3, language: "en" },
+      turnPlayerId: "host-1",
+      turnDeadline: null,
+      endGameDeadline: null,
+      bankCount: 0,
+      pool: [],
+      players: [{ id: "opp-1", name: "Sam", words: [], score: 0, presence: "connected" }],
+    };
+    const playerJoined = {
+      type: "PlayerJoined",
+      seq: 2,
+      gameId: "game-1",
+      player: { id: "opp-1", name: "Sam", words: [], score: 0 },
+      lobby,
+    };
+
+    await act(async () => {
+      for (const cb of socket1.listeners.message ?? []) {
+        cb({ data: JSON.stringify(playerJoined) });
+      }
+    });
+
+    expect(result.current.history).toEqual([{ kind: "playerJoined", seq: 2, playerId: "opp-1" }]);
+    expect(result.current.lobby).toEqual(lobby);
+  });
 });
 
 // The presence heartbeat — see docs/decisions.md "Player presence:

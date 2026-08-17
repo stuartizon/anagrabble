@@ -815,10 +815,19 @@ Game.dc.html`'s desktop rail already specifies — history is explicitly
   Redis's own HA/persistence concern — Sentinel/cluster, still undecided per
   "Redis hosting" below — and Postgres plays no role in it, deliberately);
   this is an ephemeral, per-viewer narration convenience with no
-  bearing on correctness. If a dropped-message gap ever needs to be visible
-  to players rather than just silently possible, the suggested next step
-  (not built) is narrating connect/disconnect events into the same history
-  list, so a viewer can at least tell something might be missing.
+  bearing on correctness. **Update (2026-08-17)**: `history` is now
+  `HistoryEntry[]` (`WordPlayNarration` rows plus a `PlayerJoinedHistoryEntry`
+  row), narrating a player joining the game — pulled straight from the real
+  `PlayerJoined` event, no new client logic beyond adding it to the array.
+  Connect/disconnect/reconnect narration was considered and deliberately
+  left out (not deferred): those aren't discrete server events at all
+  (presence writes don't bump `seq` or broadcast on their own — see
+  docs/redis-schema.md "Presence"), so showing them here would mean
+  client-side diffing of `players[].presence` across consecutive
+  snapshots — judged not worth the complexity and, per Stuart, likely to
+  read as noisy given how often presence flips in practice (a laptop lid
+  closing, a flaky mobile connection). "Joined" needed none of that, since
+  it already rides a real one-time event.
 - **Word input dock has no border/background at any width**: while matching
   the History panel to `design-system/In Game.dc.html`'s left rail (previous
   two entries), the mobile word-submission dock was also brought in line

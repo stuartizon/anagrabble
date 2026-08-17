@@ -39,6 +39,28 @@ export interface WordPlayNarration {
   usedWords: UsedWord[];
 }
 
+interface WordPlayHistoryEntry extends WordPlayNarration {
+  kind: "wordPlay";
+}
+
+/** A player joining the game — narrated from the real `PlayerJoined` event
+ * (fires on genuine first join, including mid-game; see apps/server's
+ * `joinGame`), not synthesized from a diff. */
+export interface PlayerJoinedHistoryEntry {
+  kind: "playerJoined";
+  seq: number;
+  playerId: string;
+}
+
+/** One row in the history panel — either a word play or a player joining.
+ * Deliberately doesn't cover connect/disconnect/reconnect: those aren't
+ * discrete server events (presence writes don't bump `seq` or broadcast on
+ * their own — see docs/redis-schema.md "Presence"), so showing them here
+ * would mean client-side diffing of `players[].presence` across snapshots —
+ * skipped as unnecessary noise for now (see docs/decisions.md "History
+ * panel is client-side only"). */
+export type HistoryEntry = WordPlayHistoryEntry | PlayerJoinedHistoryEntry;
+
 export interface GameSocketError {
   code: string;
   message: string;
@@ -54,16 +76,17 @@ interface GameSocketState {
   lobby: LobbySnapshot | null;
   error: GameSocketError | null;
   wordPlay: WordPlayNarration | null;
-  /** Every WordPlayed event seen this connection, oldest-first — unlike
-   * `wordPlay` (latest-only, for the toast), this accumulates for the
-   * history panel. Deliberately resets only when the effect below re-runs
-   * (a genuine new connection: fresh page load, or gameId change) — not on
-   * every message — so a mid-session reconnect (once that exists) can
-   * preserve it rather than trashing what's already shown. Purely
-   * client-side and ephemeral by design: nothing server-side persists a
-   * play log today, so a fresh page load legitimately starts from empty
-   * (see docs/decisions.md "History panel is client-side only"). */
-  history: WordPlayNarration[];
+  /** Every WordPlayed and PlayerJoined event seen this connection,
+   * oldest-first — unlike `wordPlay` (latest-only, for the toast), this
+   * accumulates for the history panel. Deliberately resets only when the
+   * effect below re-runs (a genuine new connection: fresh page load, or
+   * gameId change) — not on every message — so a mid-session reconnect
+   * (once that exists) can preserve it rather than trashing what's already
+   * shown. Purely client-side and ephemeral by design: nothing server-side
+   * persists a play log today, so a fresh page load legitimately starts
+   * from empty (see docs/decisions.md "History panel is client-side
+   * only"). */
+  history: HistoryEntry[];
 }
 
 /** Opens (and re-opens, on gameId change) a WebSocket scoped to one lobby
@@ -192,14 +215,28 @@ export function useGameSocket(gameId?: string) {
             lobby: message.lobby,
             error: null,
             wordPlay: narration,
-            history: [...s.history, narration],
+            history: [...s.history, { kind: "wordPlay", ...narration }],
+          }));
+          return;
+        }
+
+        if (message.type === "PlayerJoined") {
+          const joined: PlayerJoinedHistoryEntry = {
+            kind: "playerJoined",
+            seq: message.seq,
+            playerId: message.player.id,
+          };
+          setState((s) => ({
+            ...s,
+            lobby: message.lobby,
+            error: null,
+            history: [...s.history, joined],
           }));
           return;
         }
 
         if (
           message.type === "LobbyState" ||
-          message.type === "PlayerJoined" ||
           message.type === "PlayerLeft" ||
           message.type === "GameStarted" ||
           message.type === "TileTurned" ||

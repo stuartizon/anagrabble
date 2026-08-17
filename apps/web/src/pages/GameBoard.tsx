@@ -11,7 +11,12 @@ import { EndGameCountdown } from "../components/EndGameCountdown";
 import { LeaveGameConfirm } from "../components/LeaveGameConfirm";
 import { makeCommandId } from "../gameId";
 import { assignPlayerColors } from "../playerColors";
-import type { GameSocketError, SocketStatus, WordPlayNarration } from "../useGameSocket";
+import type {
+  GameSocketError,
+  HistoryEntry,
+  SocketStatus,
+  WordPlayNarration,
+} from "../useGameSocket";
 import { useVisualViewportHeight } from "../useVisualViewportHeight";
 import { presenceLabel } from "../presenceLabel";
 import { cx } from "../cx";
@@ -34,7 +39,7 @@ interface GameBoardProps {
   send: (command: Command) => void;
   error: GameSocketError | null;
   wordPlay: WordPlayNarration | null;
-  history: WordPlayNarration[];
+  history: HistoryEntry[];
   status: SocketStatus;
   onLeaveGame: () => void;
   leaving: boolean;
@@ -147,6 +152,10 @@ function narrateOwnPlay(lobby: LobbySnapshot, play: WordPlayNarration): string {
   return describePlay("You", lobby, play);
 }
 
+function describeJoined(name: string): string {
+  return `${name} joined the game`;
+}
+
 const MESSAGE_DISMISS_MS = 2500;
 
 // The post-bank-empty idle timeout (CLAUDE.md "Game-end condition") is
@@ -222,26 +231,29 @@ function HistorySection({
 }: {
   lobby: LobbySnapshot;
   colors: Map<string, string>;
-  history: WordPlayNarration[];
+  history: HistoryEntry[];
 }) {
   return (
     <div className={styles.historySection}>
       <div className={styles.poolLabel}>History</div>
       <div className={styles.historyList}>
         {history.length === 0 ? (
-          <span className={styles.wordsEmpty}>No words played yet.</span>
+          <span className={styles.wordsEmpty}>Nothing has happened yet.</span>
         ) : (
-          [...history].reverse().map((entry) => (
-            <div key={entry.seq} className={styles.historyEntry}>
-              <span
-                className={styles.historyDot}
-                style={{ background: colors.get(entry.playerId) }}
-              />
-              <span className={styles.historyText}>
-                {describePlay(playerName(lobby, entry.playerId), lobby, entry)}
-              </span>
-            </div>
-          ))
+          [...history].reverse().map((entry) => {
+            const name = playerName(lobby, entry.playerId);
+            const text =
+              entry.kind === "wordPlay" ? describePlay(name, lobby, entry) : describeJoined(name);
+            return (
+              <div key={entry.seq} className={styles.historyEntry}>
+                <span
+                  className={styles.historyDot}
+                  style={{ background: colors.get(entry.playerId) }}
+                />
+                <span className={styles.historyText}>{text}</span>
+              </div>
+            );
+          })
         )}
       </div>
     </div>

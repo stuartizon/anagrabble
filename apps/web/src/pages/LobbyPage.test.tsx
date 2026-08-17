@@ -1,5 +1,5 @@
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LobbySnapshot, PlayerState } from "@anagrabble/protocol";
@@ -255,6 +255,27 @@ describe("LobbyPage", () => {
         gameId: "ABCDE",
         playerName: "Guest",
       });
+    });
+
+    it("leaving mid-game navigates home directly, without the pre-start REST call", async () => {
+      mockSocket({
+        lobby: lobbySnapshot({
+          status: "playing",
+          players: [HOST, GUEST],
+          bankCount: 143,
+          pool: ["A"],
+          turnPlayerId: "host-1",
+          turnDeadline: Date.now() + 30_000,
+        }),
+      });
+      renderAsPlayer("host-1");
+
+      await userEvent.click(screen.getByRole("button", { name: "Leave game" }));
+      const dialog = within(screen.getByRole("dialog", { name: "Leave this game?" }));
+      await userEvent.click(dialog.getByRole("button", { name: "Leave game" }));
+
+      expect(leaveGameRequest).not.toHaveBeenCalled();
+      expect(await screen.findByText("Home")).toBeInTheDocument();
     });
   });
 

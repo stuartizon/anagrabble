@@ -118,12 +118,16 @@ export async function handleCreateGameRequest(
 /** POST /games/:gameId/leave — see docs/decisions.md "Player presence:
  * connected/disconnected tracking". A deliberate, explicit leave,
  * distinct from a connection dropping: no grace period, since nothing here
- * is inferred. Delegates to lobby.ts's leaveGame() (unchanged by this
- * feature — it's already correctly a no-op once the game has started).
- * `removed: false` on success means leaveGame() no-opped (already started,
- * or this player wasn't actually seated) — the caller (apps/server/src/
- * index.ts) uses that to decide whether a PlayerLeft broadcast is
- * warranted, since a no-op has nothing to announce. */
+ * is inferred. Delegates to lobby.ts's leaveGame(). `LobbyPage.tsx` only
+ * calls this endpoint pre-start now — mid-game it navigates away directly
+ * without hitting this route, since a mid-game "leave" is just a socket
+ * close (tracked via presence, not membership). `removed: false` on
+ * success means leaveGame() no-opped — today that's only the rare race of
+ * a client whose local game status is still briefly stale right as the
+ * host starts the game, or a player who wasn't actually seated — the
+ * caller (apps/server/src/index.ts) uses that to decide whether a
+ * PlayerLeft broadcast is warranted, since a no-op has nothing to
+ * announce. */
 export async function handleLeaveGameRequest(
   redis: Redis,
   clerkSecretKey: string,

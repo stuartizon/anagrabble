@@ -196,9 +196,16 @@ export async function joinGame(
   return { snapshot: toLobbySnapshot(cmd.gameId, nextState), player, isNew: true };
 }
 
-/** Removes a player from a not-yet-started lobby (called on socket close).
- * No-op (returns null) once the game has started — there's no mid-game
- * leave yet, only mid-game join (see `joinGame` above). */
+/** Removes a player from a not-yet-started lobby. The only caller today is
+ * the explicit `POST /games/:gameId/leave` REST handler — not socket close,
+ * which only ever patches presence (`markDisconnected` in index.ts), never
+ * touches `players[]`. No-op (returns null) once the game has started:
+ * mid-game, nobody is ever removed from `players[]`, connected or not —
+ * that's the deliberate, permanent design (see docs/decisions.md "Player
+ * presence: connected/disconnected tracking"), not a gap pending a future
+ * mid-game leave. `LobbyPage.tsx` only calls this endpoint pre-start now;
+ * this no-op branch mainly guards the rare race where a client's local game
+ * status is still briefly stale right as the host starts the game. */
 export async function leaveGame(
   redis: Redis,
   gameId: string,

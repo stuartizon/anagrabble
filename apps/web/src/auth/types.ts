@@ -64,5 +64,8 @@ export interface AuthModule {
   Show: (props: { when: "signed-in" | "signed-out"; children: ReactNode }) => ReactNode;
   useSignIn: () => UseSignInResult;
   useSignUp: () => UseSignUpResult;
-  AuthenticateWithRedirectCallback: () => ReactNode;
+  AuthenticateWithRedirectCallback: (props: {
+    signInUrl?: string;
+    signUpUrl?: string;
+  }) => ReactNode;
 }

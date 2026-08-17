@@ -149,15 +149,25 @@ services:
       - web_app_node_modules:/repo/apps/web/node_modules
       - web_protocol_node_modules:/repo/packages/protocol/node_modules
       - pnpm-store:/pnpm-store
+    # env.js is gitignored (holds per-environment config, see "Environment
+    # variables" in README.md) — copy the template on every start rather
+    # than bind-mounting it, so a fresh checkout works with zero manual
+    # setup. -n: never clobber a real env.js a dev has already customized
+    # (e.g. to point at a real Clerk instance).
     command:
       [
         "sh",
         "-c",
-        "pnpm install --frozen-lockfile --store-dir /pnpm-store --filter @anagrabble/web... && pnpm --filter @anagrabble/web dev",
+        "cp -n apps/web/public/env.example.js apps/web/public/env.js && pnpm install --frozen-lockfile --store-dir /pnpm-store --filter @anagrabble/web... && pnpm --filter @anagrabble/web dev",
       ]
     environment:
       # See the same var on the server service above — no TTY here either.
       CI: "1"
+      # Vite reads any VITE_-prefixed process env var same as a .env file
+      # entry — set directly here rather than via apps/web/.env (gitignored,
+      # never auto-created) so a fresh checkout gets mock auth with zero
+      # manual setup, matching AUTH_MODE: mock on the server service above.
+      VITE_AUTH_MODE: mock
     ports:
       - "5173:5173"
 

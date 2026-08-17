@@ -5,6 +5,40 @@ rotating turn timer; any player, at any time, can claim a word formable from the
 revealed tiles, or steal existing claimed words by extending or combining them
 (CAT + S → CAST).
 
+## Stack
+
+|                 |                                                                                |
+| --------------- | ------------------------------------------------------------------------------ |
+| Backend         | Stateless Node.js service built with TypeScript, [fastify](https://fastify.dev/), [ws](https://github.com/websockets/ws),  [ioredis](https://github.com/redis/ioredis) |
+| Frontend        | React SPA built with Vite                                                      |
+| Live game state | Redis — authoritative; see `docs/redis-schema.md` for the key/shape convention |
+| Durable history | Postgres; see `docs/postgres-schema.md` for the schema                         |
+| Auth            | Clerk — see `docs/decisions.md` "Auth provider"                                |
+| Monorepo        | pnpm workspaces                                                                |
+| Testing         | Vitest (per-package; see `CLAUDE.md` "Testing strategy")                       |
+
+See `CLAUDE.md` for the full architecture rationale and conventions, and
+`docs/decisions.md` for the detailed reasoning behind each choice (why Redis over
+an actor model, why Railway over AWS, why these deployment/hosting picks, etc.).
+
+## Getting started
+To start the backend server, the frontend dev server, Redis and Postgres:
+
+```bash
+docker compose up -d
+```
+
+Open `http://localhost:5173`, create a game, and start playing.
+
+There are two additional containers which provide graphical interface tools:
+- Adminer (Postgres - `http://localhost:8081`)
+- RedisInsight (Redis - `http://localhost:8082`).
+
+These aren't part of the default profile; to spin these up, instead run:
+```bash
+docker compose --profile tools up -d
+```
+
 ## Environments
 
 | Environment | Frontend                                          | Server / API                                              |
@@ -21,119 +55,25 @@ Consoles:
 These console links require login credentials to access, so they're safe to
 list in this public repo.
 
-## Status
-
-Lobby, tile-turning, and word submission/stealing are all done end to end:
-create a game, share an invite link, join it, see connected players live,
-turn tiles from the bank (auto-advancing if a turn timer expires), claim/
-steal words, see a running play history (desktop-only), and the game
-auto-ends after a 60s idle period once the bank runs dry, landing on a
-ranked game-over summary — through real WebSocket/Redis state (no mocked
-data), verified in a real browser against the real backend. Verified
-playable end to end on a real mobile viewport too (menu overlay in place of
-the desktop sidebar, keyboard-safe layout, touch-sized tap targets). A
-dropped connection now reconnects itself (capped exponential backoff) and
-resyncs to current state automatically. A genuinely new player can also
-join a game already in progress, not just before it starts — see
-`docs/user-stories.md` for exact scope and what's still missing
-(history-panel backfill for the gap while disconnected, or for a late
-joiner's missing past, is the remaining non-functional story).
-Sign-up/log-in
-(email/password + Google, via Clerk, including password reset) gates
-gameplay — creating or joining a game requires being signed in, and
-player identity is the Clerk user id/account name, not a local stub. See
-docs/decisions.md "Auth provider" for why Clerk over a hand-rolled
-`users` table, and "Player identity: Clerk id, no anonymous play" for
-the identity/gating details. Durable Postgres history (games, word
-plays, final scores) is now written after every accepted `StartGame`/
-`SubmitWord`/`EndGame`, linked to that Clerk id — see
-`docs/postgres-schema.md`. A player can view their own stats across past
-games at `/stats` (games played, wins, win rate, average/highest score,
-longest word, win streak, lifetime totals, average game length),
-computed from that same durable history — see `docs/user-stories.md`. A
-player can also set interface language/sound/haptics preferences at
-`/settings`, persisted per-account in Postgres (`player_settings`).
-
-## Stack
-
-|                 |                                                                                |
-| --------------- | ------------------------------------------------------------------------------ |
-| Backend         | Node.js + TypeScript, Fastify (REST) + `ws` (WebSocket), Redis (`ioredis`)     |
-| Live game state | Redis — authoritative; see `docs/redis-schema.md` for the key/shape convention |
-| Durable history | Postgres, written after Redis accepts a move                                   |
-| Frontend        | Vite + React, `react-router-dom`                                               |
-| Auth            | Clerk (`@clerk/react`) — see `docs/decisions.md` "Auth provider"               |
-| Monorepo        | pnpm workspaces                                                                |
-| Testing         | Vitest (per-package; see `CLAUDE.md` "Testing strategy")                       |
-
-See `CLAUDE.md` for the full architecture rationale and conventions, and
-`docs/decisions.md` for the detailed reasoning behind each choice (why Redis over
-an actor model, why Railway over AWS, why these deployment/hosting picks, etc.).
-
 ## Repo structure
 
 ```
-docker-compose.yml  Local dev stack — Redis, Postgres, the backend server, a
-                     one-shot mock-stats seed, and (opt-in via the `tools`
-                     profile) Adminer and RedisInsight
-apps/server/     Stateless WebSocket/HTTP gateway
-apps/web/        Frontend — React + Vite
-packages/game/   Domain logic: word resolution, steal rules, dictionary validation
-packages/protocol/  Shared TS types: commands, events, WS message shapes
-packages/redis/  Lua scripts + typed Redis client wrapper
-infrastructure/  dev.Dockerfile — the toolchain image docker-compose.yml builds
-design-system/   Claude Design export — reference only, not a build dependency
-docs/            decisions.md, user-stories.md, redis-schema.md
+├── apps/
+│   ├── server/             # Stateless backend
+│   └── web/                # Frontend application
+├── packages/
+│   ├── game/               # Domain logic (word resolution, steal rules, dictionary validation)
+│   ├── protocol/           # Shared TS types (commands, events, WS message shapes)
+│   └── redis/              # Lua scripts + typed Redis client wrapper
+├── infrastructure/
+│   └── dev.Dockerfile      # Toolchain image for local dev used by docker compose
+├── design-system/          # Design export (reference only, not a build dependency)
+├── docs/                   # Decision records, user stories, Redis and Postgres schemas
+└── docker-compose.yml      # Local dev stack
 ```
 
-## Getting started
-
-Requires Node 22.22.2+, pnpm, and Docker.
-
-```bash
-pnpm install
-
-# copy the web app's env template, then fill it in if needed — see
-# "Environment variables" below
-cp apps/web/.env.example apps/web/.env
-
-# start everything — Redis, Postgres, the backend server, and the frontend
-# dev server, already wired to a mock auth mode that needs no real Clerk
-# account — via Docker
-docker compose up -d
-```
-
-The `server` and `web` containers bind-mount this checkout and run `tsx
-watch`/`vite` respectively, so editing `apps/server`, `apps/web`, or
-`packages/*` reloads live — no rebuild needed. Only rebuild (`docker compose
-up -d --build`) when the toolchain itself changes (Node/pnpm version, or
-`infrastructure/dev.Dockerfile`).
-
-Two more containers — Adminer (Postgres tables, `http://localhost:8081`) and
-RedisInsight (live Redis game/lobby state, `http://localhost:8082`,
-pre-connected to the `redis` service, no manual "add database" step) — sit
-behind the `tools` Compose profile, so a plain `docker compose up` skips
-them:
-
-```bash
-docker compose --profile tools up -d
-# or: COMPOSE_PROFILES=tools docker compose up -d, to have them up by default
-```
-
-### Environment variables
-
-`apps/web` reads most config at runtime, not build time — see
-`docs/decisions.md` "Runtime-injected frontend config, not build-time
-VITE_* vars". Copy `apps/web/public/env.example.js` to
-`apps/web/public/env.js` (gitignored) and fill in `WS_URL`
-(`ws://localhost:8080` for local dev) to reach the backend's WebSocket, and
-`API_URL` (`http://localhost:8080`) for its REST endpoints (`/stats` and
-beyond); neither has a built-in default, both throw on startup if unset.
-
-The one var still read from `apps/web`'s own `.env` (gitignored; see
-`apps/web/.env.example`) is `VITE_AUTH_MODE` — genuinely build-time, since
-it's only ever read locally via `pnpm dev`/`docker compose`, never part of
-a deployed build.
+## Authentication
+For local development we use a mock auth mode so we don't need a Clerk account. 
 
 **Auth defaults to a fully offline mock** — `docker-compose.yml` sets the
 backend's `AUTH_MODE=mock`, and `VITE_AUTH_MODE=mock` is `apps/web/.env.example`'s
@@ -173,9 +113,31 @@ mock` to blank in that same file for the `server` service:
   re-reads on every page load, so editing `CLERK_PUBLISHABLE_KEY` there
   just needs a browser refresh.
 
-Open `http://localhost:5173`, create a game, then open the invite link
-(shown in the lobby) in a second tab/browser to join it — players should
-appear on both sides live.
+
+## Environment variables
+The backend server is configured with the following environment variables:
+- DATABASE_URL - the connection string for Postgres
+- REDIS_URL - the connection string for Redis
+- PORT - the port to start the service on
+- AUTH_MODE - if set to mock, then it supresses token signature checks. For local dev only; don't set in deployed environments 
+- CLERK_SECRET_KEY - the secret key provided by Clerk for this environment. Not required if in mock AUTH_MODE
+- WEB_ORIGIN - location of the front end, needed for CORS support
+
+The frontend is configured with the following variables:
+- API_URL - the backend server's HTTP origin for REST endpoints
+- WS_URL - the backend server's WS origin
+- CLERK_PUBLISHABLE_KEY - the safe to expose key provided by Clerk for this environment. Not required if in mock AUTH_MODE
+
+Unlike the backend, the frontend does not run on a server when deployed. It's just a bunch of assets in a bucket. So these environment variables are provided via an env.js file uploaded to the bucket alongside.
+
+There is also a build time key for using mock auth, again in local dev only.
+- VITE_AUTH_MODE - if set to mock, then the frontend makes zero calls to Clerk and login users are provided by local mock data.
+
+If you use the docker compose setup described above, all of this is pre-configured. To run the vite dev server and/or the backend outside of docker, make sure to copy:
+- /apps/server/.env.example → /apps/server/.env
+- /apps/web/.env.example → /apps/web/.env
+- /apps/web/public/env.example.js → /apps/web/public/env.js
+
 
 ## Testing
 

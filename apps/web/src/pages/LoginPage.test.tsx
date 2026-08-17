@@ -99,12 +99,25 @@ describe("LoginPage", () => {
     expect(await screen.findByText("The lobby")).toBeInTheDocument();
   });
 
-  it("requires email and password before submitting a login", async () => {
+  it("requires email and password before submitting a login, on their own fields", async () => {
     renderPage();
 
     await userEvent.click(screen.getByRole("button", { name: "Log in" }));
 
-    expect(screen.getByText("Required")).toBeInTheDocument();
+    expect(screen.getAllByText("Required")).toHaveLength(2);
+    expect(signInCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("only flags the empty field as Required when the other is filled in", async () => {
+    renderPage();
+
+    const emailField = screen.getByLabelText("Email").closest("label");
+    const passwordField = screen.getByLabelText("Password").closest("label");
+    await userEvent.type(screen.getByLabelText("Email"), "alex@example.com");
+    await userEvent.click(screen.getByRole("button", { name: "Log in" }));
+
+    expect(passwordField).toHaveTextContent("Required");
+    expect(emailField).not.toHaveTextContent("Required");
     expect(signInCreateMock).not.toHaveBeenCalled();
   });
 
@@ -134,6 +147,54 @@ describe("LoginPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Log in" }));
 
     expect(await screen.findByText("Incorrect password")).toBeInTheDocument();
+  });
+
+  it("highlights the email field when the account doesn't exist", async () => {
+    signInCreateMock.mockRejectedValue({
+      errors: [{ message: "Couldn't find your account", meta: { paramName: "identifier" } }],
+    });
+    renderPage();
+
+    const emailField = screen.getByLabelText("Email").closest("label");
+    await userEvent.type(screen.getByLabelText("Email"), "nobody@example.com");
+    await userEvent.type(screen.getByLabelText("Password"), "whatever");
+    await userEvent.click(screen.getByRole("button", { name: "Log in" }));
+
+    const message = await screen.findByText("Couldn't find your account");
+    expect(emailField).toContainElement(message);
+  });
+
+  it("highlights the password field when the password is wrong", async () => {
+    signInCreateMock.mockRejectedValue({
+      errors: [
+        {
+          message: "Password is incorrect. Try again, or use another method.",
+          meta: { paramName: "password" },
+        },
+      ],
+    });
+    renderPage();
+
+    const passwordField = screen.getByLabelText("Password").closest("label");
+    await userEvent.type(screen.getByLabelText("Email"), "alex@example.com");
+    await userEvent.type(screen.getByLabelText("Password"), "wrong-password");
+    await userEvent.click(screen.getByRole("button", { name: "Log in" }));
+
+    const message = await screen.findByText(
+      "Password is incorrect. Try again, or use another method.",
+    );
+    expect(passwordField).toContainElement(message);
+  });
+
+  it("catches a malformed email client-side, without calling Clerk", async () => {
+    renderPage();
+
+    await userEvent.type(screen.getByLabelText("Email"), "not-an-email");
+    await userEvent.type(screen.getByLabelText("Password"), "correct-password");
+    await userEvent.click(screen.getByRole("button", { name: "Log in" }));
+
+    expect(screen.getByText("Email address must be a valid email address.")).toBeInTheDocument();
+    expect(signInCreateMock).not.toHaveBeenCalled();
   });
 
   it("starts the Google redirect flow when clicked", async () => {
@@ -243,6 +304,27 @@ describe("LoginPage", () => {
       });
       expect(setActiveSignInMock).toHaveBeenCalledWith({ session: "sess_3" });
       expect(await screen.findByText("Home")).toBeInTheDocument();
+    });
+
+    it("highlights the code field, not confirm password, when the code is wrong", async () => {
+      signInCreateMock.mockResolvedValue({});
+      attemptFirstFactorMock.mockRejectedValue({
+        errors: [{ message: "Incorrect code", meta: { paramName: "code" } }],
+      });
+      renderPage();
+
+      await userEvent.click(screen.getByRole("link", { name: "Forgot password?" }));
+      await userEvent.type(screen.getByLabelText("Email"), "alex@example.com");
+      await userEvent.click(screen.getByRole("button", { name: "Send reset code" }));
+
+      const codeField = (await screen.findByLabelText("Verification code")).closest("label");
+      await userEvent.type(screen.getByLabelText("Verification code"), "000000");
+      await userEvent.type(screen.getByLabelText("New password"), "new-password");
+      await userEvent.type(screen.getByLabelText("Confirm new password"), "new-password");
+      await userEvent.click(screen.getByRole("button", { name: "Reset password" }));
+
+      const message = await screen.findByText("Incorrect code");
+      expect(codeField).toContainElement(message);
     });
 
     it("rejects a mismatched password confirmation without calling Clerk", async () => {

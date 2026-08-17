@@ -37,13 +37,46 @@ type ResetStep = "request" | "code";
 
 const OAUTH_REDIRECT_URL = "/sso-callback";
 
-function errorMessage(err: unknown): string {
-  const clerkError = err as { errors?: Array<{ longMessage?: string; message?: string }> };
-  return (
-    clerkError.errors?.[0]?.longMessage ??
-    clerkError.errors?.[0]?.message ??
-    "Something went wrong."
-  );
+// Which field an error belongs to, "form" being a catch-all banner for
+// errors that aren't about any single field (e.g. an OAuth redirect
+// failure, or a Clerk error code we don't have a mapping for).
+type FieldKey = "firstName" | "email" | "password" | "confirmPassword" | "code" | "form";
+type FieldErrors = Partial<Record<FieldKey, string>>;
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Clerk's API errors carry a `meta.paramName` identifying which submitted
+// field the error is about (e.g. "identifier" for "no such account",
+// "password" for "wrong password" or "too short") — this repo's forms
+// reuse `password` for both the login/signup password field and the
+// reset flow's "New password" field, so both route here correctly.
+function fieldForParamName(paramName: string | undefined): FieldKey {
+  switch (paramName) {
+    case "identifier":
+    case "email_address":
+      return "email";
+    case "password":
+      return "password";
+    case "code":
+      return "code";
+    case "first_name":
+      return "firstName";
+    default:
+      return "form";
+  }
+}
+
+function fieldErrorsFromClerkError(err: unknown): FieldErrors {
+  const clerkError = err as {
+    errors?: Array<{ message: string; longMessage?: string; meta?: { paramName?: string } }>;
+  };
+  const errors = clerkError.errors ?? [];
+  if (errors.length === 0) return { form: "Something went wrong." };
+  const result: FieldErrors = {};
+  for (const error of errors) {
+    result[fieldForParamName(error.meta?.paramName)] = error.longMessage ?? error.message;
+  }
+  return result;
 }
 
 export function LoginPage() {
@@ -62,7 +95,7 @@ export function LoginPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [code, setCode] = useState("");
   const [pendingVerification, setPendingVerification] = useState(false);
-  const [formError, setFormError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
 
   if (isSignedIn) {
@@ -71,13 +104,13 @@ export function LoginPage() {
 
   const switchMode = (next: Mode) => {
     setMode(next);
-    setFormError("");
+    setFieldErrors({});
   };
 
   const showReset = () => {
     setMode("reset");
     setResetStep("request");
-    setFormError("");
+    setFieldErrors({});
   };
 
   const backToLogin = () => {
@@ -86,12 +119,12 @@ export function LoginPage() {
     setCode("");
     setPassword("");
     setConfirmPassword("");
-    setFormError("");
+    setFieldErrors({});
   };
 
   const signInWithGoogle = async () => {
     if (!signInLoaded) return;
-    setFormError("");
+    setFieldErrors({});
     try {
       await signIn.authenticateWithRedirect({
         strategy: "oauth_google",
@@ -99,7 +132,7 @@ export function LoginPage() {
         redirectUrlComplete: from,
       });
     } catch (err) {
-      setFormError(errorMessage(err));
+      setFieldErrors(fieldErrorsFromClerkError(err));
     }
   };
 
@@ -120,7 +153,7 @@ export function LoginPage() {
       navigate(from, { replace: true });
       return;
     }
-    setFormError("Couldn't log you in — check your email and password.");
+    setFieldErrors({ form: "Couldn't log you in — check your email and password." });
   };
 
   const submitSignup = async () => {
@@ -143,17 +176,22 @@ export function LoginPage() {
 
   const requestReset = async (e: FormEvent) => {
     e.preventDefault();
-    if (!signInLoaded || !email.trim()) {
-      setFormError("Required");
+    if (!signInLoaded) return;
+    if (!email.trim()) {
+      setFieldErrors({ email: "Required" });
       return;
     }
-    setFormError("");
+    if (!EMAIL_PATTERN.test(email.trim())) {
+      setFieldErrors({ email: "Email address must be a valid email address." });
+      return;
+    }
+    setFieldErrors({});
     setSubmitting(true);
     try {
       await signIn.create({ strategy: "reset_password_email_code", identifier: email.trim() });
       setResetStep("code");
     } catch (err) {
-      setFormError(errorMessage(err));
+      setFieldErrors(fieldErrorsFromClerkError(err));
     } finally {
       setSubmitting(false);
     }
@@ -161,15 +199,19 @@ export function LoginPage() {
 
   const submitReset = async (e: FormEvent) => {
     e.preventDefault();
-    if (!signInLoaded || !code.trim() || !password.trim()) {
-      setFormError("Required");
+    if (!signInLoaded) return;
+    const missing: FieldErrors = {};
+    if (!code.trim()) missing.code = "Required";
+    if (!password.trim()) missing.password = "Required";
+    if (Object.keys(missing).length > 0) {
+      setFieldErrors(missing);
       return;
     }
     if (password !== confirmPassword) {
-      setFormError("Passwords don't match");
+      setFieldErrors({ confirmPassword: "Passwords don't match" });
       return;
     }
-    setFormError("");
+    setFieldErrors({});
     setSubmitting(true);
     try {
       const result = await signIn.attemptFirstFactor({
@@ -182,9 +224,9 @@ export function LoginPage() {
         navigate(from, { replace: true });
         return;
       }
-      setFormError("That code didn't work — try again.");
+      setFieldErrors({ form: "That code didn't work — try again." });
     } catch (err) {
-      setFormError(errorMessage(err));
+      setFieldErrors(fieldErrorsFromClerkError(err));
     } finally {
       setSubmitting(false);
     }
@@ -192,17 +234,25 @@ export function LoginPage() {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !password.trim() || (mode === "signup" && !firstName.trim())) {
-      setFormError("Required");
+    const missing: FieldErrors = {};
+    if (mode === "signup" && !firstName.trim()) missing.firstName = "Required";
+    if (!email.trim()) missing.email = "Required";
+    if (!password.trim()) missing.password = "Required";
+    if (Object.keys(missing).length > 0) {
+      setFieldErrors(missing);
       return;
     }
-    setFormError("");
+    if (!EMAIL_PATTERN.test(email.trim())) {
+      setFieldErrors({ email: "Email address must be a valid email address." });
+      return;
+    }
+    setFieldErrors({});
     setSubmitting(true);
     try {
       if (mode === "login") await submitLogin();
       else await submitSignup();
     } catch (err) {
-      setFormError(errorMessage(err));
+      setFieldErrors(fieldErrorsFromClerkError(err));
     } finally {
       setSubmitting(false);
     }
@@ -210,11 +260,12 @@ export function LoginPage() {
 
   const submitVerification = async (e: FormEvent) => {
     e.preventDefault();
-    if (!signUpLoaded || !code.trim()) {
-      setFormError("Required");
+    if (!signUpLoaded) return;
+    if (!code.trim()) {
+      setFieldErrors({ code: "Required" });
       return;
     }
-    setFormError("");
+    setFieldErrors({});
     setSubmitting(true);
     try {
       const result = await signUp.attemptEmailAddressVerification({ code: code.trim() });
@@ -223,9 +274,9 @@ export function LoginPage() {
         navigate(from, { replace: true });
         return;
       }
-      setFormError("That code didn't work — try again.");
+      setFieldErrors({ form: "That code didn't work — try again." });
     } catch (err) {
-      setFormError(errorMessage(err));
+      setFieldErrors(fieldErrorsFromClerkError(err));
     } finally {
       setSubmitting(false);
     }
@@ -242,15 +293,16 @@ export function LoginPage() {
               <div className={styles.subtitle}>
                 We sent a code to {email.trim()} — enter it below to finish signing up.
               </div>
-              <form className={styles.fieldStack} onSubmit={submitVerification}>
+              <form className={styles.fieldStack} onSubmit={submitVerification} noValidate>
                 <Input
                   label="Verification code"
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   placeholder="123456"
-                  error={formError}
+                  error={fieldErrors.code}
                   autoFocus
                 />
+                {fieldErrors.form && <div className={styles.formError}>{fieldErrors.form}</div>}
                 <div className={styles.buttonRow}>
                   <Button type="submit" size="lg" disabled={submitting} fullWidth>
                     {submitting ? "Verifying…" : "Verify email"}
@@ -277,12 +329,13 @@ export function LoginPage() {
                   <div className={styles.subtitle}>
                     We sent a code to {email.trim()} — enter it below along with your new password.
                   </div>
-                  <form className={styles.fieldStack} onSubmit={submitReset}>
+                  <form className={styles.fieldStack} onSubmit={submitReset} noValidate>
                     <Input
                       label="Verification code"
                       value={code}
                       onChange={(e) => setCode(e.target.value)}
                       placeholder="123456"
+                      error={fieldErrors.code}
                       autoFocus
                     />
                     <Input
@@ -291,6 +344,7 @@ export function LoginPage() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
+                      error={fieldErrors.password}
                     />
                     <Input
                       label="Confirm new password"
@@ -298,8 +352,9 @@ export function LoginPage() {
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="••••••••"
-                      error={formError}
+                      error={fieldErrors.confirmPassword}
                     />
+                    {fieldErrors.form && <div className={styles.formError}>{fieldErrors.form}</div>}
                     <div className={styles.buttonRow}>
                       <Button type="submit" size="lg" disabled={submitting} fullWidth>
                         {submitting ? "…" : "Reset password"}
@@ -323,14 +378,14 @@ export function LoginPage() {
                   <div className={styles.subtitle}>
                     Enter your email and we&rsquo;ll send you a code to reset it.
                   </div>
-                  <form className={styles.fieldStack} onSubmit={requestReset}>
+                  <form className={styles.fieldStack} onSubmit={requestReset} noValidate>
                     <Input
                       label="Email"
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="you@email.com"
-                      error={formError}
+                      error={fieldErrors.email}
                     />
                     <div className={styles.buttonRow}>
                       <Button type="submit" size="lg" disabled={submitting} fullWidth>
@@ -419,13 +474,14 @@ export function LoginPage() {
                 Sign up
               </button>
             </div>
-            <form className={styles.fieldStack} onSubmit={submit}>
+            <form className={styles.fieldStack} onSubmit={submit} noValidate>
               {mode === "signup" && (
                 <Input
                   label="First name"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   placeholder="Your first name"
+                  error={fieldErrors.firstName}
                 />
               )}
               <Input
@@ -434,6 +490,7 @@ export function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@email.com"
+                error={fieldErrors.email}
               />
               <Input
                 label="Password"
@@ -441,8 +498,9 @@ export function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                error={formError}
+                error={fieldErrors.password}
               />
+              {fieldErrors.form && <div className={styles.formError}>{fieldErrors.form}</div>}
               {mode === "login" && (
                 <a
                   href="#"

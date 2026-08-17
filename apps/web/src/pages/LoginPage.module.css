@@ -102,6 +102,12 @@
   margin-top: 6px;
 }
 
+.formError {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--error);
+}
+
 .forgotLink {
   font-size: var(--text-sm);
   font-weight: 600;

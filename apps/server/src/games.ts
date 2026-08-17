@@ -61,10 +61,9 @@ const MAX_GAME_ID_ATTEMPTS = 5;
 
 /** POST /games. Same framework-agnostic shape as stats.ts/settings.ts —
  * see settings.ts's comment for why. Delegates the actual mutation to
- * lobby.ts's createGame(), the exact function the WS `CreateGame` command
- * handler in index.ts calls too (see docs/decisions.md "CreateGame as a
- * REST endpoint") — this is a thin auth/validation/status-code wrapper
- * around it, not a second implementation. `body` is untyped (`unknown`)
+ * lobby.ts's createGame() (see docs/decisions.md "CreateGame as a REST
+ * endpoint" — the WS `CreateGame` command this used to share the function
+ * with has since been removed). `body` is untyped (`unknown`)
  * since it comes straight from Fastify's JSON body parsing, validated here
  * before touching Redis (CLAUDE.md "never trusting client-shaped input"). */
 export async function handleCreateGameRequest(
@@ -94,11 +93,7 @@ export async function handleCreateGameRequest(
   try {
     for (let attempt = 0; attempt < MAX_GAME_ID_ATTEMPTS; attempt++) {
       const gameId = makeGameId();
-      const result = await createGame(
-        redis,
-        { type: "CreateGame", ...request, gameId, commandId },
-        auth.userId,
-      );
+      const result = await createGame(redis, { ...request, gameId, commandId }, auth.userId);
       if (!("error" in result)) {
         return { status: 201, body: result.snapshot };
       }

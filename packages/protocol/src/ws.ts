@@ -100,12 +100,6 @@ export interface LobbySnapshot extends GameState {
   hostId: string;
 }
 
-export interface CreateGameCommand extends BaseCommand {
-  type: "CreateGame";
-  hostName: string;
-  config: GameConfig;
-}
-
 export interface JoinGameCommand extends BaseCommand {
   type: "JoinGame";
   playerName: string;
@@ -250,7 +244,6 @@ export interface ErrorEvent {
 
 export type Command =
   | PingCommand
-  | CreateGameCommand
   | JoinGameCommand
   | StartGameCommand
   | TurnTileCommand

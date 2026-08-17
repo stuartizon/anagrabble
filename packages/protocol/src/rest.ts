@@ -49,9 +49,9 @@ export interface PlayerSettingsResponse {
   hapticsEnabled: boolean;
 }
 
-/** POST /games body. Unlike the WS `CreateGame` command, neither `gameId`
- * nor `commandId` is supplied here — both are synthesized server-side
- * (`apps/server/src/games.ts`). `gameId`: standard REST semantics, the
+/** POST /games body. Neither `gameId` nor `commandId` is supplied here —
+ * both are synthesized server-side (`apps/server/src/games.ts`).
+ * `gameId`: standard REST semantics, the
  * server assigns and returns the resource's identity (see
  * docs/decisions.md "CreateGame as a REST endpoint"). `commandId`:
  * `createGame()` (apps/server/src/lobby.ts) records one as part of its

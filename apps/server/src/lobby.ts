@@ -1,11 +1,16 @@
 import type { Redis } from "@anagrabble/redis";
 import type {
-  CreateGameCommand,
+  CreateGameRequest,
   GameState,
   JoinGameCommand,
   LobbySnapshot,
   PlayerState,
 } from "@anagrabble/protocol";
+
+/** gameId/commandId aren't part of CreateGameRequest (the REST body) since
+ * both are synthesized server-side (apps/server/src/games.ts) — see that
+ * file's doc comment. */
+export type CreateGameParams = CreateGameRequest & { gameId: string; commandId: string };
 
 // Redis keys — see docs/redis-schema.md for the full convention. Hash-tagged
 // ({<gameId>}) so a future move to clustered Redis keeps all of one game's
@@ -116,7 +121,7 @@ export async function nextSeq(redis: Redis, gameId: string): Promise<number> {
 
 export async function createGame(
   redis: Redis,
-  cmd: CreateGameCommand,
+  cmd: CreateGameParams,
   hostId: string,
 ): Promise<{ snapshot: LobbySnapshot } | { error: LobbyError }> {
   const exists = await redis.exists(stateKey(cmd.gameId));

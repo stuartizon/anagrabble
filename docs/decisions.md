@@ -2521,6 +2521,16 @@ than removed in this same change, per CLAUDE.md "Schema evolution" — dead
 but harmless until a follow-up "contract" pass removes it once there's no
 possibility of a stale frontend build still sending it.
 
+**Contract pass done** (2026-08-17): five days and multiple Cloudflare
+Pages/Railway deploys after the above, with no client ever having shipped
+a WS-sending build, the `CreateGameCommand` type/union entry
+(`packages/protocol/src/ws.ts`) and the WS switch case
+(`apps/server/src/index.ts`) were removed. `lobby.ts`'s `createGame()` now
+takes a plain `CreateGameParams` (`CreateGameRequest` plus the
+server-synthesized `gameId`/`commandId`) instead of the WS command type,
+since it was the last thing still tying that shared function to a WS
+shape.
+
 **`gameId` generation moved server-side** (2026-08-12 follow-up, same day)
 — raised by the user reviewing the request shape right after the REST
 endpoint shipped: why was the client still generating `gameId` at all,

@@ -153,7 +153,6 @@ describe("handleCreateGameRequest", () => {
     expect(createGame).toHaveBeenCalledWith(
       FAKE_REDIS,
       {
-        type: "CreateGame",
         commandId: expect.any(String),
         gameId: expect.stringMatching(/^[A-Z0-9]{5}$/),
         hostName: VALID_BODY.hostName,

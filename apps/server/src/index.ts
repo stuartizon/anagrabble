@@ -22,7 +22,7 @@ import {
   type HandshakeMessage,
   type LobbySnapshot,
 } from "@anagrabble/protocol";
-import { createGame, joinGame, loadLobbySnapshot, stateKey, toLobbySnapshot } from "./lobby.js";
+import { joinGame, loadLobbySnapshot, stateKey, toLobbySnapshot } from "./lobby.js";
 import { endGame, startGame, submitWord, turnTile } from "./game.js";
 import { resolveActingPlayerId, verifyMockSessionToken, verifySessionToken } from "./auth.js";
 import { handleStatsRequest } from "./stats.js";
@@ -228,9 +228,8 @@ fastify.put("/settings", async (request, reply) => {
 // See docs/decisions.md "CreateGame as a REST endpoint" — moved off the WS
 // command/event pair since, unlike JoinGame/StartGame/etc., there's no
 // other connected client to broadcast a new game's creation to yet. The WS
-// `CreateGame` command (below, in the switch) still exists for the
-// expand/contract rollout window (CLAUDE.md "Schema evolution") rather than
-// being removed in the same change that adds this.
+// `CreateGame` command has since been removed (contract pass, 2026-08-17)
+// now that no shipped client sends it.
 fastify.post("/games", async (request, reply) => {
   const result = await handleCreateGameRequest(
     redis,
@@ -389,29 +388,6 @@ wss.on("connection", (socket, req) => {
 
     try {
       switch (command.type) {
-        case "CreateGame": {
-          const hostId = resolveActingPlayerId(meta);
-          if (!hostId) {
-            rejectUnauthorized(socket, command);
-            return;
-          }
-          const result = await createGame(redis, command, hostId);
-          if ("error" in result) {
-            sendError(
-              socket,
-              result.error,
-              `Could not create game ${command.gameId}`,
-              command.gameId,
-              command.commandId,
-            );
-            return;
-          }
-          meta.gameId = command.gameId;
-          meta.playerId = hostId;
-          joinRoom(socket, command.gameId);
-          send(socket, lobbyStateEvent(result.snapshot));
-          break;
-        }
         case "JoinGame": {
           const playerId = resolveActingPlayerId(meta);
           if (!playerId) {

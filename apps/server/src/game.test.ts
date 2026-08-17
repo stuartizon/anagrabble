@@ -8,7 +8,6 @@
 import { RedisContainer, type StartedRedisContainer } from "@testcontainers/redis";
 import { createRedisClient, type Redis } from "@anagrabble/redis";
 import type {
-  CreateGameCommand,
   EndGameCommand,
   GameState,
   JoinGameCommand,
@@ -18,16 +17,15 @@ import type {
   TurnTileCommand,
 } from "@anagrabble/protocol";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { createGame, joinGame, stateKey } from "./lobby.js";
+import { createGame, joinGame, stateKey, type CreateGameParams } from "./lobby.js";
 import { endGame, startGame, submitWord, turnTile } from "./game.js";
 
 const CONFIG = { turnTimerSec: 30, minWordLength: 3, language: "en" };
 const HOST_ID = "host-1";
 const PLAYER_ID = "player-2";
 
-function createGameCommand(overrides: Partial<CreateGameCommand> = {}): CreateGameCommand {
+function createGameCommand(overrides: Partial<CreateGameParams> = {}): CreateGameParams {
   return {
-    type: "CreateGame",
     commandId: crypto.randomUUID(),
     gameId: "game-1",
     hostName: "Host",

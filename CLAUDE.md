@@ -470,12 +470,15 @@ mechanic without touching anything else.
   table"). Gameplay now requires being signed in — no anonymous play —
   and player identity is the Clerk user id/account name, not a local
   stub (`playerIdentity.ts` is gone). See docs/decisions.md "Player
-  identity: Clerk id, no anonymous play". Every identity-bearing command
-  (`CreateGame`/`JoinGame`/`StartGame`/`TurnTile`/`SubmitWord`) now derives
-  its actor from the connection's verified `meta.clerkUserId`
-  (`src/auth.ts`'s `resolveActingPlayerId`) rather than trusting the
-  command payload's `playerId`/`hostId` — see docs/decisions.md "Command
-  identity: derived from the Clerk session, not client-supplied".
+  identity: Clerk id, no anonymous play". Every identity-bearing WS command
+  (`JoinGame`/`StartGame`/`TurnTile`/`SubmitWord`) now derives its actor
+  from the connection's verified `meta.clerkUserId` (`src/auth.ts`'s
+  `resolveActingPlayerId`) rather than trusting the command payload's
+  `playerId`/`hostId` — see docs/decisions.md "Command identity: derived
+  from the Clerk session, not client-supplied". `CreateGame` (REST, see
+  docs/decisions.md "CreateGame as a REST endpoint") derives its actor
+  from the request's Bearer token instead, via the same `authenticate()`
+  pattern as `/stats`/`/settings`.
   `CLERK_SECRET_KEY` is now required (server throws on startup without
   it). `hostId`/`playerId` have since been removed from the wire protocol
   entirely (`PROTOCOL_VERSION` 2) — the server never reads a client-claimed

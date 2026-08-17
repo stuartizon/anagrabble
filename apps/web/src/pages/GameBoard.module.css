@@ -502,18 +502,27 @@
        content length, same guarantee mobile's 16px top padding already
        gives — see docs/decisions.md "Word input dock has no border/
        background at any width" for the other divergence from this same
-       source style. */
-    padding: 24px 28px;
+       source style. Horizontal 20px (not the design source's 28px) matches
+       .board's own horizontal padding exactly, so .wordForm's edges stay
+       flush with .poolTiles/.wordsList above it at every viewport width —
+       not just once .board is wide enough to hit its own 760px cap. */
+    padding: 24px 20px;
   }
 }
 
+/* max-width 720, not .board's own 760 — .board's panels (.poolTiles,
+   .wordsList) render at 720px because .board's 760px max-width already
+   includes its own 20px horizontal padding on each side. Matching that
+   here (rather than reusing 760 directly) is what keeps this row's edges
+   flush with the panels above it instead of overhanging them by 20px a
+   side. */
 .wordForm {
   display: flex;
   gap: 12px;
   align-items: flex-end;
   flex-wrap: nowrap;
   width: 100%;
-  max-width: 760px;
+  max-width: 720px;
 }
 
 .wordFormInput {

@@ -12,7 +12,15 @@ import type { AuthModule } from "./types";
 import { requireClerkPublishableKey } from "../env";
 
 function AuthProvider({ children }: { children: ReactNode }) {
-  return <ClerkProvider publishableKey={requireClerkPublishableKey()}>{children}</ClerkProvider>;
+  return (
+    <ClerkProvider
+      publishableKey={requireClerkPublishableKey()}
+      signInUrl="/login"
+      signUpUrl="/login"
+    >
+      {children}
+    </ClerkProvider>
+  );
 }
 
 // Cast, not a structural check: Clerk's real hooks return richer objects

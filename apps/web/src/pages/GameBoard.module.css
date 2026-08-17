@@ -29,12 +29,21 @@
   min-height: 0;
 }
 
+/* Fades the last 48px of scrollable content to transparent instead of
+   letting .wordFormDock's edge hard-clip it — a static mask (not a
+   solid-color gradient overlay) so it works regardless of what's
+   underneath and needs no color to match .page's background. Harmless
+   when content is shorter than the scroll area (fades empty space, not
+   content); only visible in practice once .board's content overflows and
+   the last row would otherwise cut off flush against the word input. */
 .scrollArea {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   display: flex;
   justify-content: center;
+  mask-image: linear-gradient(to bottom, black calc(100% - 48px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 48px), transparent 100%);
 }
 
 .board {

@@ -7,12 +7,22 @@
   flex-direction: column;
 }
 
-.centeredContent {
+/* Horizontally centered at every width. Vertically centered on desktop,
+   but top-aligned on mobile (gap is just this rule's own top padding) so a
+   focused input's on-screen keyboard resizing the viewport doesn't visibly
+   recenter the content underneath it. */
+.pageContent {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 40px 20px;
+}
+
+@media (max-width: 839px) {
+  .pageContent {
+    align-items: flex-start;
+  }
 }
 
 .narrowColumn {

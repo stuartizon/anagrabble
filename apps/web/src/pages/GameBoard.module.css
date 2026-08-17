@@ -3,10 +3,9 @@
    — never scrolls out of view, matching design-system/In Game.dc.html's
    structure (its word bar sits outside the scrollable content div). */
 .page {
-  /* --app-height is set from window.visualViewport in GameBoard.tsx, which
-     (unlike dvh) shrinks when the on-screen keyboard opens — falls back to
-     dvh before that effect runs / where visualViewport isn't supported. */
-  height: var(--app-height, 100dvh);
+  /* dvh, not vh — vh on mobile is computed against the viewport with the
+     address bar hidden, taller than what's actually visible. */
+  height: 100dvh;
   display: flex;
   flex-direction: column;
 }

@@ -17,7 +17,6 @@ import type {
   SocketStatus,
   WordPlayNarration,
 } from "../useGameSocket";
-import { useVisualViewportHeight } from "../useVisualViewportHeight";
 import { presenceLabel } from "../presenceLabel";
 import { cx } from "../cx";
 import styles from "./GameBoard.module.css";
@@ -344,12 +343,6 @@ export function GameBoard({
 
     return () => clearInterval(interval);
   }, [endGameDeadline, gameId, send]);
-
-  // See GameBoard.module.css's .page, which consumes this via
-  // var(--app-height, 100dvh) — without it, focusing the word input on
-  // mobile hides the header/tile pool above the fold until the keyboard
-  // closes again.
-  useVisualViewportHeight("--app-height");
 
   // Turning a tile and playing a word are both meant to be quick side-actions
   // mid-typing on desktop, not a context switch — a native <button>

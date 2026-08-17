@@ -9,8 +9,8 @@ export function PageShell({ children }: { children: ReactNode }) {
   return <div className={styles.pageShell}>{children}</div>;
 }
 
-export function CenteredContent({ children }: { children: ReactNode }) {
-  return <div className={styles.centeredContent}>{children}</div>;
+export function PageContent({ children }: { children: ReactNode }) {
+  return <div className={styles.pageContent}>{children}</div>;
 }
 
 export function NarrowColumn({ children }: { children: ReactNode }) {

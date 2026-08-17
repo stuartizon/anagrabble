@@ -3,7 +3,7 @@ import type { LobbySnapshot } from "@anagrabble/protocol";
 import { Header } from "../components/Header";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
-import { PageShell, CenteredContent, NarrowColumn } from "../components/Layout";
+import { PageShell, PageContent, NarrowColumn } from "../components/Layout";
 import { assignPlayerColors } from "../playerColors";
 import styles from "./GameOverSummary.module.css";
 
@@ -68,7 +68,7 @@ export function GameOverSummary({ lobby, playerId }: GameOverSummaryProps) {
   return (
     <PageShell>
       <Header />
-      <CenteredContent>
+      <PageContent>
         <NarrowColumn>
           <Card>
             <div className={styles.title}>Game over.</div>
@@ -110,7 +110,7 @@ export function GameOverSummary({ lobby, playerId }: GameOverSummaryProps) {
             </div>
           </Card>
         </NarrowColumn>
-      </CenteredContent>
+      </PageContent>
     </PageShell>
   );
 }

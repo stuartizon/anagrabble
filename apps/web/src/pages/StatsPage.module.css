@@ -81,7 +81,7 @@
 /* Deliberately NOT GameBoard.module.css's 840px desktop/mobile breakpoint
    — that one's tuned to a sidebar layout concern, unrelated to how wide a
    row of tiles is. This one's sized to the actual content: at width W, the
-   tile row has ~W-88px available (40px CenteredContent padding + 48px Card
+   tile row has ~W-88px available (40px PageContent padding + 48px Card
    padding), and n tiles at md size (48px + 6px gap) need 54n-6px. 640px
    comfortably fits a 10-letter word (534px needed) with room to spare;
    below it, plain text wraps as a whole word instead of stacking an

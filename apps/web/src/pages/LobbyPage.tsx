@@ -5,7 +5,7 @@ import { Header } from "../components/Header";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
 import { InviteCode } from "../components/InviteCode";
-import { PageShell, CenteredContent, NarrowColumn } from "../components/Layout";
+import { PageShell, PageContent, NarrowColumn } from "../components/Layout";
 import { RulesLink } from "../components/RulesLink";
 import { Loader } from "../components/Loader";
 import { useGameSocket } from "../useGameSocket";
@@ -100,7 +100,7 @@ export function LobbyPage() {
     return (
       <PageShell>
         <Header />
-        <CenteredContent>
+        <PageContent>
           <NarrowColumn>
             <Card>
               <div className={cx(styles.title, styles.notFoundTitleOverride)}>Game not found</div>
@@ -110,7 +110,7 @@ export function LobbyPage() {
               <Button onClick={() => navigate("/")}>Back home</Button>
             </Card>
           </NarrowColumn>
-        </CenteredContent>
+        </PageContent>
       </PageShell>
     );
   }
@@ -119,9 +119,9 @@ export function LobbyPage() {
     return (
       <PageShell>
         <Header />
-        <CenteredContent>
+        <PageContent>
           <Loader />
-        </CenteredContent>
+        </PageContent>
       </PageShell>
     );
   }
@@ -151,7 +151,7 @@ export function LobbyPage() {
     return (
       <PageShell>
         <Header />
-        <CenteredContent>
+        <PageContent>
           <NarrowColumn>
             <Card>
               <div className={styles.title}>Join this game</div>
@@ -211,7 +211,7 @@ export function LobbyPage() {
               </Button>
             </Card>
           </NarrowColumn>
-        </CenteredContent>
+        </PageContent>
       </PageShell>
     );
   }
@@ -243,7 +243,7 @@ export function LobbyPage() {
   return (
     <PageShell>
       <Header />
-      <CenteredContent>
+      <PageContent>
         <NarrowColumn>
           <Card>
             <div className={styles.title}>{host?.name ?? "Someone"}&rsquo;s game</div>
@@ -329,7 +329,7 @@ export function LobbyPage() {
             {leaveError && <div className={styles.errorText}>{leaveError}</div>}
           </Card>
         </NarrowColumn>
-      </CenteredContent>
+      </PageContent>
     </PageShell>
   );
 }

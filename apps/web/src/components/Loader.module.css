@@ -4,10 +4,24 @@
   gap: 6px;
 }
 
+/* Below Layout.module.css's 840px breakpoint, PageContent top-aligns
+   instead of vertically centering — right for real page content, but a
+   loading state has no input to avoid, so it just centers on the viewport
+   directly instead, regardless of how deeply it's nested inside
+   PageContent/NarrowColumn/a page's own wrapper. */
+@media (max-width: 839px) {
+  .tiles {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+}
+
 /* The default word (LOADING, 7 letters) at md size (48px tile + 6px gap)
-   needs 7*48 + 6*6 = 372px, plus CenteredContent's 40px horizontal
+   needs 7*48 + 6*6 = 372px, plus PageContent's 40px horizontal
    padding (StatsPage/SettingsPage/LobbyPage all render this directly
-   inside CenteredContent, no Card padding) — 412px of viewport. 480px
+   inside PageContent, no Card padding) — 412px of viewport. 480px
    gives that comfortable margin; below it, this overrides the rendered
    tiles down to LetterTile's own sm dimensions (LetterTile.module.css's
    .sm) rather than letting them get flex-shrink compressed into

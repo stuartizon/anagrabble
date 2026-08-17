@@ -5,7 +5,7 @@ import { Card } from "../components/Card";
 import { Select } from "../components/Select";
 import { Switch } from "../components/Switch";
 import { Loader } from "../components/Loader";
-import { PageShell, CenteredContent, NarrowColumn } from "../components/Layout";
+import { PageShell, PageContent, NarrowColumn } from "../components/Layout";
 import {
   fetchPlayerSettings,
   savePlayerSettings,
@@ -74,7 +74,7 @@ export function SettingsPage() {
   return (
     <PageShell>
       <Header />
-      <CenteredContent>
+      <PageContent>
         <NarrowColumn>
           {state.status === "loading" && <Loader />}
           {state.status === "error" && <Card>Something went wrong loading your settings.</Card>}
@@ -120,7 +120,7 @@ export function SettingsPage() {
             </Card>
           )}
         </NarrowColumn>
-      </CenteredContent>
+      </PageContent>
     </PageShell>
   );
 }

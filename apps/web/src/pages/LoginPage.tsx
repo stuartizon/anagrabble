@@ -7,7 +7,7 @@ import { Header } from "../components/Header";
 import { Card } from "../components/Card";
 import { Input } from "../components/Input";
 import { Button } from "../components/Button";
-import { PageShell, CenteredContent, NarrowColumn } from "../components/Layout";
+import { PageShell, PageContent, NarrowColumn } from "../components/Layout";
 import { cx } from "../cx";
 import styles from "./LoginPage.module.css";
 
@@ -235,7 +235,7 @@ export function LoginPage() {
     return (
       <PageShell>
         <Header />
-        <CenteredContent>
+        <PageContent>
           <NarrowColumn>
             <Card>
               <div className={styles.title}>Check your email</div>
@@ -259,7 +259,7 @@ export function LoginPage() {
               </form>
             </Card>
           </NarrowColumn>
-        </CenteredContent>
+        </PageContent>
       </PageShell>
     );
   }
@@ -268,7 +268,7 @@ export function LoginPage() {
     return (
       <PageShell>
         <Header />
-        <CenteredContent>
+        <PageContent>
           <NarrowColumn>
             <Card>
               {resetStep === "code" ? (
@@ -352,7 +352,7 @@ export function LoginPage() {
               )}
             </Card>
           </NarrowColumn>
-        </CenteredContent>
+        </PageContent>
       </PageShell>
     );
   }
@@ -360,7 +360,7 @@ export function LoginPage() {
   return (
     <PageShell>
       <Header />
-      <CenteredContent>
+      <PageContent>
         <NarrowColumn>
           <Card>
             {mockUsers.length > 0 && (
@@ -463,7 +463,7 @@ export function LoginPage() {
             </form>
           </Card>
         </NarrowColumn>
-      </CenteredContent>
+      </PageContent>
     </PageShell>
   );
 }

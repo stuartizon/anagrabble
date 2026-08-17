@@ -8,7 +8,7 @@ import { Select } from "../components/Select";
 import { Input } from "../components/Input";
 import { Button } from "../components/Button";
 import { RulesLink } from "../components/RulesLink";
-import { PageShell, CenteredContent, NarrowColumn } from "../components/Layout";
+import { PageShell, PageContent, NarrowColumn } from "../components/Layout";
 import { createGame as createGameRequest, CreateGameError } from "../fetchCreateGame";
 import { getDisplayName } from "../clerkDisplayName";
 import styles from "./NewGamePage.module.css";
@@ -78,7 +78,7 @@ export function NewGamePage() {
   return (
     <PageShell>
       <Header />
-      <CenteredContent>
+      <PageContent>
         <NarrowColumn>
           <Card>
             <div className={styles.title}>New game</div>
@@ -111,7 +111,7 @@ export function NewGamePage() {
             </div>
           </Card>
         </NarrowColumn>
-      </CenteredContent>
+      </PageContent>
     </PageShell>
   );
 }

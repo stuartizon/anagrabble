@@ -1,5 +1,5 @@
 import { AuthenticateWithRedirectCallback } from "../auth";
-import { PageShell, CenteredContent } from "../components/Layout";
+import { PageShell, PageContent } from "../components/Layout";
 
 // Clerk redirects here mid-flow after "Continue with Google" (see
 // LoginPage's OAUTH_REDIRECT_URL) — this component finishes the OAuth
@@ -8,9 +8,9 @@ import { PageShell, CenteredContent } from "../components/Layout";
 export function SsoCallbackPage() {
   return (
     <PageShell>
-      <CenteredContent>
+      <PageContent>
         <AuthenticateWithRedirectCallback />
-      </CenteredContent>
+      </PageContent>
     </PageShell>
   );
 }

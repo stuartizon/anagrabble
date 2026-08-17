@@ -150,7 +150,7 @@ describe("LobbyPage", () => {
       expect(screen.getByRole("button", { name: "Start game" })).toBeEnabled();
     });
 
-    it("shows a Disconnected badge for a disconnected player, none for a connected one", () => {
+    it("marks a disconnected player's row as away via a title tooltip, with no visible icon or text", () => {
       mockSocket({
         lobby: lobbySnapshot({
           players: [
@@ -161,7 +161,12 @@ describe("LobbyPage", () => {
       });
       renderAsPlayer("host-1");
 
-      expect(screen.getByLabelText("Disconnected")).toBeInTheDocument();
+      expect(screen.queryByText("Disconnected")).not.toBeInTheDocument();
+      const hostRow = screen.getByText("Host").parentElement as HTMLElement;
+      expect(hostRow).not.toHaveAttribute("title");
+      const guestRow = screen.getByText("Guest").parentElement as HTMLElement;
+      expect(guestRow).toHaveAttribute("title", "Disconnected");
+      expect(guestRow.querySelector("svg")).toBeNull();
     });
 
     it("sends StartGame when Start is clicked", async () => {

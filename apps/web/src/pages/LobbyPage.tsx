@@ -1,7 +1,6 @@
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth, useUser } from "../auth";
-import { WifiOff } from "lucide-react";
 import { Header } from "../components/Header";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
@@ -182,15 +181,13 @@ export function LobbyPage() {
                       <div
                         key={p.id}
                         className={cx(styles.playerRow, label && styles.playerRowMuted)}
+                        title={label ?? undefined}
                       >
                         <span
-                          className={styles.playerDot}
-                          style={{ background: colors.get(p.id) }}
+                          className={cx(styles.playerDot, label && styles.playerDotMuted)}
+                          style={{ "--dot-color": colors.get(p.id) } as CSSProperties}
                         />
                         <span className={styles.playerName}>{p.name}</span>
-                        {label && (
-                          <WifiOff size={14} color="var(--text-muted)" aria-label={label} />
-                        )}
                       </div>
                     );
                   })}
@@ -280,10 +277,13 @@ export function LobbyPage() {
                     <div
                       key={p.id}
                       className={cx(styles.playerRow, label && styles.playerRowMuted)}
+                      title={label ?? undefined}
                     >
-                      <span className={styles.playerDot} style={{ background: colors.get(p.id) }} />
+                      <span
+                        className={cx(styles.playerDot, label && styles.playerDotMuted)}
+                        style={{ "--dot-color": colors.get(p.id) } as CSSProperties}
+                      />
                       <span className={styles.playerName}>{p.name}</span>
-                      {label && <WifiOff size={14} color="var(--text-muted)" aria-label={label} />}
                     </div>
                   );
                 })}

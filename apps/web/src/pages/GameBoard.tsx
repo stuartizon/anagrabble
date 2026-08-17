@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { LogOut, Menu, X } from "lucide-react";
 import type { Command, LobbySnapshot, UsedWord } from "@anagrabble/protocol";
 import { Header } from "../components/Header";
@@ -182,7 +182,6 @@ function PlayersAndInviteSections({
         <div className={styles.poolLabel}>Players</div>
         {lobby.players.map((p) => {
           const label = presenceLabel(p.presence);
-          const dotColor = colors.get(p.id);
           // Design (In Game.dc.html) hollows out the swatch to a colored
           // ring rather than fully greying it out, so the player's color
           // stays identifiable even while they're not connected. Combined
@@ -190,16 +189,16 @@ function PlayersAndInviteSections({
           // to read as "away" without a separate icon/text badge — see
           // docs/decisions.md "Player presence: connected/disconnected
           // tracking".
-          const dotStyle = label
-            ? { background: "transparent", boxShadow: `inset 0 0 0 2px ${dotColor}` }
-            : { background: dotColor };
           return (
             <div
               key={p.id}
               className={cx(styles.playerRow, label && styles.playerRowMuted)}
               title={label ?? undefined}
             >
-              <span className={styles.playerDot} style={dotStyle} />
+              <span
+                className={cx(styles.playerDot, label && styles.playerDotMuted)}
+                style={{ "--dot-color": colors.get(p.id) } as CSSProperties}
+              />
               <span className={styles.playerName} data-testid="sidebar-player-name">
                 {p.name}
               </span>

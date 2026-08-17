@@ -6,6 +6,7 @@ import type { LobbySnapshot, PlayerState } from "@anagrabble/protocol";
 import type { GameSocketError, SocketStatus, WordPlayNarration } from "../useGameSocket";
 import { mockSignedOutClerk } from "../testUtils/clerkTestMock";
 import { GameBoard } from "./GameBoard";
+import styles from "./GameBoard.module.css";
 
 const send = vi.fn();
 const onLeaveGame = vi.fn();
@@ -154,8 +155,9 @@ describe("GameBoard", () => {
 
     const names = screen.getAllByTestId("sidebar-player-name");
     const opponentDot = names[1].previousElementSibling as HTMLElement;
-    expect(opponentDot.style.background).toBe("transparent");
-    expect(opponentDot.style.boxShadow).toContain("inset");
+    expect(opponentDot.className).toContain(styles.playerDotMuted);
+    const meDot = names[0].previousElementSibling as HTMLElement;
+    expect(meDot.className).not.toContain(styles.playerDotMuted);
   });
 
   it("shows the invite code in the sidebar, positioned after Players and before History", () => {

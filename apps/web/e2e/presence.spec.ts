@@ -4,7 +4,7 @@ import { captureSocketInit } from "./socketCapture";
 // Real-WS-boundary regression coverage for the player presence story
 // (docs/user-stories.md "Non-functional / cross-cutting" — presence/
 // fast-skip/host-migration; docs/decisions.md "Player presence:
-// connected/disconnected/left tracking"). Everything about the presence
+// connected/disconnected tracking"). Everything about the presence
 // *logic* (Lua deadline check, host derivation, badge rendering from a
 // `presence` prop) is already covered by Vitest — what's only provable
 // here is that a real WS close on one browser actually propagates through
@@ -51,10 +51,11 @@ test("a disconnected current player's turn is force-advanced for other players w
   // disconnected current player.
   await hostPage.evaluate(() => window.__lastSocket?.close(4000, "simulated drop"));
 
-  // The guest sees Alice marked away...
-  await expect(guestPage.getByText("Reconnecting…")).toBeVisible({
-    timeout: 15_000,
-  });
+  // The guest sees Alice marked away — a title tooltip, not visible text
+  // (see docs/decisions.md "`left` presence state removed"), so this
+  // checks the attribute rather than getByText.
+  const aliceRow = guestPage.locator('[title="Disconnected"]');
+  await expect(aliceRow).toBeVisible({ timeout: 15_000 });
 
   // ...and the turn gets force-advanced well before the 60s turnTimerSec —
   // purely from the guest's own background TurnTile auto-fire noticing the
@@ -94,7 +95,7 @@ test("a disconnected current player's turn is force-advanced for other players w
   // handshake now stamps presence and broadcasts it itself, so the guest's
   // badge should clear promptly, well inside a single heartbeat interval —
   // a tight bound here is the actual assertion, not just "eventually".
-  await expect(guestPage.getByText("Reconnecting…")).toBeHidden({
+  await expect(aliceRow).toBeHidden({
     timeout: 3_000,
   });
 

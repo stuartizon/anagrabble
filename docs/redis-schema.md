@@ -80,23 +80,25 @@ endGameDeadline`, the game auto-ends.
 - **`players[].words` / `.score`**: empty/zero until word play lands. There's
   no `.color` field — display color isn't part of the shared game state at
   all; see "Player color" below.
-- **`players[].lastSeenAt`** / **`.left`**: presence — see "Presence" below.
-  Persisted alongside the rest of the player entry, but `lastSeenAt` is
-  never sent to clients directly (clock-skew sensitive); what goes over the
-  wire is a derived `presence: "connected" | "disconnected" | "left"` field,
-  computed fresh into every `LobbySnapshot`.
+- **`players[].lastSeenAt`**: presence — see "Presence" below. Persisted
+  alongside the rest of the player entry, but never sent to clients
+  directly (clock-skew sensitive); what goes over the wire is a derived
+  `presence: "connected" | "disconnected"` field, computed fresh into every
+  `LobbySnapshot`.
 
 ## Presence
 
 Each `players[]` entry carries `lastSeenAt` (epoch ms, refreshed by a
 client heartbeat — see docs/decisions.md "Player presence:
-connected/disconnected/left tracking") and an optional `left` flag (set by
-an explicit mid-game leave, never by a dropped connection). "Reachable" is
-derived at read time — `!left && now - lastSeenAt < PRESENCE_STALE_MS`
-(`apps/server/src/lobby.ts`'s `isReachable`, mirrored in
-`apply_turn_tile.lua`'s deadline check) — rather than tracked via any
-scheduled timer, which is what makes it safe for any Node process to
-compute the same answer.
+connected/disconnected tracking"). "Reachable" is derived at read time —
+`now - lastSeenAt < PRESENCE_STALE_MS` (`apps/server/src/lobby.ts`'s
+`isReachable`, mirrored in `apply_turn_tile.lua`'s deadline check) —
+rather than tracked via any scheduled timer, which is what makes it safe
+for any Node process to compute the same answer. There's no separate
+"explicitly left" state: mid-game, clicking "Leave game" just closes the
+socket like any other disconnect (see "Host convention" below and
+docs/decisions.md for why an earlier `left` flag distinguishing the two
+was removed).
 
 Writes go through a small dedicated script,
 `packages/redis/src/scripts/apply_presence.lua` (wrapped by

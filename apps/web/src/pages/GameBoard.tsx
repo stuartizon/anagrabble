@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { LogOut, Menu, UserMinus, WifiOff, X } from "lucide-react";
+import { LogOut, Menu, X } from "lucide-react";
 import type { Command, LobbySnapshot, UsedWord } from "@anagrabble/protocol";
 import { Header } from "../components/Header";
 import { Input } from "../components/Input";
@@ -185,23 +185,24 @@ function PlayersAndInviteSections({
           const dotColor = colors.get(p.id);
           // Design (In Game.dc.html) hollows out the swatch to a colored
           // ring rather than fully greying it out, so the player's color
-          // stays identifiable even while they're not connected.
+          // stays identifiable even while they're not connected. Combined
+          // with the row's own opacity dip (playerRowMuted), that's enough
+          // to read as "away" without a separate icon/text badge — see
+          // docs/decisions.md "Player presence: connected/disconnected
+          // tracking".
           const dotStyle = label
             ? { background: "transparent", boxShadow: `inset 0 0 0 2px ${dotColor}` }
             : { background: dotColor };
-          const PresenceIcon = p.presence === "left" ? UserMinus : WifiOff;
           return (
-            <div key={p.id} className={cx(styles.playerRow, label && styles.playerRowMuted)}>
+            <div
+              key={p.id}
+              className={cx(styles.playerRow, label && styles.playerRowMuted)}
+              title={label ?? undefined}
+            >
               <span className={styles.playerDot} style={dotStyle} />
               <span className={styles.playerName} data-testid="sidebar-player-name">
                 {p.name}
               </span>
-              {label && (
-                <span className={styles.presenceBadge} title={label}>
-                  <PresenceIcon size={14} color="var(--text-muted)" aria-hidden="true" />
-                  {label}
-                </span>
-              )}
               <span className={styles.playerScore}>{p.score}</span>
             </div>
           );
@@ -274,7 +275,7 @@ export function GameBoard({
   const gameId = lobby.gameId;
   // Drives the fast-skip fast path (apply_turn_tile.lua's
   // currentPlayerUnreachable OR condition — see docs/decisions.md "Player
-  // presence: connected/disconnected/left tracking"): without this, the
+  // presence: connected/disconnected tracking"): without this, the
   // background auto-fire below would only ever attempt TurnTile once the
   // *original* turnDeadline passes, same as before presence tracking
   // existed, making the server's early-accept branch unreachable in

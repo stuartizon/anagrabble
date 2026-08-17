@@ -37,7 +37,7 @@ end
 -- sandboxed Lua has no io/os libraries, so it can't read a config file or
 -- env var itself; apps/server/src/lobby.ts's exported constant is the sole
 -- source of truth, passed in on every call. See docs/decisions.md "Player
--- presence: connected/disconnected/left tracking". Missing lastSeenAt
+-- presence: connected/disconnected tracking". Missing lastSeenAt
 -- (shouldn't happen for a real game, but possible for state persisted
 -- before this field existed) defaults to "just seen" rather than "long
 -- gone", failing open during a rollout window instead of mass-skipping
@@ -47,7 +47,7 @@ local now = tonumber(ARGV[3])
 
 local function isReachable(player)
   local lastSeenAt = player.lastSeenAt or now
-  return player.left ~= true and (now - lastSeenAt) < PRESENCE_STALE_MS
+  return (now - lastSeenAt) < PRESENCE_STALE_MS
 end
 
 -- turnPlayerId is an identity, not an array position — see

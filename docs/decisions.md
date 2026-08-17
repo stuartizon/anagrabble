@@ -995,7 +995,7 @@ follow-up this raised.
 
 **Superseded** (2026-08-15): `pendingLeaves`/`LEAVE_GRACE_MS` removed
 entirely, along with the "known limitation" above — see "Player presence:
-connected/disconnected/left tracking" below for the replacement (a
+connected/disconnected tracking" below for the replacement (a
 heartbeat-driven `lastSeenAt` per player, derived reachability, no
 scheduled timers anywhere). The single-process gap this section flagged is
 resolved as a side effect, not worked around: presence now lives in Redis,
@@ -2308,7 +2308,7 @@ CLAUDE.md's "Still open" section.
    players stuck on a frozen-but-not-visibly-disconnected board longer than
    the backoff schedule would explain.
 
-   **Resolved** — see "Player presence: connected/disconnected/left
+   **Resolved** — see "Player presence: connected/disconnected
    tracking" below. The evidence this asked to wait for turned out to be a
    different, more concrete problem (a disconnected player holding up
    everyone else's tile-turn wait, and a bounced host losing host status)
@@ -2342,7 +2342,7 @@ CLAUDE.md's "Still open" section.
    lands inside the grace window.
 
    **Resolved, moot** — `pendingLeaves` itself is gone (see "Player
-   presence: connected/disconnected/left tracking" below), removed rather
+   presence: connected/disconnected tracking" below), removed rather
    than retuned. There's no grace-period/backoff coupling left to maintain:
    a reload or reconnect-backoff blip no longer risks any roster mutation
    at all, so the timing relationship this item worried about doesn't
@@ -2609,7 +2609,7 @@ questions needed resolving in conversation before _it_ was schedulable.
 
 ---
 
-## Player presence: connected/disconnected/left tracking
+## Player presence: connected/disconnected tracking
 
 **Context** (2026-08-15): a disconnected player caused two concrete
 problems. Mid-game, if it was their turn, every other player waited out
@@ -2636,7 +2636,10 @@ mutated that needs to be undone).
   ever removed, connected or not — an explicit leave just sets `left:
 true`, distinguished from a disconnect only by UI copy ("left the game"
   vs. "reconnecting…", `presenceLabel.ts`), and their score/words stay on
-  the board exactly like a disconnect leaves them.
+  the board exactly like a disconnect leaves them. (This `left` flag was
+  removed 2026-08-17 — see "`left` presence state removed" below — once it
+  turned out `leaveGame()` was already a no-op mid-game, so nothing ever
+  actually set it.)
 - **Heartbeat**: `useGameSocket` sends the previously-inert `Ping` command
   (`packages/protocol/src/ws.ts`, wired but unused since it was added)
   immediately on open and every `PING_INTERVAL_MS` (8000ms) thereafter.
@@ -2670,10 +2673,11 @@ true`, distinguished from a disconnect only by UI copy ("left the game"
   can't diverge.
 - **UI**: a small badge (`WifiOff` icon, greyed-out row) next to a
   non-connected player's name in both `LobbyPage` and `GameBoard`'s player
-  lists, driven by a derived `presence: "connected" | "disconnected" |
-"left"` field computed fresh into every `LobbySnapshot`
-  (`toLobbySnapshot`) rather than sending the raw timestamp to clients
-  (clock-skew sensitive).
+  lists, driven by a derived `presence: "connected" | "disconnected"`
+  field computed fresh into every `LobbySnapshot` (`toLobbySnapshot`)
+  rather than sending the raw timestamp to clients (clock-skew sensitive).
+  (Superseded for `GameBoard` specifically — see "`left` presence state
+  removed" below.)
 
 **Removed**: `pendingLeaves`, `scheduleLeave`, `cancelPendingLeave`,
 `LEAVE_GRACE_MS` (`apps/server/src/index.ts`) — see "Lobby slice" above for
@@ -2727,10 +2731,77 @@ restored.
 
 ---
 
+## `left` presence state removed
+
+**Context** (2026-08-17): the original presence design (above) gave an
+explicit mid-game leave its own sticky `left: true` flag, distinct from a
+transient disconnect — different UI copy ("Left the game" vs.
+"Reconnecting…") and a different icon (`UserMinus` vs. `WifiOff`) in
+`GameBoard`'s player list. Revisiting it turned up two problems:
+
+1. **It was never actually wired to a mutation.** `leaveGame()`
+   (`apps/server/src/lobby.ts`) is a no-op once `state.status !== "lobby"`
+   — a deliberate, already-documented choice (`docs/redis-schema.md` "Host
+   convention") — so `POST /games/:gameId/leave` mid-game never sets
+   `left` on anything. The only places `left: true` ever appeared were
+   hand-written test fixtures exercising the read-side derivation
+   (`isReachable`/`presenceOf`/the Lua reachability check); no code path
+   in production could ever produce it.
+2. **The distinction wasn't even conceptually sound.** "Left" reads as
+   permanent, but a mid-game leave isn't — a player who clicks "Leave
+   game" can reconnect into the same game exactly like anyone whose
+   connection just dropped, since `players[]` never removes them either
+   way. There was no separate rejoin flow that needed the distinction to
+   hang off of.
+
+**Decision**: collapse `left`/`"left"` presence entirely into the existing
+disconnected/reachable model. A mid-game "Leave game" click now behaves
+identically, end to end, to any other dropped connection: the socket
+closes, `isReachable` goes false immediately (no grace window), and the
+player shows the same "away" treatment as anyone else who's unreachable.
+
+- **Protocol**: `PlayerState.left` removed; `presence` narrowed from
+  `"connected" | "disconnected" | "left"` to `"connected" |
+"disconnected"` (`packages/protocol/src/ws.ts`). This is a breaking wire
+  change, not additive — accepted without an expand/contract rollout
+  because `left` was already dead in production (see point 1 above); there
+  was no live traffic actually depending on the removed value.
+- **Server**: `isReachable`/`presenceOf` (`apps/server/src/lobby.ts`) and
+  `apply_turn_tile.lua`'s mirrored reachability check drop the `left`
+  branch — both now purely a function of `lastSeenAt`.
+- **UI**: went further than just deleting the "left" branch — removed the
+  `GameBoard` player-list badge entirely (icon + visible text), not just
+  its "left" variant. The hollowed color-swatch ring plus the row's
+  existing `opacity: 0.55` (`playerRowMuted`) already read as "this player
+  is away" without narrating it in a badge; the icon/text was judged
+  unnecessary rather than merely redundant with "left". A `title`
+  attribute on the row keeps a hover tooltip for anyone who wants the
+  explicit word, without it competing visually with the player list. That
+  tooltip says "Disconnected", not "Reconnecting…" (`presenceLabel.ts`'s
+  prior copy, carried over from the original design above) — "Reconnecting…"
+  implies an active, likely-to-succeed-soon process that isn't actually
+  knowable; the player could just as easily be gone for good. `LobbyPage`'s
+  pre-start player list already only ever showed a bare icon with an
+  `aria-label` (never visible text, and never reachable via a "left"
+  presence pre-start in the first place), so it needed no change beyond
+  the type simplification and the same copy fix.
+- **Removed test coverage**: `apps/server/src/lobby.test.ts`'s
+  `presence "left"` case, `packages/redis/src/applyTurnTile.test.ts`'s
+  "current player who explicitly left" case, and the `GameBoard`/
+  `LobbyPage` badge tests asserting "Left the game" copy — all exercised a
+  state no production code path could reach.
+
+**Why now, not deferred further**: raised as a simplification question
+("do we need to differentiate left vs. disconnected in the player list at
+all?"), and confirming the mid-game leave endpoint's no-op behavior while
+answering it turned "nice-to-simplify" into "delete confirmed-dead code."
+
+---
+
 ## Presence: reconnect handshake stamps and broadcasts presence directly
 
 **Status: implemented 2026-08-15**, same day as "Player presence:
-connected/disconnected/left tracking" above and the "Turn ownership"
+connected/disconnected tracking" above and the "Turn ownership"
 migration below — found while manually verifying reconnect behavior after
 that work landed.
 
@@ -2831,7 +2902,7 @@ large enough mid-conversation that the user asked for this to be captured
 in the repo rather than carried forward in chat history, so a fresh session
 could implement it correctly without having witnessed the discussion.
 Written 2026-08-15, immediately after "Player presence:
-connected/disconnected/left tracking" above, which is what surfaced this.
+connected/disconnected tracking" above, which is what surfaced this.
 
 **The bug** (found live, not by inspection): with a player disconnected
 mid-game, the _other_ player's next tile-turn click visibly turns over two

@@ -17,7 +17,7 @@ export type ApplyPresenceResult = { state: GameState } | { error: ApplyPresenceE
 
 /** Atomic per-player `lastSeenAt` write — see
  * packages/redis/src/scripts/apply_presence.lua for the actual logic and
- * docs/decisions.md "Player presence: connected/disconnected/left tracking"
+ * docs/decisions.md "Player presence: connected/disconnected tracking"
  * for why this needs to be atomic (a plain GET/SET could clobber a
  * concurrent gameplay mutation to the same state blob). */
 export async function applyPresence(

@@ -116,7 +116,7 @@ export async function handleCreateGameRequest(
 }
 
 /** POST /games/:gameId/leave — see docs/decisions.md "Player presence:
- * connected/disconnected/left tracking". A deliberate, explicit leave,
+ * connected/disconnected tracking". A deliberate, explicit leave,
  * distinct from a connection dropping: no grace period, since nothing here
  * is inferred. Delegates to lobby.ts's leaveGame() (unchanged by this
  * feature — it's already correctly a no-op once the game has started).

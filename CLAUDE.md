@@ -154,31 +154,42 @@ build, test]`, `main`-push only — those five run as separate parallel jobs,
   until real evidence (stalled games) justifies it. Adding it later requires no
   redesign: both paths converge on the same idempotent `apply_turn_tile` call.
 - **Disconnected-player fast-skip**: the deadline check above also passes
-  once the current player is unreachable (stale heartbeat or an explicit
-  mid-game leave), so a disconnected current player doesn't make everyone
-  wait out the full `turnTimerSec`. See "Player presence:
-  connected/disconnected/left tracking" below for the full presence model
-  this and host migration both derive from — a `lastSeenAt` timestamp per
-  player, refreshed by a client heartbeat, with reachability computed at
-  read time rather than tracked via any scheduled timer.
-- **Player presence: connected/disconnected/left tracking.** `players[]` is
+  once the current player is unreachable (stale heartbeat, including
+  immediately after their socket closes — whether from a dropped
+  connection or clicking "Leave game" mid-game), so an away current player
+  doesn't make everyone wait out the full `turnTimerSec`. See "Player
+  presence: connected/disconnected tracking" below for the full presence
+  model this and host migration both derive from — a `lastSeenAt`
+  timestamp per player, refreshed by a client heartbeat, with reachability
+  computed at read time rather than tracked via any scheduled timer.
+- **Player presence: connected/disconnected tracking.** `players[]` is
   never mutated by connection state, at any phase — pre-start, removal
-  only happens via an explicit `POST /games/:gameId/leave`; mid-game,
-  nobody is ever removed, connected or not (an explicit leave just sets
-  `left: true`, keeping their score/words on the board). Presence lives as
-  `lastSeenAt`/`left` on each `PlayerState`, refreshed by `useGameSocket`
-  sending the `Ping` command on an interval; the server stamps it
-  atomically (`apply_presence.lua`, to avoid clobbering a concurrent
-  gameplay mutation to the same state blob) and replies with a fresh
-  snapshot on `Pong`, so every connected client's own heartbeat doubles as
-  a lightweight resync of everyone else's presence. A graceful `close`
+  only happens via an explicit `POST /games/:gameId/leave`; mid-game, that
+  same endpoint is a no-op (nobody is ever removed once the game has
+  started), and clicking "Leave game" is otherwise indistinguishable from
+  any other dropped connection: both just let the socket close, which
   marks the player stale immediately rather than waiting on the heartbeat
-  window. Host (`redis-schema.md` "Host convention") is derived as the
+  window, and both get the same "away" treatment (hollowed color swatch,
+  muted row, "Disconnected" tooltip — not "Reconnecting…", which would
+  imply an active, likely-to-succeed-soon process nobody can actually
+  know) until/unless they reconnect. There's
+  deliberately no separate `left` flag or distinct copy for an explicit
+  leave vs. a disconnect — that distinction was removed as unnecessary
+  complexity that also didn't hold up on inspection: it was never actually
+  wired to any mutation (a mid-game `POST /leave` always no-opped), and a
+  mid-game leave isn't even permanent — a player can reconnect into the
+  same game, same as any other disconnect. See docs/decisions.md "Player
+  presence: connected/disconnected tracking" for the full history,
+  including the removal. Presence lives as `lastSeenAt` on each
+  `PlayerState`, refreshed by `useGameSocket` sending the `Ping` command on
+  an interval; the server stamps it atomically (`apply_presence.lua`, to
+  avoid clobbering a concurrent gameplay mutation to the same state blob)
+  and replies with a fresh snapshot on `Pong`, so every connected client's
+  own heartbeat doubles as a lightweight resync of everyone else's
+  presence. Host (`redis-schema.md` "Host convention") is derived as the
   first _reachable_ player, not raw `players[0]`, so a disconnected host
   doesn't block anything and doesn't need removing for status to migrate.
-  Replaced the old `pendingLeaves` in-memory debounce entirely — see
-  docs/decisions.md "Player presence: connected/disconnected/left
-  tracking" for the full design and why.
+  Replaced the old `pendingLeaves` in-memory debounce entirely.
 - **Word formability — the client never specifies HOW a word forms.** The server
   infers the decomposition:
   - Pool letters alone → always valid if letters present.

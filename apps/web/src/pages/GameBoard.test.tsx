@@ -125,33 +125,26 @@ describe("GameBoard", () => {
     expect(screen.getByText("7")).toBeInTheDocument();
   });
 
-  it("shows no presence badge for a connected player", () => {
+  it("shows no away indicator for a connected player", () => {
     renderBoard({
       lobby: lobbySnapshot({ players: [{ ...ME }, { ...OPPONENT, presence: "connected" }] }),
     });
 
-    expect(screen.queryByText("Reconnecting…")).not.toBeInTheDocument();
-    expect(screen.queryByText("Left the game")).not.toBeInTheDocument();
+    expect(screen.queryByText("Disconnected")).not.toBeInTheDocument();
+    const names = screen.getAllByTestId("sidebar-player-name");
+    expect(names[1].parentElement).not.toHaveAttribute("title");
   });
 
-  it("shows a Reconnecting badge with a wifi-off icon for a disconnected player", () => {
+  it("marks a disconnected player's row as away via a title tooltip and muted styling, with no visible icon or text", () => {
     renderBoard({
       lobby: lobbySnapshot({ players: [{ ...ME }, { ...OPPONENT, presence: "disconnected" }] }),
     });
 
-    const badge = screen.getByText("Reconnecting…");
-    expect(badge).toHaveAttribute("title", "Reconnecting…");
-    expect(badge.querySelector("svg")).toHaveClass("lucide-wifi-off");
-  });
-
-  it("shows a Left the game badge with a user-minus icon for a player who explicitly left mid-game", () => {
-    renderBoard({
-      lobby: lobbySnapshot({ players: [{ ...ME }, { ...OPPONENT, presence: "left" }] }),
-    });
-
-    const badge = screen.getByText("Left the game");
-    expect(badge).toHaveAttribute("title", "Left the game");
-    expect(badge.querySelector("svg")).toHaveClass("lucide-user-minus");
+    expect(screen.queryByText("Disconnected")).not.toBeInTheDocument();
+    const names = screen.getAllByTestId("sidebar-player-name");
+    const opponentRow = names[1].parentElement as HTMLElement;
+    expect(opponentRow).toHaveAttribute("title", "Disconnected");
+    expect(opponentRow.querySelector("svg")).toBeNull();
   });
 
   it("hollows out a non-connected player's color swatch to a ring instead of a filled dot", () => {

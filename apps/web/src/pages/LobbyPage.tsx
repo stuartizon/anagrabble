@@ -65,12 +65,12 @@ export function LobbyPage() {
   // A deliberate, explicit leave — REST rather than a WS command. Rendered
   // both from the pre-start lobby view below and, via GameBoard, from a
   // live game (design-system/In Game.dc.html's leave-game button/confirm
-  // dialog) — the backend already treats a mid-game leave as just setting
-  // `left: true` and keeping the player's words/score on the board, so
-  // there's no separate mid-game codepath needed here. See
-  // docs/decisions.md "Player presence: connected/disconnected/left
-  // tracking" for why this doesn't go through the same debounced-disconnect
-  // path a dropped connection does.
+  // dialog). Pre-start this actually removes the player
+  // (`POST /games/:gameId/leave` -> `leaveGame` in apps/server/src/lobby.ts);
+  // mid-game it's a no-op on the backend, so navigating away just lets the
+  // socket close like any other disconnect — no separate mid-game leave
+  // codepath. See docs/decisions.md "`left` presence state removed" for why
+  // there's deliberately no distinct "left the game" state to set here.
   const leaveGame = async () => {
     setLeaving(true);
     setLeaveError(null);

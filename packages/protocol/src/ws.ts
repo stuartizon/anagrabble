@@ -19,7 +19,7 @@ export interface BaseEvent {
 /** Sent periodically by a connected client (see apps/web's useGameSocket)
  * purely to keep GameState.players[].lastSeenAt fresh — the presence
  * heartbeat, not a general-purpose keepalive. See docs/decisions.md "Player
- * presence: connected/disconnected/left tracking". */
+ * presence: connected/disconnected tracking". */
 export interface PingCommand extends BaseCommand {
   type: "Ping";
 }
@@ -58,20 +58,14 @@ export interface PlayerState {
    * sensitive). "Reachable" is derived from it at read time rather than
    * tracked via a scheduled timer — see apps/server/src/lobby.ts's
    * `isReachable` and docs/decisions.md "Player presence:
-   * connected/disconnected/left tracking". Absent for a player who has
-   * never connected (shouldn't happen in practice — set on join/create). */
+   * connected/disconnected tracking". Absent for a player who has never
+   * connected (shouldn't happen in practice — set on join/create). */
   lastSeenAt?: number;
-  /** True once this player has explicitly left a game already in progress
-   * (mid-game leave never removes them from `players` — see
-   * docs/decisions.md, same section as above). Never set pre-start: a
-   * pre-start leave removes the player from `players` outright instead
-   * (`leaveGame` in apps/server/src/lobby.ts). */
-  left?: boolean;
   /** Derived, wire-only — computed fresh into every LobbySnapshot
    * (apps/server/src/lobby.ts's `toLobbySnapshot`), never persisted
-   * alongside `lastSeenAt`/`left` in Redis. Absent from an older server's
+   * alongside `lastSeenAt` in Redis. Absent from an older server's
    * snapshot during a rollout window; treat as `"connected"`. */
-  presence?: "connected" | "disconnected" | "left";
+  presence?: "connected" | "disconnected";
 }
 
 export interface GameState {
@@ -79,8 +73,8 @@ export interface GameState {
   seq: number;
   config: GameConfig;
   /** Identity, not array position — `players[]` never drops a mid-game
-   * player on disconnect (see PlayerState's `left`/`lastSeenAt` docs
-   * below), so a position-based index would cycle through unreachable
+   * player on disconnect (see PlayerState's `lastSeenAt` docs below), so a
+   * position-based index would cycle through unreachable
    * players. `null` only in the pathological case where every player is
    * currently unreachable — no crash, just "nobody can currently take a
    * turn." See docs/decisions.md "Turn ownership: turnPlayerIndex ->

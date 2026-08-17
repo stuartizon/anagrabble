@@ -242,7 +242,7 @@ describe("useGameSocket reconnection", () => {
 });
 
 // The presence heartbeat — see docs/decisions.md "Player presence:
-// connected/disconnected/left tracking". Ping keeps the server's
+// connected/disconnected tracking". Ping keeps the server's
 // lastSeenAt fresh; the Pong reply doubling as a lightweight resync is
 // what apps/server's index.ts relies on for other players' presence to
 // stay current without a separate broadcast on every heartbeat tick.

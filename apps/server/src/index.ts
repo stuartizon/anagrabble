@@ -126,7 +126,7 @@ function leaveRoom(socket: WebSocket, gameId: string) {
 }
 
 /** Marks a player's connection as gone the moment its socket closes — see
- * docs/decisions.md "Player presence: connected/disconnected/left
+ * docs/decisions.md "Player presence: connected/disconnected
  * tracking". Replaces the old pendingLeaves debounce (an in-memory,
  * per-process Map of setTimeouts that couldn't survive a reconnect landing
  * on a different Node instance): there's nothing to schedule or cancel
@@ -243,7 +243,7 @@ fastify.post("/games", async (request, reply) => {
 });
 
 // Explicit, deliberate pre-start leave — see docs/decisions.md "Player
-// presence: connected/disconnected/left tracking". Unlike CreateGame above,
+// presence: connected/disconnected tracking". Unlike CreateGame above,
 // other players are already watching this lobby, so (unlike that route)
 // this one publishes on success — handleLeaveGameRequest itself stays a
 // pure auth/validation/mutation wrapper around lobby.ts's leaveGame(), same

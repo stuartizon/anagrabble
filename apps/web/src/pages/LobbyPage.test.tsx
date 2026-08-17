@@ -150,7 +150,7 @@ describe("LobbyPage", () => {
       expect(screen.getByRole("button", { name: "Start game" })).toBeEnabled();
     });
 
-    it("shows a Reconnecting badge for a disconnected player, none for a connected one", () => {
+    it("shows a Disconnected badge for a disconnected player, none for a connected one", () => {
       mockSocket({
         lobby: lobbySnapshot({
           players: [
@@ -161,7 +161,7 @@ describe("LobbyPage", () => {
       });
       renderAsPlayer("host-1");
 
-      expect(screen.getByLabelText("Reconnecting…")).toBeInTheDocument();
+      expect(screen.getByLabelText("Disconnected")).toBeInTheDocument();
     });
 
     it("sends StartGame when Start is clicked", async () => {
@@ -250,22 +250,6 @@ describe("LobbyPage", () => {
         gameId: "ABCDE",
         playerName: "Guest",
       });
-    });
-
-    it("shows a Left the game badge for a player who left before this guest joined", () => {
-      mockSocket({
-        lobby: lobbySnapshot({
-          status: "playing",
-          players: [HOST, { ...GUEST, id: "guest-2", presence: "left" }],
-          bankCount: 143,
-          pool: ["A"],
-          turnPlayerId: "host-1",
-          turnDeadline: Date.now() + 30_000,
-        }),
-      });
-      renderAsPlayer("guest-1");
-
-      expect(screen.getByLabelText("Left the game")).toBeInTheDocument();
     });
   });
 

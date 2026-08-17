@@ -233,20 +233,23 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
       and the server-side reconnect-recognition path is still untested.
 - [x] As a player, if another player disconnects or explicitly leaves, the
       game doesn't stall waiting on them: I see them marked as away (a
-      badge on their name, greyed-out row), a disconnected current player's
-      tile turn is forced forward well before the full turn timer runs
-      out, and — pre-start — if the host disconnects, host status migrates
-      to another reachable player automatically so the game can still be
-      started. Replaces the old `pendingLeaves` in-memory debounce with a
-      Redis-backed presence model (a heartbeat-refreshed `lastSeenAt` per
-      player, reachability derived at read time rather than tracked via a
-      scheduled timer) — see docs/decisions.md "Player presence:
-      connected/disconnected/left tracking" for the full design.
+      hollowed color swatch and greyed-out row — a hover tooltip gives the
+      reason, but there's no separate badge/icon), a disconnected current
+      player's tile turn is forced forward well before the full turn timer
+      runs out, and — pre-start — if the host disconnects, host status
+      migrates to another reachable player automatically so the game can
+      still be started. Replaces the old `pendingLeaves` in-memory debounce
+      with a Redis-backed presence model (a heartbeat-refreshed
+      `lastSeenAt` per player, reachability derived at read time rather
+      than tracked via a scheduled timer) — see docs/decisions.md "Player
+      presence: connected/disconnected tracking" for the full design.
       `players[]` is never mutated by connection state at any phase — a
       pre-start leave is now an explicit "Leave game" button
       (`POST /games/:gameId/leave`), not inferred from a dropped socket;
-      mid-game, a disconnected or explicitly-left player is never removed,
-      keeping their score/words on the board.
+      mid-game, that same button just closes the socket like any other
+      disconnect (no separate "left" state — see docs/decisions.md "`left`
+      presence state removed"), and nobody is ever removed, keeping their
+      score/words on the board.
 - [ ] As a player who reconnects mid-game or joins a game already in
       progress ("Core gameplay" above), I see the History panel populated
       with plays I missed, not just current state. Split out (2026-08-12)

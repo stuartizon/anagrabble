@@ -216,21 +216,6 @@ describe("lobby", () => {
 
       expect(snapshot?.hostId).toBe(HOST_ID);
     });
-
-    it('surfaces an explicit mid-game leave as presence "left", not removed from players', async () => {
-      await createGame(redis, createGameCommand(), HOST_ID);
-      await joinGame(redis, joinGameCommand(), PLAYER_ID);
-      await seedGameState(redis, "game-1", (state) => ({
-        ...state,
-        status: "playing",
-        players: state.players.map((p) => (p.id === PLAYER_ID ? { ...p, left: true } : p)),
-      }));
-
-      const snapshot = await loadLobbySnapshot(redis, "game-1");
-
-      expect(snapshot?.players.map((p) => p.id)).toEqual([HOST_ID, PLAYER_ID]);
-      expect(snapshot?.players.find((p) => p.id === PLAYER_ID)?.presence).toBe("left");
-    });
   });
 });
 

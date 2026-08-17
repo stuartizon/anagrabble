@@ -1,7 +1,7 @@
 -- Atomic presence write: patches one player's lastSeenAt without clobbering
 -- whatever a concurrent mutation (TurnTile, SubmitWord) may be doing to the
 -- same state blob at the same moment. See docs/decisions.md "Player
--- presence: connected/disconnected/left tracking" — "reachable" is always
+-- presence: connected/disconnected tracking" — "reachable" is always
 -- derived from this timestamp at read time (apps/server/src/lobby.ts's
 -- isReachable, mirrored in apply_turn_tile.lua), never tracked via a
 -- scheduled timer, so this script only ever needs to record a timestamp,

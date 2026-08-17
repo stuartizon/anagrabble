@@ -199,31 +199,6 @@ describe("applyTurnTile", () => {
     expect(result).toEqual({ error: "NotYourTurn" });
   });
 
-  it("treats a current player who explicitly left as unreachable too", async () => {
-    const now = Date.now();
-    await seed(
-      makeState({
-        turnPlayerId: "p1",
-        turnDeadline: now + 30_000,
-        players: [
-          { id: "p1", name: "One", words: [], score: 0, lastSeenAt: now, left: true },
-          { id: "p2", name: "Two", words: [], score: 0, lastSeenAt: now },
-        ],
-      }),
-    );
-
-    const result = await applyTurnTile(redis, {
-      ...KEYS,
-      commandId: crypto.randomUUID(),
-      playerId: "p2",
-      now,
-      cmdsTtlSec: 3600,
-      presenceStaleMs: 10_000,
-    });
-
-    expect(result).toMatchObject({ state: { pool: ["A"], turnPlayerId: "p2" } });
-  });
-
   it("advancing off a reachable player skips a subsequently-unreachable one, instead of handing them the turn", async () => {
     // Regression test for the bug in docs/decisions.md "Turn ownership:
     // turnPlayerIndex -> identity-based, not array position": with a

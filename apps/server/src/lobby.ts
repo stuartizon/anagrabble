@@ -27,7 +27,7 @@ export type LobbyError = "GameNotFound" | "GameIdTaken" | "GameAlreadyStarted" |
  * turnTile) rather than duplicated as a Lua literal — Redis's sandboxed Lua
  * can't read a config file or env var to get it independently, so this is
  * the single source of truth and Lua just receives whatever it's given.
- * See docs/decisions.md "Player presence: connected/disconnected/left
+ * See docs/decisions.md "Player presence: connected/disconnected
  * tracking". Still a hardcoded constant here, not yet an env var — see
  * CLAUDE.md "Still open" for the planned follow-up making it ops-tunable
  * without a redeploy. */
@@ -40,13 +40,11 @@ export const PRESENCE_STALE_MS = 10_000;
  * player — set on join/create below) defaults to "just seen" rather than
  * "long gone", failing open rather than treating incomplete data as absence. */
 export function isReachable(player: PlayerState, now: number): boolean {
-  if (player.left) return false;
   const lastSeenAt = player.lastSeenAt ?? now;
   return now - lastSeenAt < PRESENCE_STALE_MS;
 }
 
 function presenceOf(player: PlayerState, now: number): NonNullable<PlayerState["presence"]> {
-  if (player.left) return "left";
   return isReachable(player, now) ? "connected" : "disconnected";
 }
 

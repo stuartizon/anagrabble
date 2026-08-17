@@ -18,7 +18,7 @@ export const RECONNECT_DELAYS_MS = [1000, 2000, 5000, 10000, 30000];
 
 /** How often a connected client sends the presence heartbeat (`Ping`) — see
  * PingCommand's doc comment (packages/protocol/src/ws.ts) and
- * docs/decisions.md "Player presence: connected/disconnected/left
+ * docs/decisions.md "Player presence: connected/disconnected
  * tracking". Kept well under the server's PRESENCE_STALE_MS
  * (apps/server/src/lobby.ts, currently 10000ms) so a couple of missed beats
  * don't false-positive a still-connected player as stale; the two constants

@@ -2,12 +2,12 @@ import type { PlayerState } from "@anagrabble/protocol";
 
 /** Copy for a not-currently-connected player's badge — LobbyPage.tsx and
  * GameBoard.tsx share this so the two player-list renderings can't drift.
- * Same icon either way, only the label differs (see docs/decisions.md
- * "Player presence: connected/disconnected/left tracking"). `undefined`
- * (an older server mid-rollout that doesn't send `presence` yet) and
- * `"connected"` both render nothing. */
+ * "Disconnected", not "Reconnecting…": the latter implies an active,
+ * likely-to-succeed-soon process, which isn't knowable — this could just
+ * as easily be a player who's gone for good. `undefined` (an older server
+ * mid-rollout that doesn't send `presence` yet) and `"connected"` both
+ * render nothing. */
 export function presenceLabel(presence: PlayerState["presence"]): string | null {
-  if (presence === "disconnected") return "Reconnecting…";
-  if (presence === "left") return "Left the game";
+  if (presence === "disconnected") return "Disconnected";
   return null;
 }

@@ -15,7 +15,7 @@ export class LeaveGameError extends Error {
 
 /** POST /games/:gameId/leave — a deliberate, explicit pre-start leave, not
  * inferred from a connection dropping. See docs/decisions.md "Player
- * presence: connected/disconnected/left tracking". */
+ * presence: connected/disconnected tracking". */
 export async function leaveGame(token: string, gameId: string): Promise<LobbySnapshot> {
   const res = await fetch(`${API_URL}/games/${gameId}/leave`, {
     method: "POST",

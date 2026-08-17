@@ -11,13 +11,30 @@
   color: var(--text-secondary);
 }
 
+.wrapper {
+  position: relative;
+  display: block;
+}
+
 .select {
+  appearance: none;
+  width: 100%;
+  cursor: pointer;
   font-family: var(--font-body);
   font-size: var(--text-base);
-  padding: 9px 12px;
+  padding: 9px 40px 9px 12px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--ink);
   outline: none;
+}
+
+.chevron {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+  pointer-events: none;
 }

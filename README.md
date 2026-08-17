@@ -7,21 +7,22 @@ revealed tiles, or steal existing claimed words by extending or combining them
 
 ## Stack
 
-|                 |                                                                                |
-| --------------- | ------------------------------------------------------------------------------ |
-| Backend         | Stateless Node.js service built with TypeScript, [fastify](https://fastify.dev/), [ws](https://github.com/websockets/ws),  [ioredis](https://github.com/redis/ioredis) |
-| Frontend        | React SPA built with Vite                                                      |
-| Live game state | Redis — authoritative; see `docs/redis-schema.md` for the key/shape convention |
-| Durable history | Postgres; see `docs/postgres-schema.md` for the schema                         |
-| Auth            | Clerk — see `docs/decisions.md` "Auth provider"                                |
-| Monorepo        | pnpm workspaces                                                                |
-| Testing         | Vitest (per-package; see `CLAUDE.md` "Testing strategy")                       |
+| Layer           | Choice                                                                                                                                                                |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend         | Stateless Node.js service built with TypeScript, [fastify](https://fastify.dev/), [ws](https://github.com/websockets/ws), [ioredis](https://github.com/redis/ioredis) |
+| Frontend        | React SPA built with Vite                                                                                                                                             |
+| Live game state | Redis — authoritative; see `docs/redis-schema.md` for the key/shape convention                                                                                        |
+| Durable history | Postgres; see `docs/postgres-schema.md` for the schema                                                                                                                |
+| Auth            | Clerk — see `docs/decisions.md` "Auth provider"                                                                                                                       |
+| Monorepo        | pnpm workspaces                                                                                                                                                       |
+| Testing         | Vitest (per-package; see `CLAUDE.md` "Testing strategy")                                                                                                              |
 
 See `CLAUDE.md` for the full architecture rationale and conventions, and
 `docs/decisions.md` for the detailed reasoning behind each choice (why Redis over
 an actor model, why Railway over AWS, why these deployment/hosting picks, etc.).
 
 ## Getting started
+
 To start the backend server, the frontend dev server, Redis and Postgres:
 
 ```bash
@@ -31,10 +32,12 @@ docker compose up -d
 Open `http://localhost:5173`, create a game, and start playing.
 
 There are two additional containers which provide graphical interface tools:
+
 - Adminer (Postgres - `http://localhost:8081`)
 - RedisInsight (Redis - `http://localhost:8082`).
 
 These aren't part of the default profile; to spin these up, instead run:
+
 ```bash
 docker compose --profile tools up -d
 ```
@@ -73,7 +76,8 @@ list in this public repo.
 ```
 
 ## Authentication
-For local development we use a mock auth mode so we don't need a Clerk account. 
+
+For local development we use a mock auth mode so we don't need a Clerk account.
 
 **Auth defaults to a fully offline mock** — `docker-compose.yml` sets the
 backend's `AUTH_MODE=mock`, and `VITE_AUTH_MODE=mock` is `apps/web/.env.example`'s
@@ -113,17 +117,19 @@ mock` to blank in that same file for the `server` service:
   re-reads on every page load, so editing `CLERK_PUBLISHABLE_KEY` there
   just needs a browser refresh.
 
-
 ## Environment variables
+
 The backend server is configured with the following environment variables:
+
 - DATABASE_URL - the connection string for Postgres
 - REDIS_URL - the connection string for Redis
 - PORT - the port to start the service on
-- AUTH_MODE - if set to mock, then it supresses token signature checks. For local dev only; don't set in deployed environments 
+- AUTH_MODE - if set to mock, then it supresses token signature checks. For local dev only; don't set in deployed environments
 - CLERK_SECRET_KEY - the secret key provided by Clerk for this environment. Not required if in mock AUTH_MODE
 - WEB_ORIGIN - location of the front end, needed for CORS support
 
 The frontend is configured with the following variables:
+
 - API_URL - the backend server's HTTP origin for REST endpoints
 - WS_URL - the backend server's WS origin
 - CLERK_PUBLISHABLE_KEY - the safe to expose key provided by Clerk for this environment. Not required if in mock AUTH_MODE
@@ -131,13 +137,14 @@ The frontend is configured with the following variables:
 Unlike the backend, the frontend does not run on a server when deployed. It's just a bunch of assets in a bucket. So these environment variables are provided via an env.js file uploaded to the bucket alongside.
 
 There is also a build time key for using mock auth, again in local dev only.
+
 - VITE_AUTH_MODE - if set to mock, then the frontend makes zero calls to Clerk and login users are provided by local mock data.
 
 If you use the docker compose setup described above, all of this is pre-configured. To run the vite dev server and/or the backend outside of docker, make sure to copy:
+
 - /apps/server/.env.example → /apps/server/.env
 - /apps/web/.env.example → /apps/web/.env
 - /apps/web/public/env.example.js → /apps/web/public/env.js
-
 
 ## Testing
 

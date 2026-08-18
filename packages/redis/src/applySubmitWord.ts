@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import type { Redis } from "ioredis";
+import type { Redis } from "./client.js";
 import type { GameState } from "@anagrabble/protocol";
 
 const SCRIPT_PATH = fileURLToPath(new URL("./scripts/apply_submit_word.lua", import.meta.url));
@@ -52,20 +52,18 @@ export async function applySubmitWord(
   redis: Redis,
   args: ApplySubmitWordArgs,
 ): Promise<ApplySubmitWordResult> {
-  const raw = (await redis.eval(
-    SCRIPT,
-    3,
-    args.stateKey,
-    args.seqKey,
-    args.cmdsKey,
-    args.commandId,
-    args.submitterId,
-    String(args.now),
-    String(args.cmdsTtlSec),
-    args.word,
-    JSON.stringify(args.usedWords),
-    JSON.stringify(args.usedPoolLetters),
-  )) as string;
+  const raw = (await redis.eval(SCRIPT, {
+    keys: [args.stateKey, args.seqKey, args.cmdsKey],
+    arguments: [
+      args.commandId,
+      args.submitterId,
+      String(args.now),
+      String(args.cmdsTtlSec),
+      args.word,
+      JSON.stringify(args.usedWords),
+      JSON.stringify(args.usedPoolLetters),
+    ],
+  })) as string;
 
   const parsed = JSON.parse(raw) as GameState | { error: ApplySubmitWordError };
   return "error" in parsed ? { error: parsed.error } : { state: parsed };

@@ -1,5 +1,4 @@
-export { createRedisClient, type CreateRedisClientOptions } from "./client.js";
-export type { Redis } from "ioredis";
+export { createRedisClient, type CreateRedisClientOptions, type Redis } from "./client.js";
 export {
   applyTurnTile,
   type ApplyTurnTileArgs,

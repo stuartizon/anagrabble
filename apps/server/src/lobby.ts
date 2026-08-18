@@ -98,7 +98,7 @@ export async function markCommandSeen(
   gameId: string,
   commandId: string,
 ): Promise<boolean> {
-  const added = await redis.sadd(cmdsKey(gameId), commandId);
+  const added = await redis.sAdd(cmdsKey(gameId), commandId);
   await redis.expire(cmdsKey(gameId), CMDS_TTL_SEC);
   return added === 0;
 }
@@ -156,7 +156,7 @@ export async function createGame(
   const multi = redis.multi();
   multi.set(seqKey(cmd.gameId), "0");
   multi.set(stateKey(cmd.gameId), JSON.stringify(state));
-  multi.sadd(cmdsKey(cmd.gameId), cmd.commandId);
+  multi.sAdd(cmdsKey(cmd.gameId), cmd.commandId);
   multi.expire(cmdsKey(cmd.gameId), CMDS_TTL_SEC);
   await multi.exec();
 

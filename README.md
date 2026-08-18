@@ -7,15 +7,15 @@ revealed tiles, or steal existing claimed words by extending or combining them
 
 ## Stack
 
-| Layer           | Choice                                                                                                                                                                |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Backend         | Stateless Node.js service built with TypeScript, [fastify](https://fastify.dev/), [ws](https://github.com/websockets/ws), [ioredis](https://github.com/redis/ioredis) |
-| Frontend        | React SPA built with Vite                                                                                                                                             |
-| Live game state | Redis — authoritative; see `docs/redis-schema.md` for the key/shape convention                                                                                        |
-| Durable history | Postgres; see `docs/postgres-schema.md` for the schema                                                                                                                |
-| Auth            | Clerk — see `docs/decisions.md` "Auth provider"                                                                                                                       |
-| Monorepo        | pnpm workspaces                                                                                                                                                       |
-| Testing         | Vitest (per-package; see `CLAUDE.md` "Testing strategy")                                                                                                              |
+| Layer           | Choice                                                                                                                                                                      |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend         | Stateless Node.js service built with TypeScript, [fastify](https://fastify.dev/), [ws](https://github.com/websockets/ws), [node-redis](https://github.com/redis/node-redis) |
+| Frontend        | React SPA built with Vite                                                                                                                                                   |
+| Live game state | Redis — authoritative; see `docs/redis-schema.md` for the key/shape convention                                                                                              |
+| Durable history | Postgres; see `docs/postgres-schema.md` for the schema                                                                                                                      |
+| Auth            | Clerk — see `docs/decisions.md` "Auth provider"                                                                                                                             |
+| Monorepo        | pnpm workspaces                                                                                                                                                             |
+| Testing         | Vitest (per-package; see `CLAUDE.md` "Testing strategy")                                                                                                                    |
 
 See `CLAUDE.md` for the full architecture rationale and conventions, and
 `docs/decisions.md` for the detailed reasoning behind each choice (why Redis over

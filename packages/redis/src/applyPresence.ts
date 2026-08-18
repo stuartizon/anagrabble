@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import type { Redis } from "ioredis";
+import type { Redis } from "./client.js";
 import type { GameState } from "@anagrabble/protocol";
 
 const SCRIPT_PATH = fileURLToPath(new URL("./scripts/apply_presence.lua", import.meta.url));
@@ -24,13 +24,10 @@ export async function applyPresence(
   redis: Redis,
   args: ApplyPresenceArgs,
 ): Promise<ApplyPresenceResult> {
-  const raw = (await redis.eval(
-    SCRIPT,
-    1,
-    args.stateKey,
-    args.playerId,
-    String(args.lastSeenAt),
-  )) as string;
+  const raw = (await redis.eval(SCRIPT, {
+    keys: [args.stateKey],
+    arguments: [args.playerId, String(args.lastSeenAt)],
+  })) as string;
 
   const parsed = JSON.parse(raw) as GameState | { error: ApplyPresenceError };
   return "error" in parsed ? { error: parsed.error } : { state: parsed };

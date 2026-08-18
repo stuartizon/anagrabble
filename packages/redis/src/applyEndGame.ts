@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import type { Redis } from "ioredis";
+import type { Redis } from "./client.js";
 import type { GameState } from "@anagrabble/protocol";
 
 const SCRIPT_PATH = fileURLToPath(new URL("./scripts/apply_end_game.lua", import.meta.url));
@@ -29,16 +29,10 @@ export async function applyEndGame(
   redis: Redis,
   args: ApplyEndGameArgs,
 ): Promise<ApplyEndGameResult> {
-  const raw = (await redis.eval(
-    SCRIPT,
-    3,
-    args.stateKey,
-    args.seqKey,
-    args.cmdsKey,
-    args.commandId,
-    String(args.now),
-    String(args.cmdsTtlSec),
-  )) as string;
+  const raw = (await redis.eval(SCRIPT, {
+    keys: [args.stateKey, args.seqKey, args.cmdsKey],
+    arguments: [args.commandId, String(args.now), String(args.cmdsTtlSec)],
+  })) as string;
 
   const parsed = JSON.parse(raw) as GameState | { error: ApplyEndGameError };
   return "error" in parsed ? { error: parsed.error } : { state: parsed };

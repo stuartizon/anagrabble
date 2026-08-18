@@ -7,8 +7,7 @@
 import { RedisContainer, type StartedRedisContainer } from "@testcontainers/redis";
 import type { GameState } from "@anagrabble/protocol";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import type { Redis } from "ioredis";
-import { createRedisClient } from "./client.js";
+import { createRedisClient, type Redis } from "./client.js";
 import { applySubmitWord, type ApplySubmitWordKeys } from "./applySubmitWord.js";
 
 const GAME_ID = "game-1";
@@ -44,15 +43,16 @@ describe("applySubmitWord", () => {
   beforeAll(async () => {
     container = await new RedisContainer("redis:7-alpine").start();
     redis = createRedisClient({ url: container.getConnectionUrl() });
+    await redis.connect();
   }, 60_000);
 
   afterAll(async () => {
-    redis.disconnect();
+    redis.destroy();
     await container.stop();
   });
 
   beforeEach(async () => {
-    await redis.flushall();
+    await redis.flushAll();
   });
 
   async function seed(state: GameState) {
@@ -297,7 +297,7 @@ describe("applySubmitWord", () => {
     expect(stillPlaying).toMatchObject({ state: { endGameDeadline: null } });
 
     // Bank empty, countdown already running: gets reset to now + 60s.
-    await redis.flushall();
+    await redis.flushAll();
     await seed(makeState({ bankCount: 0, endGameDeadline: now + 10_000 }));
     const bankEmpty = await applySubmitWord(redis, {
       ...KEYS,

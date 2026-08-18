@@ -7,8 +7,7 @@
 import { RedisContainer, type StartedRedisContainer } from "@testcontainers/redis";
 import type { GameState } from "@anagrabble/protocol";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import type { Redis } from "ioredis";
-import { createRedisClient } from "./client.js";
+import { createRedisClient, type Redis } from "./client.js";
 import { applyTurnTile, type ApplyTurnTileKeys } from "./applyTurnTile.js";
 
 const GAME_ID = "game-1";
@@ -45,20 +44,21 @@ describe("applyTurnTile", () => {
   beforeAll(async () => {
     container = await new RedisContainer("redis:7-alpine").start();
     redis = createRedisClient({ url: container.getConnectionUrl() });
+    await redis.connect();
   }, 60_000);
 
   afterAll(async () => {
-    redis.disconnect();
+    redis.destroy();
     await container.stop();
   });
 
   beforeEach(async () => {
-    await redis.flushall();
+    await redis.flushAll();
   });
 
   async function seed(state: GameState, bag: string[] = ["A", "B", "C", "D", "E"]) {
     await redis.set(KEYS.stateKey, JSON.stringify(state));
-    if (bag.length > 0) await redis.rpush(KEYS.bagKey, ...bag);
+    if (bag.length > 0) await redis.rPush(KEYS.bagKey, bag);
   }
 
   it("returns GameNotFound when the game doesn't exist", async () => {

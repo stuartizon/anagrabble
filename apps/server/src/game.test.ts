@@ -88,15 +88,16 @@ describe("game", () => {
   beforeAll(async () => {
     container = await new RedisContainer("redis:7-alpine").start();
     redis = createRedisClient({ url: container.getConnectionUrl() });
+    await redis.connect();
   }, 60_000);
 
   afterAll(async () => {
-    redis.disconnect();
+    redis.destroy();
     await container.stop();
   });
 
   beforeEach(async () => {
-    await redis.flushall();
+    await redis.flushAll();
   });
 
   async function seedTwoPlayerLobby() {
@@ -184,7 +185,7 @@ describe("game", () => {
       expect(snapshot.turnDeadline).not.toBeNull();
       expect(snapshot.turnDeadline!).toBeGreaterThanOrEqual(before + CONFIG.turnTimerSec * 1000);
 
-      const bagLength = await redis.llen("game:{game-1}:bag");
+      const bagLength = await redis.lLen("game:{game-1}:bag");
       expect(bagLength).toBe(144);
     });
 
@@ -196,7 +197,7 @@ describe("game", () => {
       const second = await startGame(redis, cmd, HOST_ID);
 
       expect(second).toEqual(first);
-      const bagLength = await redis.llen("game:{game-1}:bag");
+      const bagLength = await redis.lLen("game:{game-1}:bag");
       expect(bagLength).toBe(144);
     });
 

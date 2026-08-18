@@ -47,15 +47,16 @@ describe("lobby", () => {
   beforeAll(async () => {
     container = await new RedisContainer("redis:7-alpine").start();
     redis = createRedisClient({ url: container.getConnectionUrl() });
+    await redis.connect();
   }, 60_000);
 
   afterAll(async () => {
-    redis.disconnect();
+    redis.destroy();
     await container.stop();
   });
 
   beforeEach(async () => {
-    await redis.flushall();
+    await redis.flushAll();
   });
 
   describe("createGame", () => {

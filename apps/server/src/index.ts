@@ -69,6 +69,10 @@ redis.on("connect", () => console.log(`[redis] connected to ${REDIS_URL}`));
 redis.on("error", (err) => console.error("[redis] connection error", err));
 subscriber.on("error", (err) => console.error("[redis] subscriber error", err));
 
+// node-redis, unlike ioredis, doesn't connect on construction.
+await redis.connect();
+await subscriber.connect();
+
 // Postgres is durable history only, never on the critical path of a move
 // (CLAUDE.md "Core architecture") — so a migration failure is logged, not
 // fatal to startup, unlike CLERK_SECRET_KEY above. runMigrations uses
@@ -96,18 +100,18 @@ runMigrations(db)
 // isn't holding the socket in question still needs a way to reach it.
 const rooms = new Map<string, Set<WebSocket>>();
 
-subscriber.subscribe(GAME_CHANNEL).catch((err) => console.error("[redis] subscribe failed", err));
-
-subscriber.on("message", (_channel, message) => {
-  const event = JSON.parse(message) as Event;
-  const gameId = "gameId" in event ? event.gameId : undefined;
-  if (!gameId) return;
-  const sockets = rooms.get(gameId);
-  if (!sockets) return;
-  for (const socket of sockets) {
-    if (socket.readyState === WebSocket.OPEN) socket.send(message);
-  }
-});
+subscriber
+  .subscribe(GAME_CHANNEL, (message) => {
+    const event = JSON.parse(message) as Event;
+    const gameId = "gameId" in event ? event.gameId : undefined;
+    if (!gameId) return;
+    const sockets = rooms.get(gameId);
+    if (!sockets) return;
+    for (const socket of sockets) {
+      if (socket.readyState === WebSocket.OPEN) socket.send(message);
+    }
+  })
+  .catch((err) => console.error("[redis] subscribe failed", err));
 
 function joinRoom(socket: WebSocket, gameId: string) {
   let sockets = rooms.get(gameId);

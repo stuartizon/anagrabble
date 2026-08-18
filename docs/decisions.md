@@ -3045,6 +3045,67 @@ just Vitest.
 
 ---
 
+## Redis client: node-redis, not ioredis
+
+**Decision** (2026-08-19): migrated `packages/redis` and `apps/server` from
+`ioredis` to `redis` (node-redis), the client Redis Inc. now officially
+maintains and recommends. `ioredis` was the original scaffold-time pick
+(`9c40f29`, 2026-08-08) with no recorded rationale — it predates this file's
+"new sections follow Decision/Alternatives/Why" convention, and no comparison
+against node-redis was ever written down. Raised for a real evaluation
+2026-08-19 after checking upstream status: Redis Inc. has since deprecated
+`ioredis` in favor of node-redis (it's still shipping releases, maintenance
+is "best-effort" on the legacy track, not the steered-toward default for new
+work or migrations — see their own migration guide at
+`redis.io/docs/latest/develop/clients/nodejs/migration`).
+
+**Why migrate now rather than later**: the two things that usually make a
+Redis client migration expensive — cluster/Sentinel topology and a large
+custom-command surface (`defineCommand`, see "Hand-written Lua vs. a
+query-builder" above, which this project tried and reverted) — don't apply
+here. Usage was four `EVAL`-based Lua wrappers (`packages/redis`), plain
+`multi()`/`duplicate()`/pub-sub (`apps/server`), and no cluster. Small,
+mechanical surface, and it only gets larger as more gameplay slices land —
+cheaper to move while the codebase is still young than to accumulate more
+call sites on the deprecated track first.
+
+**What changed**, mechanically:
+
+- `packages/redis/src/client.ts`: `new Redis(url, opts)` → `createClient({
+url, ...opts})`. Unlike ioredis, node-redis doesn't connect on construction
+  — every caller now explicitly `await`s `.connect()` (`apps/server/src/index.ts`
+  for the main client and the pub/sub `subscriber` duplicate; the four
+  `packages/redis` test files' `beforeAll`).
+- The four Lua wrappers (`applyTurnTile`/`applySubmitWord`/`applyEndGame`/
+  `applyPresence`): `redis.eval(script, numkeys, ...keysAndArgs)` (positional)
+  → `redis.eval(script, { keys: [...], arguments: [...] })` (node-redis's
+  object form).
+- Pub/sub (`apps/server/src/index.ts`): node-redis passes the message
+  listener directly to `subscribe(channel, listener)` instead of a separate
+  `.subscribe()` call plus a global `.on("message", (channel, msg) => ...)`
+  handler.
+- Multi-word commands took node-redis's camelCase names: `sadd` → `sAdd`,
+  `rpush` → `rPush`, `llen` → `lLen`, `flushall` → `flushAll`. Single-word
+  commands (`get`/`set`/`incr`/`expire`/`exists`/`multi`/`publish`/`ping`/
+  `duplicate`) were unchanged.
+- Test teardown: ioredis's `.disconnect()` → node-redis's `.destroy()` (the
+  non-graceful immediate-close equivalent; node-redis's `.disconnect()` is
+  deprecated in favor of it).
+- Dropped the `maxRetriesPerRequest: 3` default `client.ts` set on every
+  client — an ioredis-specific per-command retry cap with no direct
+  node-redis equivalent, unused by any override elsewhere in the codebase,
+  and not worth reinventing against node-redis's own (different but
+  reasonable) offline-queue/reconnect defaults.
+
+Verified against real Redis (not just typecheck): all 42 `packages/redis`
+tests and all 83 `apps/server` tests pass unchanged (behavioral coverage, not
+rewritten for the migration), and the docker-compose `server` container
+was restarted and confirmed booting clean (`[redis] connected to
+redis://redis:6379`, `/health` returns `{"redis":"ok"}`, no subscriber
+errors).
+
+---
+
 ## Explicitly still open
 
 - **A real WS round-trip test harness** (Fastify + a real `ws` client

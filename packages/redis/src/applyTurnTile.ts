@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import type { Redis } from "ioredis";
+import type { Redis } from "./client.js";
 import type { GameState } from "@anagrabble/protocol";
 
 const SCRIPT_PATH = fileURLToPath(new URL("./scripts/apply_turn_tile.lua", import.meta.url));
@@ -37,20 +37,17 @@ export async function applyTurnTile(
   redis: Redis,
   args: ApplyTurnTileArgs,
 ): Promise<ApplyTurnTileResult> {
-  const raw = (await redis.eval(
-    SCRIPT,
-    4,
-    args.stateKey,
-    args.seqKey,
-    args.cmdsKey,
-    args.bagKey,
-    args.commandId,
-    args.playerId,
-    String(args.now),
-    String(args.cmdsTtlSec),
-    args.observedTurnDeadline != null ? String(args.observedTurnDeadline) : "",
-    String(args.presenceStaleMs),
-  )) as string;
+  const raw = (await redis.eval(SCRIPT, {
+    keys: [args.stateKey, args.seqKey, args.cmdsKey, args.bagKey],
+    arguments: [
+      args.commandId,
+      args.playerId,
+      String(args.now),
+      String(args.cmdsTtlSec),
+      args.observedTurnDeadline != null ? String(args.observedTurnDeadline) : "",
+      String(args.presenceStaleMs),
+    ],
+  })) as string;
 
   const parsed = JSON.parse(raw) as GameState | { error: ApplyTurnTileError };
   return "error" in parsed ? { error: parsed.error } : { state: parsed };

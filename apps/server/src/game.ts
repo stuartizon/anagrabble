@@ -76,7 +76,7 @@ export async function startGame(
 
   const multi = redis.multi();
   multi.set(stateKey(cmd.gameId), JSON.stringify(nextState));
-  if (bag.length > 0) multi.rpush(bagKey(cmd.gameId), ...bag);
+  if (bag.length > 0) multi.rPush(bagKey(cmd.gameId), bag);
   await multi.exec();
 
   return { snapshot: toLobbySnapshot(cmd.gameId, nextState) };

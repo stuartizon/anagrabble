@@ -3106,6 +3106,52 @@ errors).
 
 ---
 
+## Pre-push git hooks over documentation-only convention
+
+**Decision**: a `pre-push` git hook, managed by `simple-git-hooks`
+(configured via the root `package.json`'s `simple-git-hooks` key, installed
+automatically by the root `postinstall` script), runs `pnpm lint && pnpm
+format:check && pnpm typecheck && pnpm test` — the same four checks
+CI gates on — before any push leaves the machine.
+
+**Context**: this repo originally leaned on documentation over enforcement
+tooling for local checks (see "Run `pnpm format:check` before every commit"
+in CLAUDE.md's prior wording, and the explicit call at the time: "I don't
+think a pre-commit hook is necessary... maybe this is just something that
+should be in the Claude MD"). That approach didn't hold: CI broke more than
+once from checks (formatting, lint, occasionally a failing test) that were
+documented as required but not actually run before push, because nothing
+local enforced it.
+
+**Alternatives considered**:
+
+- **Pre-commit hook running everything** — rejected: `pnpm test` includes
+  testcontainers-backed integration tests (`apps/server`, `packages/redis`)
+  that spin up real Redis via Docker; running that on every commit would
+  make small, frequent commits painful.
+- **Pre-commit hook running fast checks only (lint-staged), full suite on
+  pre-push** — a reasonable split, but rejected in favor of the simpler
+  option below: no pre-commit hook at all, so commits stay completely
+  unconstrained, and the full gate only runs once, at the point code
+  actually leaves the machine.
+- **Husky + lint-staged** — the more common choice for this kind of setup,
+  but heavier than needed here since nothing runs pre-commit and there's no
+  staged-file filtering to do; `simple-git-hooks` is a minimal wrapper that
+  just wires an npm script to a git hook, which is all this needed.
+- **lefthook** — a solid dependency-free alternative (single Go binary,
+  parallel execution), not picked mainly because the checks here already
+  run sequentially via one pnpm command and don't need lefthook's
+  parallelism.
+
+**Why pre-push, not pre-commit**: pre-push runs once per push rather than
+once per commit, so it doesn't slow down the actual editing/committing
+loop, while still catching everything before it can reach CI — the actual
+failure mode this was meant to close. Skippable via
+`SKIP_SIMPLE_GIT_HOOKS=1 git push` for genuine emergencies (a bypass
+`simple-git-hooks` provides itself), not meant as a routine escape hatch.
+
+---
+
 ## Explicitly still open
 
 - **A real WS round-trip test harness** (Fastify + a real `ws` client

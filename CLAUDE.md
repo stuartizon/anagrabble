@@ -416,14 +416,21 @@ mechanic without touching anything else.
   `packages/game`'s decomposition search and the Lua scripts in
   `packages/redis` — see "Testing strategy" above — where correctness bugs are
   the costliest and least visible if untested.
-- **Run `pnpm format:check` before every commit, not just `pnpm lint` and
-  `pnpm test`.** There's deliberately no pre-commit hook enforcing this
-  locally, so Prettier drift only ever surfaces in CI's `Format check`
-  step — a separate command from `Lint`/`Typecheck`/`Test` in the same job
-  (`.github/workflows/ci.yml`), easy to skip by running eslint/tsc/vitest
-  on changed files and calling it clean without ever running Prettier.
-  That gap is exactly how a plain formatting drift once reached `main` and
-  broke CI on an otherwise-passing commit.
+- **A `pre-push` git hook (`simple-git-hooks`, configured in the root
+  `package.json`'s `simple-git-hooks` key) runs `pnpm lint && pnpm
+format:check && pnpm typecheck && pnpm test` before every push** — the
+  same four checks CI gates on, run locally first so a red build never
+  reaches `main`. Installed automatically via the root `postinstall`
+  script, so a fresh `pnpm install` wires it up with no extra step.
+  Deliberately pre-push, not pre-commit: commits stay fast and frequent,
+  while nothing leaves the machine unchecked. Skippable with
+  `SKIP_SIMPLE_GIT_HOOKS=1 git push` for a genuine emergency, but treat
+  that as an escape hatch, not a habit. Superseded relying on
+  documentation alone (this section previously just asked people to
+  remember to run `pnpm format:check`) after that approach let a plain
+  Prettier drift reach `main` and break CI on an otherwise-passing commit
+  — see docs/decisions.md "Pre-push git hooks over documentation-only
+  convention" for the fuller history.
 - **Assume local dev services (Node server, web dev server, Redis) are
   already running, and check before starting any of them.** The happy path
   is that they're up in a separate terminal with hot reload active, so an

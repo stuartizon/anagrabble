@@ -396,7 +396,7 @@ mechanic without touching anything else.
   No Conventional Commits-style scope prefixes (`feat:`, `fix:`, `docs:`,
   etc.) and no ticket/issue numbers.
 - **Track open follow-ups/todos as GitHub issues, not in CLAUDE.md or
-  docs/*.md.** As of 2026-08-18, non-trivial deferred work (a design
+  docs/\*.md.** As of 2026-08-18, non-trivial deferred work (a design
   decision not yet made, a known gap, a planned-but-not-started piece of
   work) gets filed as a GitHub issue on this repo rather than appended to
   this file's "Still open" section or scattered through docs/decisions.md.
@@ -405,7 +405,7 @@ mechanic without touching anything else.
   section below, which had at least one stale entry describing already-shipped
   work as still open) and don't get the status/labels/close-on-resolve
   workflow a real issue tracker gives for free. `docs/user-stories.md`
-  stays the canonical *product-scope* backlog (its own header already
+  stays the canonical _product-scope_ backlog (its own header already
   invited mirroring stories into issues "for sprint/status tracking if
   useful") — this convention is about the smaller architecture/cleanup
   follow-ups that used to accumulate in this file instead.

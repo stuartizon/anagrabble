@@ -264,7 +264,8 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
       approaches captured but not decided in docs/decisions.md
       "Explicitly still open" — resolve deliberately when picked up. See
       that file's "Planned work" (2026-08-12) for how this sequences
-      against mid-game join and the CreateGame-as-REST piece.
+      against mid-game join and the CreateGame-as-REST piece. Tracked as
+      anagrabble#5.
 - [x] As a player on mobile, the game is fully playable (design system has
       responsive rail/menu treatment already specified). Audited end to end
       at a real mobile viewport (Playwright, iPhone SE width): full

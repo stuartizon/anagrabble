@@ -395,6 +395,20 @@ mechanic without touching anything else.
   change's nature, followed by a plain imperative-sentence subject and body.
   No Conventional Commits-style scope prefixes (`feat:`, `fix:`, `docs:`,
   etc.) and no ticket/issue numbers.
+- **Track open follow-ups/todos as GitHub issues, not in CLAUDE.md or
+  docs/*.md.** As of 2026-08-18, non-trivial deferred work (a design
+  decision not yet made, a known gap, a planned-but-not-started piece of
+  work) gets filed as a GitHub issue on this repo rather than appended to
+  this file's "Still open" section or scattered through docs/decisions.md.
+  Reason: md-file todo lists silently drift out of sync with what's
+  actually been resolved (see the removed "Still open / not yet decided"
+  section below, which had at least one stale entry describing already-shipped
+  work as still open) and don't get the status/labels/close-on-resolve
+  workflow a real issue tracker gives for free. `docs/user-stories.md`
+  stays the canonical *product-scope* backlog (its own header already
+  invited mirroring stories into issues "for sprint/status tracking if
+  useful") — this convention is about the smaller architecture/cleanup
+  follow-ups that used to accumulate in this file instead.
 - **Test-driven development.** When picking up a user story from
   `docs/user-stories.md`, or any task involving non-trivial logic (not glue
   code or config), write a failing test first, make it pass with the minimum
@@ -430,101 +444,44 @@ mechanic without touching anything else.
 
 ## Still open / not yet decided
 
-- Whether/when to add the turn-timer polling sweep (a backend process, not
-  today's client-triggered fast-skip — see docs/decisions.md "Turn
-  ownership: `turnPlayerIndex` → identity-based, not array position" for
-  the identity-based `turnPlayerId` field this migration landed, which
-  that future sweep will consume/produce). Explicitly not part of that
-  migration — still just an open question. **When it lands**: delete
-  `TurnTileCommand.observedTurnDeadline`, the matching guard block in
-  `apply_turn_tile.lua`, its plumbing through `ApplyTurnTileArgs`
-  (`packages/redis`/`apps/server`), and the background auto-fire
-  `useEffect` in `GameBoard.tsx` — see docs/decisions.md "Two-player
-  double-tile-draw bug: `observedTurnDeadline` staleness guard" for why
-  that whole mechanism only exists to guard a multi-client race the sweep
-  makes structurally impossible.
-- Redis HA approach and timing of adopting it (Sentinel template vs. staying
-  single-instance) — revisit once usage data exists.
-- Dictionary derivation data is suffix-only (e.g. UNHAPPY vs. HAPPY isn't
-  caught, unlike CATS vs. CAT) — a data-quality gap, not a code limitation;
-  `isDerivedFrom` itself has no concept of position. Root _coverage_ within
-  that suffix-only scope substantially improved 2026-08-12 (WordNet +
-  Wiktionary enrichment, ~34,815 previously-blank roots filled, rerunnable
-  via `pnpm enrich:dictionary` in `packages/game`) — see docs/decisions.md
-  "Root-word enrichment: WordNet + Wiktionary". The prefix-derivation gap
-  itself (UNHAPPY/HAPPY) is unchanged: the enrichment deliberately stuck to
-  the existing suffix-only convention rather than expanding scope. See
-  docs/decisions.md "Dictionary source and format"'s second known gap.
-- How a reconnecting/late-joining client backfills the history panel's past
-  plays (today it only accumulates events seen live, so a gap is just
-  missing) — candidate approaches (bounded or uncapped recent-history in
-  Redis state, or reading from Postgres once it exists) captured but not
-  decided between. See docs/decisions.md "Explicitly still open" ->
-  "Reconnect/mid-game-join history backfill".
-- The post-bank-empty idle timeout is hardcoded at 60s in both
-  `apply_turn_tile.lua` and `apply_submit_word.lua` — this section's own
-  "60–90s, configurable" isn't wired up to `GameConfig` yet. See
-  docs/decisions.md "Game-end condition" implementation note.
-- Auth: sign-up/log-in is built against Clerk (`apps/web` only — see
-  docs/decisions.md "Auth provider: Clerk, not a hand-rolled `users`
-  table"). Gameplay now requires being signed in — no anonymous play —
-  and player identity is the Clerk user id/account name, not a local
-  stub (`playerIdentity.ts` is gone). See docs/decisions.md "Player
-  identity: Clerk id, no anonymous play". Every identity-bearing WS command
-  (`JoinGame`/`StartGame`/`TurnTile`/`SubmitWord`) now derives its actor
-  from the connection's verified `meta.clerkUserId` (`src/auth.ts`'s
-  `resolveActingPlayerId`) rather than trusting the command payload's
-  `playerId`/`hostId` — see docs/decisions.md "Command identity: derived
-  from the Clerk session, not client-supplied". `CreateGame` (REST, see
-  docs/decisions.md "CreateGame as a REST endpoint") derives its actor
-  from the request's Bearer token instead, via the same `authenticate()`
-  pattern as `/stats`/`/settings`.
-  `CLERK_SECRET_KEY` is now required (server throws on startup without
-  it). `hostId`/`playerId` have since been removed from the wire protocol
-  entirely (`PROTOCOL_VERSION` 2) — the server never reads a client-claimed
-  actor id at all now, only the verified session. Still open: durable
-  Postgres history isn't written at all yet, so games/stats don't actually
-  persist against that Clerk id — see the same decisions.md section.
-  `apps/web` never imports `@clerk/react` directly — it goes through
-  `src/auth/`, which swaps in a fully offline mock provider for local dev
-  (`VITE_AUTH_MODE=mock`) so `pnpm dev` needs no internet connection.
-  `apps/server` has a matching `AUTH_MODE=mock` counterpart so gameplay
-  commands work end to end without reaching real Clerk. See
-  docs/decisions.md "Local dev auth: mock provider, not a Clerk sandbox".
-- The header avatar always shows an initial, never Clerk's `UserButton`/
-  `UserAvatar` (which would give a real profile photo plus a built-in
-  account-management dropdown) — a deliberate call for now, not an
-  oversight. See docs/decisions.md "Account avatar" for why, and when it'd
-  be worth revisiting.
-- Clerk's transactional emails (verification code, password reset, etc.)
-  are still on Clerk's default unbranded copy/styling — deferred, not yet
-  started. When picked up: the brand mark (logo) is set once per Clerk
-  instance under Settings → Branding and every template inherits it
-  automatically, so it's not a per-template task; only per-template wording
-  needs individual edits. There's no official Clerk Terraform provider, and
-  the community ones (`buildwithdeck/clerk`, `bertie-technology/clerk`)
-  don't cover email templates — so IaC here means a small script against
-  Clerk's Backend API (`PUT /v1/templates/email/{slug}`, also reachable via
-  `npx clerk@latest api templates/email/<slug>`) run per environment/
-  account, not a Terraform resource.
-- **Presence timing (`PRESENCE_STALE_MS`/`PING_INTERVAL_MS`) is still a
-  hardcoded constant, not yet ops-tunable.** `PRESENCE_STALE_MS` is exported
-  from `apps/server/src/lobby.ts` and passed into `apply_turn_tile.lua` as
-  an `EVAL` argument (Redis's sandboxed Lua has no `io`/`os` libraries, so
-  it can't read a config file or env var itself — this is the only way to
-  give it a runtime-supplied value without duplicating the literal). But
-  `lobby.ts`'s own value is still a source-level constant, and
-  `apps/web/src/useGameSocket.ts`'s `PING_INTERVAL_MS` is a second,
-  independently-hardcoded constant in a different deployable — "must be
-  kept roughly in sync by hand" per that file's comment. Planned follow-up:
-  read `PRESENCE_STALE_MS` from an environment variable on the server
-  (ops-tunable without a redeploy), and have the client learn the value
-  from the server at connect time (e.g. on the handshake or
-  `LobbySnapshot`) instead of hardcoding its own guess — same "client
-  trusts a server-derived value" pattern presence itself already uses,
-  and it sidesteps the skew risk a shared build-time constant would still
-  have across `apps/server`/`apps/web`'s independently-deployed builds.
-  Deliberately not done yet: once the turn-timer polling sweep above
-  lands, `GameBoard.tsx` won't need to know the timing at all — the only
-  thing the frontend actually needs from presence is which players to
-  show as offline, not the thresholds themselves.
+Tracked as GitHub issues, not maintained as prose here (see "Working
+conventions" above) — check the repo's open issues rather than assuming
+this list is current. As of 2026-08-18:
+
+- Turn-timer server-side polling sweep — anagrabble#2
+- Redis HA approach and timing — anagrabble#3
+- Dictionary prefix-derivation gap (UNHAPPY vs. HAPPY) — anagrabble#4
+- Reconnect/mid-game-join history panel backfill — anagrabble#5
+- Post-bank-empty idle timeout not wired to `GameConfig` — anagrabble#6
+- Account avatar: Clerk `UserButton`/`UserAvatar` vs. initial-only — anagrabble#7
+- Clerk transactional email branding — anagrabble#8
+- Presence timing (`PRESENCE_STALE_MS`/`PING_INTERVAL_MS`) ops-tunability — anagrabble#9
+- Migrate off `@clerk/react/legacy` hooks to the Future API — anagrabble#1
+
+Auth context worth keeping here since it's load-bearing for anything
+touching identity, not just an open question: sign-up/log-in is built
+against Clerk (`apps/web` only — see docs/decisions.md "Auth provider:
+Clerk, not a hand-rolled `users` table"). Gameplay requires being signed
+in — no anonymous play — and player identity is the Clerk user id/account
+name, not a local stub (`playerIdentity.ts` is gone). See docs/decisions.md
+"Player identity: Clerk id, no anonymous play". Every identity-bearing WS
+command (`JoinGame`/`StartGame`/`TurnTile`/`SubmitWord`) derives its actor
+from the connection's verified `meta.clerkUserId` (`src/auth.ts`'s
+`resolveActingPlayerId`) rather than trusting the command payload's
+`playerId`/`hostId` — see docs/decisions.md "Command identity: derived
+from the Clerk session, not client-supplied". `CreateGame` (REST, see
+docs/decisions.md "CreateGame as a REST endpoint") derives its actor
+from the request's Bearer token instead, via the same `authenticate()`
+pattern as `/stats`/`/settings`. `CLERK_SECRET_KEY` is required (server
+throws on startup without it). `hostId`/`playerId` have been removed from
+the wire protocol entirely (`PROTOCOL_VERSION` 2) — the server never reads
+a client-claimed actor id at all, only the verified session. Durable
+Postgres history is now written end to end (`apps/server/src/index.ts`
+inserts `games`/`word_plays` rows and updates `game_players` on
+`StartGame`/`SubmitWord`/`EndGame`), so games/stats do persist against the
+Clerk id. `apps/web` never imports `@clerk/react` directly — it goes
+through `src/auth/`, which swaps in a fully offline mock provider for
+local dev (`VITE_AUTH_MODE=mock`) so `pnpm dev` needs no internet
+connection. `apps/server` has a matching `AUTH_MODE=mock` counterpart so
+gameplay commands work end to end without reaching real Clerk. See
+docs/decisions.md "Local dev auth: mock provider, not a Clerk sandbox".

@@ -3,7 +3,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { LoginPage } from "./LoginPage";
+import { LoginPage } from "./index";
 
 const signInCreateMock = vi.fn();
 const attemptFirstFactorMock = vi.fn();
@@ -19,7 +19,7 @@ let isSignedIn = false;
 // Header (always rendered) pulls SignedIn/SignedOut/useUser/useClerk from
 // the same module — this test only exercises the sign-in/sign-up flow, not
 // the header's account indicator, so those get simple stand-ins.
-vi.mock("../auth", () => ({
+vi.mock("../../auth", () => ({
   useAuth: () => ({ isLoaded: true, isSignedIn }),
   Show: ({ when, children }: { when: "signed-in" | "signed-out"; children: ReactNode }) =>
     when === "signed-out" ? <>{children}</> : null,

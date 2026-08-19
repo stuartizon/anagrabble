@@ -68,6 +68,14 @@
   padding-left: 32px;
 }
 
+/* Side-by-side above 460px; below that, stacked — same overflow issue and
+   fix as LeaveGameConfirm.module.css's .actions (Button's white-space:
+   nowrap keeps a button from shrinking to half a row). The threshold here
+   is wider than that dialog's 400px: this Card sits in a 420px NarrowColumn
+   (vs. the dialog's 400px panel) and "View your stats" is longer than that
+   dialog's button copy. Measured directly (Playwright against the real
+   Card/NarrowColumn/Button CSS) — .actions stops overflowing at 438px, so
+   460px leaves headroom for cross-browser font-metric variance. */
 .actions {
   display: flex;
   gap: 10px;
@@ -75,6 +83,12 @@
 
 .actions > * {
   flex: 1;
+}
+
+@media (max-width: 460px) {
+  .actions {
+    flex-direction: column;
+  }
 }
 
 .wordTag {

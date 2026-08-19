@@ -13,12 +13,12 @@ To start the backend server, the frontend dev server, Redis and Postgres:
 docker compose up -d
 ```
 
-Open `http://localhost:5173`, create a game, and start playing.
+Open <http://localhost:5173>, create a game, and start playing.
 
 There are two additional containers which provide graphical interface tools:
 
-- Adminer (Postgres - `http://localhost:8081`)
-- RedisInsight (Redis - `http://localhost:8082`).
+- Adminer (Postgres - <http://localhost:8081>)
+- RedisInsight (Redis - <http://localhost:8082>).
 
 These aren't part of the default profile; to spin these up, instead run:
 
@@ -34,13 +34,11 @@ docker compose --profile tools up -d
 | Frontend        | React SPA built with Vite                                                                                                                                                   |
 | Live game state | Redis — authoritative; see `docs/redis-schema.md` for the key/shape convention                                                                                              |
 | Durable history | Postgres; see `docs/postgres-schema.md` for the schema                                                                                                                      |
-| Auth            | Clerk — see [Auth](#authentication)                                                                                                                                         |
+| Authentication  | Clerk — see [Authentication](#authentication)                                                                                                                               |
 | Monorepo        | pnpm workspaces                                                                                                                                                             |
 | Testing         | Vitest (per-package; see `CLAUDE.md` "Testing strategy")                                                                                                                    |
 
-See `CLAUDE.md` for the full architecture rationale and conventions, and
-`docs/decisions.md` for the detailed reasoning behind each choice (why Redis over
-an actor model, why Railway over AWS, why these deployment/hosting picks, etc.).
+The backend and Redis are hosted on Railway. Postgres is on Neon. The frontend is on Cloudflare Pages.
 
 ## Repo structure
 
@@ -61,16 +59,16 @@ an actor model, why Railway over AWS, why these deployment/hosting picks, etc.).
 
 ## Environments
 
-| Environment | Frontend                                          | Server / API                                              |
-| ----------- | ------------------------------------------------- | --------------------------------------------------------- |
-| Dev         | [dev.anagrabble.com](https://dev.anagrabble.com/) | [api-dev.anagrabble.com](https://api-dev.anagrabble.com/) |
-| Production  | [www.anagrabble.com](https://www.anagrabble.com/) | [api.anagrabble.com](https://api.anagrabble.com/)         |
+| Environment | Frontend                     | Server                           |
+| ----------- | ---------------------------- | -------------------------------- |
+| Dev         | <https://dev.anagrabble.com> | <https://api-dev.anagrabble.com> |
+| Production  | <https://www.anagrabble.com> | <https://api.anagrabble.com>     |
 
 Consoles:
 
-- Neon (Postgres): https://console.neon.tech/app/projects/broad-snow-98083442
-- Railway (backend + Redis): https://railway.com/project/e8a1a8d9-0c14-4245-ba2c-55542c4793b5
-- Cloudflare Pages (frontend): https://dash.cloudflare.com/fe4f7d1b36caddb6f55829a6e485c3d1/pages/view/anagrabble
+- Neon (Postgres): <https://console.neon.tech/app/projects/broad-snow-98083442>
+- Railway (backend + Redis): <https://railway.com/project/e8a1a8d9-0c14-4245-ba2c-55542c4793b5>
+- Cloudflare Pages (frontend): <https://dash.cloudflare.com/fe4f7d1b36caddb6f55829a6e485c3d1/pages/view/anagrabble>
 
 These console links require login credentials to access, so they're safe to
 list in this public repo.
@@ -87,30 +85,30 @@ The mock authentication provides four users: Alice/Bob/Charlie/Diana and adds de
 
 The backend server is configured with the following environment variables:
 
-- DATABASE_URL - the connection string for Postgres
-- REDIS_URL - the connection string for Redis
-- PORT - the port to start the service on
-- AUTH_MODE - if set to mock, then it supresses token signature checks. For local dev only; don't set in deployed environments
-- CLERK_SECRET_KEY - the secret key provided by Clerk for this environment. Not required if in mock AUTH_MODE
-- WEB_ORIGIN - location of the front end, needed for CORS support
+- `DATABASE_URL` - the connection string for Postgres
+- `REDIS_URL` - the connection string for Redis
+- `PORT` - the port to start the service on
+- `AUTH_MODE` - if set to mock, then it supresses token signature checks. For local dev only; don't set in deployed environments
+- `CLERK_SECRET_KEY` - the secret key provided by Clerk for this environment. Not required if in mock auth mode
+- `WEB_ORIGIN` - location of the front end, needed for CORS support
 
 The frontend is configured with the following variables:
 
-- API_URL - the backend server's HTTP origin for REST endpoints
-- WS_URL - the backend server's WS origin
-- CLERK_PUBLISHABLE_KEY - the safe to expose key provided by Clerk for this environment. Not required if in mock AUTH_MODE
+- `API_URL` - the backend server's HTTP origin for REST endpoints
+- `WS_URL` - the backend server's WS origin
+- `CLERK_PUBLISHABLE_KEY` - the safe to expose key provided by Clerk for this environment. Not required if in mock auth mode
 
 Unlike the backend, the frontend does not run on a server when deployed. It's just a bunch of assets in a bucket. So these environment variables are provided via an env.js file uploaded to the bucket alongside.
 
 There is also a build time key for using mock auth, again in local dev only.
 
-- VITE_AUTH_MODE - if set to mock, then the frontend makes zero calls to Clerk and login users are provided by local mock data.
+- `VITE_AUTH_MODE` - if set to mock, then the frontend makes zero calls to Clerk and login users are provided by local mock data.
 
 If you use the docker compose setup described above, all of this is pre-configured. To run the vite dev server and/or the backend outside of docker, make sure to copy:
 
-- /apps/server/.env.example → /apps/server/.env
-- /apps/web/.env.example → /apps/web/.env
-- /apps/web/public/env.example.js → /apps/web/public/env.js
+- `/apps/server/.env.example → /apps/server/.env`
+- `/apps/web/.env.example → /apps/web/.env`
+- `/apps/web/public/env.example.js → /apps/web/public/env.js`
 
 ## Testing
 
@@ -159,8 +157,3 @@ conventions (especially the expand/contract rule for anything in
 `packages/protocol`, and the client/server split for word-resolution logic)
 that any change should follow. `docs/decisions.md` has the fuller reasoning
 if you're wondering why something was built a particular way.
-
-## Deployment
-
-Backend + Redis: Railway. Postgres: Neon. Frontend: Cloudflare Pages. See
-`docs/decisions.md` for why.

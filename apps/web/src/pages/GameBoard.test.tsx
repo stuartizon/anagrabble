@@ -86,7 +86,7 @@ beforeEach(() => {
 describe("GameBoard", () => {
   it("shows empty-state copy for both word lists when nobody has played yet", () => {
     renderBoard();
-    expect(screen.getAllByText("No words yet")).toHaveLength(2);
+    expect(screen.getAllByText("No words")).toHaveLength(2);
   });
 
   it("lists the viewer's own words under 'Your words' and others separately", () => {
@@ -112,7 +112,7 @@ describe("GameBoard", () => {
 
     expect(screen.getByText("Your words")).toBeInTheDocument();
     expect(screen.queryByText("Everyone else’s words")).not.toBeInTheDocument();
-    expect(screen.queryAllByText("No words yet")).toHaveLength(0);
+    expect(screen.queryAllByText("No words")).toHaveLength(0);
   });
 
   it("lists players in the sidebar with their name and score, in turn order", () => {

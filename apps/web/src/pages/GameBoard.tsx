@@ -595,7 +595,7 @@ export function GameBoard({
                   <div className={styles.poolLabel}>Everyone else&rsquo;s words</div>
                   <div className={styles.wordsList}>
                     {others.every((p) => p.words.length === 0) ? (
-                      <span className={styles.wordsEmpty}>No words yet</span>
+                      <span className={styles.wordsEmpty}>No words</span>
                     ) : (
                       others.flatMap((p) =>
                         p.words.map((w, i) => (
@@ -617,7 +617,7 @@ export function GameBoard({
                 <div className={styles.poolLabel}>Your words</div>
                 <div className={styles.wordsList}>
                   {!me || me.words.length === 0 ? (
-                    <span className={styles.wordsEmpty}>No words yet</span>
+                    <span className={styles.wordsEmpty}>No words</span>
                   ) : (
                     me.words.map((w, i) => (
                       <span key={`${i}-${w}`} className={styles.wordTag}>

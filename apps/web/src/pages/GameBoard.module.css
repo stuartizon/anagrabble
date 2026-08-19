@@ -271,7 +271,7 @@
    system's own WordTag hint-size) plus this element's own vertical
    padding, so the first word played doesn't grow the box — only wrapping
    past one row does. Same reasoning as .poolTiles' min-height above.
-   align-content: center keeps that single short line (the "No words yet"
+   align-content: center keeps that single short line (the "No words"
    text, or one row of tags) sitting in the middle of the reserved height
    instead of flush against the top with dead space below; align-items:
    flex-start stops a WordTag span itself stretching to fill that extra

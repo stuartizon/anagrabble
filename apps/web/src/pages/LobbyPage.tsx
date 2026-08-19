@@ -233,7 +233,6 @@ export function LobbyPage() {
     );
   }
 
-  const host = lobby.players.find((p) => p.id === lobby.hostId);
   const subtitle = isHost
     ? "Send this link to whoever’s playing."
     : isUnjoinedGuest
@@ -246,7 +245,7 @@ export function LobbyPage() {
       <PageContent>
         <NarrowColumn>
           <Card>
-            <div className={styles.title}>{host?.name ?? "Someone"}&rsquo;s game</div>
+            <div className={styles.title}>New game</div>
             <div className={styles.subtitle}>{subtitle}</div>
 
             <div className={styles.shareLinkRow}>

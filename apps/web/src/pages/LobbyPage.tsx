@@ -105,7 +105,7 @@ export function LobbyPage() {
             <Card>
               <div className={cx(styles.title, styles.notFoundTitleOverride)}>Game not found</div>
               <div className={styles.notFoundBody}>
-                This link may have expired, or the game already ended.
+                Check the link, or ask whoever sent it for a fresh one.
               </div>
               <Button onClick={() => navigate("/")}>Back home</Button>
             </Card>

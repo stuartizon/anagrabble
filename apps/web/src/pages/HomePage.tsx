@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Header } from "../components/Header";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
+import { Input } from "../components/Input";
 import { LetterTile } from "../components/LetterTile";
 import { Wordmark } from "../components/Wordmark";
 import { PageShell } from "../components/Layout";
@@ -31,8 +33,30 @@ const HOW_IT_WORKS = [
   },
 ];
 
+const CODE_LENGTH = 5;
+
 export function HomePage() {
   const navigate = useNavigate();
+  const [code, setCode] = useState("");
+  const [codeError, setCodeError] = useState("");
+
+  const onCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const next = e.target.value
+      .replace(/[^a-zA-Z0-9]/g, "")
+      .toUpperCase()
+      .slice(0, CODE_LENGTH);
+    setCode(next);
+    setCodeError("");
+  };
+
+  const joinByCode = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (code.length !== CODE_LENGTH) {
+      setCodeError("Codes are 5 characters. Check and try again.");
+      return;
+    }
+    navigate(`/${code}`);
+  };
 
   return (
     <PageShell>
@@ -45,10 +69,27 @@ export function HomePage() {
               Spot a word, and it&rsquo;s yours — until someone else steals it. Add another letter,
               and you can steal it right back.
             </p>
-            <Button size="lg" onClick={() => navigate("/new")}>
-              Create a game
-            </Button>
-            <p className={styles.heroHint}>Got a link from a friend? Open it to join their game.</p>
+            <div className={styles.actionsRow}>
+              <div className={styles.createGroup}>
+                <Button size="lg" onClick={() => navigate("/new")}>
+                  Create a game
+                </Button>
+                <span className={styles.actionsOr}>or</span>
+              </div>
+              <form className={styles.joinForm} onSubmit={joinByCode}>
+                <Input
+                  size="lg"
+                  placeholder="Invite code"
+                  value={code}
+                  onChange={onCodeChange}
+                  error={codeError}
+                  mono
+                />
+                <Button type="submit" variant="secondary" size="lg">
+                  Join
+                </Button>
+              </form>
+            </div>
           </div>
         </div>
         <div className={styles.heroImage}>

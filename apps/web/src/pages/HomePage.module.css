@@ -53,11 +53,44 @@
   margin: 0 0 32px;
 }
 
-.heroHint {
+.actionsRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.createGroup {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.actionsOr {
   font-family: var(--font-body);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   color: var(--text-muted);
-  margin: 20px 0 0;
+}
+
+.joinForm {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.joinForm label {
+  width: 165px;
+  min-height: 92px;
+}
+
+.joinForm input {
+  width: 100%;
+}
+
+@media (max-width: 539px) {
+  .actionsRow {
+    justify-content: center;
+  }
 }
 
 .heroImage {

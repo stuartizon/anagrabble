@@ -5,22 +5,6 @@ rotating turn timer; any player, at any time, can claim a word formable from the
 revealed tiles, or steal existing claimed words by extending or combining them
 (CAT + S → CAST).
 
-## Stack
-
-| Layer           | Choice                                                                                                                                                                      |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Backend         | Stateless Node.js service built with TypeScript, [fastify](https://fastify.dev/), [ws](https://github.com/websockets/ws), [node-redis](https://github.com/redis/node-redis) |
-| Frontend        | React SPA built with Vite                                                                                                                                                   |
-| Live game state | Redis — authoritative; see `docs/redis-schema.md` for the key/shape convention                                                                                              |
-| Durable history | Postgres; see `docs/postgres-schema.md` for the schema                                                                                                                      |
-| Auth            | Clerk — see `docs/decisions.md` "Auth provider"                                                                                                                             |
-| Monorepo        | pnpm workspaces                                                                                                                                                             |
-| Testing         | Vitest (per-package; see `CLAUDE.md` "Testing strategy")                                                                                                                    |
-
-See `CLAUDE.md` for the full architecture rationale and conventions, and
-`docs/decisions.md` for the detailed reasoning behind each choice (why Redis over
-an actor model, why Railway over AWS, why these deployment/hosting picks, etc.).
-
 ## Getting started
 
 To start the backend server, the frontend dev server, Redis and Postgres:
@@ -42,21 +26,21 @@ These aren't part of the default profile; to spin these up, instead run:
 docker compose --profile tools up -d
 ```
 
-## Environments
+## Stack
 
-| Environment | Frontend                                          | Server / API                                              |
-| ----------- | ------------------------------------------------- | --------------------------------------------------------- |
-| Dev         | [dev.anagrabble.com](https://dev.anagrabble.com/) | [api-dev.anagrabble.com](https://api-dev.anagrabble.com/) |
-| Production  | [www.anagrabble.com](https://www.anagrabble.com/) | [api.anagrabble.com](https://api.anagrabble.com/)         |
+| Layer           | Choice                                                                                                                                                                      |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend         | Stateless Node.js service built with TypeScript, [fastify](https://fastify.dev/), [ws](https://github.com/websockets/ws), [node-redis](https://github.com/redis/node-redis) |
+| Frontend        | React SPA built with Vite                                                                                                                                                   |
+| Live game state | Redis — authoritative; see `docs/redis-schema.md` for the key/shape convention                                                                                              |
+| Durable history | Postgres; see `docs/postgres-schema.md` for the schema                                                                                                                      |
+| Auth            | Clerk — see [Auth](#authentication)                                                                                                                                         |
+| Monorepo        | pnpm workspaces                                                                                                                                                             |
+| Testing         | Vitest (per-package; see `CLAUDE.md` "Testing strategy")                                                                                                                    |
 
-Consoles:
-
-- Neon (Postgres): https://console.neon.tech/app/projects/broad-snow-98083442
-- Railway (backend + Redis): https://railway.com/project/e8a1a8d9-0c14-4245-ba2c-55542c4793b5
-- Cloudflare Pages (frontend): https://dash.cloudflare.com/fe4f7d1b36caddb6f55829a6e485c3d1/pages/view/anagrabble
-
-These console links require login credentials to access, so they're safe to
-list in this public repo.
+See `CLAUDE.md` for the full architecture rationale and conventions, and
+`docs/decisions.md` for the detailed reasoning behind each choice (why Redis over
+an actor model, why Railway over AWS, why these deployment/hosting picks, etc.).
 
 ## Repo structure
 
@@ -75,47 +59,29 @@ list in this public repo.
 └── docker-compose.yml      # Local dev stack
 ```
 
+## Environments
+
+| Environment | Frontend                                          | Server / API                                              |
+| ----------- | ------------------------------------------------- | --------------------------------------------------------- |
+| Dev         | [dev.anagrabble.com](https://dev.anagrabble.com/) | [api-dev.anagrabble.com](https://api-dev.anagrabble.com/) |
+| Production  | [www.anagrabble.com](https://www.anagrabble.com/) | [api.anagrabble.com](https://api.anagrabble.com/)         |
+
+Consoles:
+
+- Neon (Postgres): https://console.neon.tech/app/projects/broad-snow-98083442
+- Railway (backend + Redis): https://railway.com/project/e8a1a8d9-0c14-4245-ba2c-55542c4793b5
+- Cloudflare Pages (frontend): https://dash.cloudflare.com/fe4f7d1b36caddb6f55829a6e485c3d1/pages/view/anagrabble
+
+These console links require login credentials to access, so they're safe to
+list in this public repo.
+
 ## Authentication
 
-For local development we use a mock auth mode so we don't need a Clerk account.
+For authentication, this app uses Clerk to provide a ready-to-use login system instantly so we focus on building the actual app instead of wasting time writing security code. Two types of login are currently supported: email/password and Google OAuth. Each Clerk environment provides a publishable key to identify the app safely in the browser, and a secret key to verify the authentication with Clerk.
 
-**Auth defaults to a fully offline mock** — `docker-compose.yml` sets the
-backend's `AUTH_MODE=mock`, and `VITE_AUTH_MODE=mock` is `apps/web/.env.example`'s
-default too, so the whole create/join/play loop works with zero calls to
-real Clerk, no Clerk application needed. See `docs/decisions.md` "Local dev
-auth: mock provider, not a Clerk sandbox".
+For local development, we bypass Clerk entirely and use local mocks. This allows us to run the full stack offline, and lets AI agents test out flows without requiring real logon credentials. This is enabled via `VITE_AUTH_MODE=mock` on the frontend, and `AUTH_MODE=mock` on the backend. These are configured by default in the docker compose setup, but if you want to run the frontend or backend outside of docker, then ensure these variables are set accordingly to use the local mocks, or setup Clerk with appropriate publishable key and secret key.
 
-The mock roster (Alice/Bob/Charlie/Diana) starts with no history, so
-`/stats` is empty for all of them against a fresh database. The
-`seed-mock-stats` container (part of `docker compose up`) backfills a
-handful of completed games for Alice, Bob, and Charlie automatically —
-Diana is left with none on purpose, to check the empty state. See
-`packages/postgres/scripts/seed-mock-stats.ts`. Safe to rerun (idempotent).
-
-To instead run against a real (dev) Clerk instance — e.g. to sanity-check
-something mock auth can't exercise, like actual sign-up/password-reset
-flows — blank `VITE_AUTH_MODE` in `apps/web/.env` and fill in
-`CLERK_PUBLISHABLE_KEY` in `apps/web/public/env.js`, and on the backend
-side, `export CLERK_SECRET_KEY=...` in your shell before `docker compose
-up` (it's read from the host environment, not a `.env` file — see
-`${CLERK_SECRET_KEY:-}` in `docker-compose.yml`) and change `AUTH_MODE:
-mock` to blank in that same file for the `server` service:
-
-- Create a free application at [clerk.com](https://clerk.com) (or reuse an
-  existing one).
-- Dashboard → API Keys → copy the **Publishable key** into
-  `CLERK_PUBLISHABLE_KEY` (in `apps/web/public/env.js`) and the **Secret
-  key** into `CLERK_SECRET_KEY`. Both are required outside mock mode — each
-  side throws on startup without its key.
-- Both keys must come from the **same** Clerk application. A mismatch fails
-  silently at connect time — the socket just never verifies — though it
-  surfaces immediately after: every command comes back `Unauthorized` since
-  the connection never got a verified identity.
-- Restart both (`docker compose up -d --build web server`) after changing
-  `VITE_AUTH_MODE` or `CLERK_SECRET_KEY` — both are read at process
-  startup. `public/env.js` isn't: it's a static file the dev server
-  re-reads on every page load, so editing `CLERK_PUBLISHABLE_KEY` there
-  just needs a browser refresh.
+The mock authentication provides four users: Alice/Bob/Charlie/Diana and adds dedicated login buttons for each at the top of the login page. The regular login/signup/oauth flows are disabled client-side, rejecting before any network call, so that these buttons become the only way of logging in when mocks are enabled. A script is provided to seed some mock data in the database for these users (so that the stats page shows some meaningful content). This process is run by default as part of the default docker compose config, and is harmless even if running locally against a real Clerk environment.
 
 ## Environment variables
 

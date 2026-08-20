@@ -19,6 +19,7 @@ import type {
 } from "../useGameSocket";
 import { presenceLabel } from "../presenceLabel";
 import { cx } from "../cx";
+import type { SoundName } from "../useGameSounds";
 import styles from "./GameBoard.module.css";
 
 // Minimal slice of design-system/In Game.dc.html: tile-turning, word
@@ -38,6 +39,7 @@ interface GameBoardProps {
   send: (command: Command) => void;
   error: GameSocketError | null;
   wordPlay: WordPlayNarration | null;
+  playSound: (name: SoundName) => void;
   history: HistoryEntry[];
   status: SocketStatus;
   onLeaveGame: () => void;
@@ -265,6 +267,7 @@ export function GameBoard({
   send,
   error,
   wordPlay,
+  playSound,
   history,
   status,
   onLeaveGame,
@@ -274,6 +277,7 @@ export function GameBoard({
   const colors = assignPlayerColors(lobby.players, playerId);
   const currentPlayer = lobby.players.find((p) => p.id === lobby.turnPlayerId);
   const isCurrentPlayer = currentPlayer?.id === playerId;
+
   const [secondsLeft, setSecondsLeft] = useState(() => remainingSeconds(lobby.turnDeadline));
   // Guards against every tick after a missed deadline re-firing TurnTile —
   // once we've fired for a given deadline value, wait for the server to
@@ -443,6 +447,14 @@ export function GameBoard({
   // named in the right message, not whichever was typed most recently.
   const pendingWordsRef = useRef(new Map<string, string>());
 
+  // Unlike the toast below, the claim sound plays for every word play at
+  // the table, not just the actor's own — a claim/steal is public
+  // information everyone should hear, same as tile_turn (see anagrabble#36).
+  useEffect(() => {
+    if (!wordPlay) return;
+    playSound("wordClaim");
+  }, [wordPlay, playSound]);
+
   useEffect(() => {
     // Only the actor's own play gets a toast — someone else's success is
     // shared/ambient information (the board itself already reflects it),
@@ -463,10 +475,11 @@ export function GameBoard({
     if (error.commandId) pendingWordsRef.current.delete(error.commandId);
     const text = errorText(error.code, lobby.config.minWordLength, attemptedWord, error.message);
     if (text === null) return;
+    playSound("wordRejected");
     setMessage(text);
     const timer = setTimeout(() => setMessage(null), MESSAGE_DISMISS_MS);
     return () => clearTimeout(timer);
-  }, [error, lobby.config.minWordLength]);
+  }, [error, lobby.config.minWordLength, playSound]);
 
   const submitWord = (e: React.FormEvent) => {
     e.preventDefault();

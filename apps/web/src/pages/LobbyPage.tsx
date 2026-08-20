@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth, useUser } from "../auth";
 import { Header } from "../components/Header";
@@ -14,6 +14,8 @@ import { makeCommandId } from "../gameId";
 import { assignPlayerColors } from "../playerColors";
 import { leaveGame as leaveGameRequest } from "../fetchLeaveGame";
 import { presenceLabel } from "../presenceLabel";
+import { fetchPlayerSettings } from "../fetchPlayerSettings";
+import { useGameSounds } from "../useGameSounds";
 import { cx } from "../cx";
 import { GameBoard } from "./GameBoard";
 import { GameOverSummary } from "./GameOverSummary";
@@ -38,7 +40,40 @@ export function LobbyPage() {
   const [leaving, setLeaving] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
 
-  const { status, lobby, error, wordPlay, history, send } = useGameSocket(gameId);
+  // Sound effects (anagrabble#36) — owned here rather than in GameBoard so
+  // TileTurned can drive a sound via a callback into useGameSocket, rather
+  // than threading a "something happened" state field through just for
+  // GameBoard to useEffect on. Defaults to on (matches the Postgres
+  // `player_settings` default) so a sound can play before this fetch
+  // resolves; flips off shortly after mount if the player has actually
+  // disabled it. See useGameSounds.ts for why this is Web Audio buffers
+  // rather than <audio> elements.
+  const getTokenRef = useRef(getToken);
+  useEffect(() => {
+    getTokenRef.current = getToken;
+  }, [getToken]);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await getTokenRef.current();
+        if (!token) return;
+        const settings = await fetchPlayerSettings(token);
+        if (!cancelled) setSoundEnabled(settings.soundEnabled);
+      } catch {
+        // Keep the default (sound on) if settings can't be loaded.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const { playSound } = useGameSounds(soundEnabled);
+
+  const { status, lobby, error, wordPlay, history, send } = useGameSocket(gameId, () =>
+    playSound("tileTurn"),
+  );
 
   const shareLink = `${window.location.origin}/${gameId}`;
 
@@ -224,6 +259,7 @@ export function LobbyPage() {
         send={send}
         error={error}
         wordPlay={wordPlay}
+        playSound={playSound}
         history={history}
         status={status}
         onLeaveGame={leaveGame}

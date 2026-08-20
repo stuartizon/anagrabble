@@ -25,6 +25,14 @@ vi.mock("../fetchLeaveGame", () => ({
   leaveGame: (...args: unknown[]) => leaveGameRequest(...args),
 }));
 
+// LobbyPage now owns the sound engine (anagrabble#36) — mocked the same
+// way SettingsPage.test.tsx does, so its soundEnabled fetch resolves
+// deterministically instead of hitting a real, unmocked fetch() in tests.
+const fetchPlayerSettings = vi.fn();
+vi.mock("../fetchPlayerSettings", () => ({
+  fetchPlayerSettings: (...args: unknown[]) => fetchPlayerSettings(...args),
+}));
+
 const HOST: PlayerState = {
   id: "host-1",
   name: "Host",
@@ -90,6 +98,12 @@ beforeEach(() => {
   leaveGameRequest.mockReset();
   useGameSocketMock.mockReset();
   mockSocket({});
+  fetchPlayerSettings.mockReset();
+  fetchPlayerSettings.mockResolvedValue({
+    language: "English",
+    soundEnabled: true,
+    hapticsEnabled: false,
+  });
 });
 
 describe("LobbyPage", () => {

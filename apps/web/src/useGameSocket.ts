@@ -97,8 +97,15 @@ interface GameSocketState {
  * reconnect-with-backoff after an unexpected drop) is recognized as the
  * same player via the verified Clerk session token alone — see
  * apps/server's `resolveActingPlayerId` — so the caller doesn't need to
- * tell this hook who it is. */
-export function useGameSocket(gameId?: string) {
+ * tell this hook who it is.
+ *
+ * `onTileTurn`, unlike `wordPlay`/`history`, is a callback rather than
+ * returned state — TileTurned doesn't need a lobby-derived value (`lobby`
+ * already carries the resulting pool), just a one-shot notification, and a
+ * callback avoids needing a consumer-side effect to detect "this changed
+ * since last render" for something that's really just an event pulse (see
+ * anagrabble#36). */
+export function useGameSocket(gameId?: string, onTileTurn?: () => void) {
   const [state, setState] = useState<GameSocketState>({
     status: "connecting",
     lobby: null,
@@ -119,13 +126,28 @@ export function useGameSocket(gameId?: string) {
     getTokenRef.current = getToken;
   }, [getToken]);
 
+  // Same reasoning as getTokenRef above: a fresh inline callback every
+  // render must not be a dependency of the connect effect below (that would
+  // tear down and reopen the socket on every render of the caller), so it's
+  // read via a ref instead.
+  const onTileTurnRef = useRef(onTileTurn);
+  useEffect(() => {
+    onTileTurnRef.current = onTileTurn;
+  }, [onTileTurn]);
+
   useEffect(() => {
     let cancelled = false;
     let intentionalClose = false;
     let reconnectAttempt = 0;
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
     let pingTimer: ReturnType<typeof setInterval> | undefined;
-    setState({ status: "connecting", lobby: null, error: null, wordPlay: null, history: [] });
+    setState({
+      status: "connecting",
+      lobby: null,
+      error: null,
+      wordPlay: null,
+      history: [],
+    });
 
     async function connect() {
       const token = await getTokenRef.current().catch(() => null);
@@ -235,11 +257,16 @@ export function useGameSocket(gameId?: string) {
           return;
         }
 
+        if (message.type === "TileTurned") {
+          setState((s) => ({ ...s, lobby: message.lobby, error: null }));
+          onTileTurnRef.current?.();
+          return;
+        }
+
         if (
           message.type === "LobbyState" ||
           message.type === "PlayerLeft" ||
           message.type === "GameStarted" ||
-          message.type === "TileTurned" ||
           message.type === "GameEnded"
         ) {
           setState((s) => ({ ...s, lobby: message.lobby, error: null }));

@@ -15,6 +15,7 @@ import styles from "./GameBoard.module.css";
 
 const send = vi.fn();
 const onLeaveGame = vi.fn();
+const playSound = vi.fn();
 const makeCommandIdMock = vi.fn(() => "cmd-1");
 
 vi.mock("../gameId", () => ({
@@ -62,6 +63,7 @@ function boardElement(props: BoardProps = {}) {
         send={send}
         error={props.error ?? null}
         wordPlay={props.wordPlay ?? null}
+        playSound={playSound}
         history={props.history ?? []}
         status={props.status ?? "open"}
         onLeaveGame={onLeaveGame}
@@ -79,6 +81,7 @@ function renderBoard(props: BoardProps = {}) {
 beforeEach(() => {
   send.mockClear();
   onLeaveGame.mockClear();
+  playSound.mockClear();
   makeCommandIdMock.mockReset();
   makeCommandIdMock.mockReturnValue("cmd-1");
 });
@@ -340,6 +343,14 @@ describe("GameBoard", () => {
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
+  it("plays the claim sound for any word play, including another player's — unlike the toast, it's not personal-only", () => {
+    renderBoard({
+      wordPlay: { seq: 2, playerId: "opp-1", word: "TAR", usedWords: [] },
+    });
+
+    expect(playSound).toHaveBeenCalledWith("wordClaim");
+  });
+
   it("shows no toast when another player steals from a third player", () => {
     renderBoard({
       lobby: lobbySnapshot({
@@ -367,6 +378,13 @@ describe("GameBoard", () => {
     );
 
     expect(screen.getByText("XYZZY isn't in the dictionary")).toBeInTheDocument();
+    expect(playSound).toHaveBeenCalledWith("wordRejected");
+  });
+
+  it("plays no sound for a suppressed NotYourTurn rejection (never shown as a toast either)", () => {
+    renderBoard({ error: { code: "NotYourTurn", message: "raw server message" } });
+
+    expect(playSound).not.toHaveBeenCalledWith("wordRejected");
   });
 
   it("correlates a rejection to the word that actually caused it, not whichever was typed most recently", async () => {

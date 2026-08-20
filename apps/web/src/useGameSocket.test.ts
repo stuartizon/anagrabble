@@ -276,6 +276,85 @@ describe("useGameSocket reconnection", () => {
     expect(result.current.history).toEqual([{ kind: "playerJoined", seq: 2, playerId: "opp-1" }]);
     expect(result.current.lobby).toEqual(lobby);
   });
+
+  it("calls onTileTurn for a TileTurned event, and updates lobby the same as any other snapshot", async () => {
+    const onTileTurn = vi.fn();
+    const { result } = renderHook(() => useGameSocket("game-1", onTileTurn));
+    await flush();
+    const socket1 = MockWebSocket.instances[0]!;
+    await act(async () => socket1.emitOpen());
+
+    expect(onTileTurn).not.toHaveBeenCalled();
+
+    const lobby = {
+      gameId: "game-1",
+      hostId: "host-1",
+      status: "playing",
+      seq: 3,
+      config: { turnTimerSec: 30, minWordLength: 3, language: "en" },
+      turnPlayerId: "host-1",
+      turnDeadline: null,
+      endGameDeadline: null,
+      bankCount: 1,
+      pool: ["Q"],
+      players: [],
+    };
+    const tileTurned = { type: "TileTurned", seq: 3, gameId: "game-1", lobby };
+
+    await act(async () => {
+      for (const cb of socket1.listeners.message ?? []) {
+        cb({ data: JSON.stringify(tileTurned) });
+      }
+    });
+
+    expect(onTileTurn).toHaveBeenCalledTimes(1);
+    expect(result.current.lobby).toEqual(lobby);
+  });
+
+  it("calls the latest onTileTurn even though it wasn't passed at connect time (read via ref, not a connect-effect dependency)", async () => {
+    const firstCallback = vi.fn();
+    const secondCallback = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ onTileTurn }) => useGameSocket("game-1", onTileTurn),
+      {
+        initialProps: { onTileTurn: firstCallback },
+      },
+    );
+    await flush();
+    const socket1 = MockWebSocket.instances[0]!;
+    await act(async () => socket1.emitOpen());
+
+    rerender({ onTileTurn: secondCallback });
+    // Still the same socket/connection — passing a new callback identity must
+    // not have torn down and reopened it (see getTokenRef's doc comment for
+    // the same reasoning applied to the token).
+    expect(MockWebSocket.instances).toHaveLength(1);
+
+    const lobby = {
+      gameId: "game-1",
+      hostId: "host-1",
+      status: "playing",
+      seq: 4,
+      config: { turnTimerSec: 30, minWordLength: 3, language: "en" },
+      turnPlayerId: "host-1",
+      turnDeadline: null,
+      endGameDeadline: null,
+      bankCount: 0,
+      pool: [],
+      players: [],
+    };
+    const tileTurned = { type: "TileTurned", seq: 4, gameId: "game-1", lobby };
+
+    await act(async () => {
+      for (const cb of socket1.listeners.message ?? []) {
+        cb({ data: JSON.stringify(tileTurned) });
+      }
+    });
+
+    expect(firstCallback).not.toHaveBeenCalled();
+    expect(secondCallback).toHaveBeenCalledTimes(1);
+    expect(result.current.lobby).toEqual(lobby);
+  });
 });
 
 // The presence heartbeat — see docs/decisions.md "Player presence:

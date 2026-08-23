@@ -1,4 +1,5 @@
-import { LogOut, Menu } from "lucide-react";
+import { useState } from "react";
+import { LogOut, Menu, Settings as SettingsIcon } from "lucide-react";
 import type { Command, LobbySnapshot, PlayerSettingsResponse } from "@anagrabble/protocol";
 import { Header } from "../../../components/Header";
 import { InviteCode } from "../../../components/InviteCode";
@@ -17,6 +18,7 @@ import { HistorySection } from "./HistorySection";
 import { BoardSection } from "./BoardSection";
 import { WordFormDock } from "./WordFormDock";
 import { MobileMenu } from "./MobileMenu";
+import { SettingsModal } from "./SettingsModal";
 import { useTurnTimer } from "./useTurnTimer";
 import { useEndGameTimer } from "./useEndGameTimer";
 import { useLeaveGuard } from "./useLeaveGuard";
@@ -29,9 +31,11 @@ import styles from "./GameBoard.module.css";
 // it did something, and a running history panel. The mobile menu's
 // read-only "Game settings" section (language/min word length/turn timer,
 // via GameConfigList) and its "Your settings" section (sound/haptics/
-// language preferences, not game config — anagrabble#40) are both wired up;
+// language preferences, not game config — anagrabble#40) are both wired up,
+// with a desktop counterpart in SettingsModal (settings cog, sound only —
+// no haptics, since desktop has no haptic feedback to toggle);
 // `playerSettings`/`onUpdatePlayerSettings` are owned by LobbyPage (see its
-// own comment) rather than fetched here, so a change made in the mobile menu
+// own comment) rather than fetched here, so a change made in either menu
 // takes effect immediately without a navigation/remount.
 // The mobile menu's per-player word-count column is skipped too, but for a
 // different reason: deliberately dropped, not deferred — see
@@ -118,6 +122,7 @@ export function GameBoard({
 
   const { menuOpen, setMenuOpen, leaveConfirmOpen, openLeaveConfirm, closeLeaveConfirm } =
     useLeaveGuard();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Takes priority over the word-feedback toast in the same slot rather
   // than appending a second one: while the socket's down, a lingering "you
@@ -140,6 +145,13 @@ export function GameBoard({
         <button className={styles.menuButton} aria-label="Menu" onClick={() => setMenuOpen(true)}>
           <Menu size={20} color="var(--text-muted)" />
         </button>
+        <button
+          className={styles.settingsButton}
+          aria-label="Settings"
+          onClick={() => setSettingsOpen(true)}
+        >
+          <SettingsIcon size={18} color="var(--text-muted)" />
+        </button>
         <button className={styles.leaveButton} onClick={openLeaveConfirm}>
           <LogOut size={16} />
           Leave game
@@ -156,6 +168,16 @@ export function GameBoard({
           playerSettings={playerSettings}
           onUpdatePlayerSettings={onUpdatePlayerSettings}
           playerSettingsSaveError={playerSettingsSaveError}
+        />
+      )}
+
+      {settingsOpen && (
+        <SettingsModal
+          config={lobby.config}
+          playerSettings={playerSettings}
+          onUpdatePlayerSettings={onUpdatePlayerSettings}
+          playerSettingsSaveError={playerSettingsSaveError}
+          onClose={() => setSettingsOpen(false)}
         />
       )}
 

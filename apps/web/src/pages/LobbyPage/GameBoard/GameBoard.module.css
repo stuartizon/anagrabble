@@ -74,12 +74,33 @@
   }
 }
 
+/* Desktop-only settings-modal trigger — same breakpoint/touch-target
+   technique as .menuButton above (they're mutually exclusive: mobile shows
+   the hamburger menu, desktop shows this cog), matching design-system/In
+   Game.dc.html's `settingsIconDisplay`. Opens SettingsModal, the desktop
+   counterpart to MobileMenu's "Your settings"/"Game settings" sections. */
+.settingsButton {
+  display: none;
+  align-items: center;
+  background: none;
+  border: none;
+  padding: 12px;
+  margin: -12px;
+  cursor: pointer;
+}
+
+@media (min-width: 840px) {
+  .settingsButton {
+    display: flex;
+  }
+}
+
 /* Desktop-only leave-game button — inverse breakpoint of .menuButton, since
    the mobile menu carries its own leave button instead
    (MobileMenu.module.css's .mobileLeaveButton). Matches design-system/In
    Game.dc.html's header leave button exactly (border/color/hover), which
-   shares its `settingsIconDisplay` desktop-only visibility with the
-   (not-yet-built) settings icon. */
+   shares its `settingsIconDisplay` desktop-only visibility with
+   .settingsButton above. */
 .leaveButton {
   display: none;
   align-items: center;

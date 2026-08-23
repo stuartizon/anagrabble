@@ -1,0 +1,83 @@
+/* Centered dialog, matching design-system/In Game.dc.html's
+   settingsModalOpen panel (max-width:420px — narrower than RulesModal's
+   600px, since this only ever holds two short settings sections). No
+   full-screen/mobile breakpoint override like RulesModal.module.css has:
+   the settings cog that opens this only renders at GameBoard.module.css's
+   840px+ breakpoint in the first place, so a narrow-viewport layout is
+   unreachable. */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(27, 27, 24, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.panel {
+  background: var(--surface-card);
+  border-radius: var(--radius-lg);
+  max-width: 420px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--surface-card);
+}
+
+.title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-lg);
+  color: var(--ink);
+}
+
+.closeButton {
+  display: flex;
+  background: none;
+  border: none;
+  padding: 12px;
+  margin: -12px;
+  cursor: pointer;
+}
+
+.body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Copied from MobileMenu.module.css's .switchRow/.switchLabel/.saveError —
+   same "Your settings" field, same treatment. */
+.switchRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.switchLabel {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--ink);
+}
+
+.saveError {
+  margin-top: 8px;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--error);
+}

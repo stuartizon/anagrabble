@@ -568,6 +568,110 @@ describe("GameBoard", () => {
     });
   });
 
+  describe("settings modal (desktop)", () => {
+    it("opens via the settings cog with your settings then game settings, and closes via the close button", async () => {
+      renderBoard();
+
+      expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+
+      const dialogElement = screen.getByRole("dialog", { name: "Settings" });
+      const modal = within(dialogElement);
+      expect(modal.getByText("Your settings")).toBeInTheDocument();
+      expect(modal.getByText("Game settings")).toBeInTheDocument();
+      const modalText = dialogElement.textContent ?? "";
+      expect(modalText.indexOf("Your settings")).toBeLessThan(modalText.indexOf("Game settings"));
+
+      await userEvent.click(modal.getByRole("button", { name: "Close" }));
+
+      expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument();
+    });
+
+    it("closes when clicking the backdrop", async () => {
+      renderBoard();
+
+      await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+      expect(screen.getByRole("dialog", { name: "Settings" })).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole("dialog", { name: "Settings" }).parentElement!);
+
+      expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument();
+    });
+
+    it("omits the invite code and player list — already visible in the sidebar", async () => {
+      renderBoard();
+
+      await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+      const modal = within(screen.getByRole("dialog", { name: "Settings" }));
+
+      expect(modal.queryByText("Invite code")).not.toBeInTheDocument();
+      expect(modal.queryByText("Players")).not.toBeInTheDocument();
+    });
+
+    it("shows the player's sound setting, without haptics — nothing to toggle on desktop", async () => {
+      renderBoard({
+        playerSettings: playerSettings({ soundEnabled: true, hapticsEnabled: false }),
+      });
+
+      await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+      const modal = within(screen.getByRole("dialog", { name: "Settings" }));
+
+      expect(modal.getByRole("switch", { name: "Sound effects" })).toHaveAttribute(
+        "aria-checked",
+        "true",
+      );
+      expect(modal.queryByRole("switch", { name: "Haptic feedback" })).not.toBeInTheDocument();
+    });
+
+    it("updates settings immediately when toggled, without leaving the game", async () => {
+      renderBoard({
+        playerSettings: playerSettings({ soundEnabled: true, hapticsEnabled: false }),
+      });
+
+      await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+      const modal = within(screen.getByRole("dialog", { name: "Settings" }));
+
+      await userEvent.click(modal.getByRole("switch", { name: "Sound effects" }));
+      expect(onUpdatePlayerSettings).toHaveBeenCalledWith(
+        playerSettings({ soundEnabled: false, hapticsEnabled: false }),
+      );
+    });
+
+    it("hides the your-settings section while the player's settings haven't loaded", async () => {
+      renderBoard({ playerSettings: null });
+
+      await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+      const modal = within(screen.getByRole("dialog", { name: "Settings" }));
+
+      expect(modal.queryByText("Your settings")).not.toBeInTheDocument();
+      expect(modal.getByText("Game settings")).toBeInTheDocument();
+    });
+
+    it("shows an error if saving a settings change fails", async () => {
+      renderBoard({ playerSettingsSaveError: true });
+
+      await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+      const modal = within(screen.getByRole("dialog", { name: "Settings" }));
+
+      expect(modal.getByText("Couldn't save your changes.")).toBeInTheDocument();
+    });
+
+    it("shows the read-only game settings", async () => {
+      renderBoard({
+        lobby: lobbySnapshot({
+          config: { turnTimerSec: 45, minWordLength: 4, language: "English" },
+        }),
+      });
+
+      await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+      const modal = within(screen.getByRole("dialog", { name: "Settings" }));
+
+      expect(modal.getByText("45s")).toBeInTheDocument();
+      expect(modal.getByText("4 letters")).toBeInTheDocument();
+    });
+  });
+
   it("shows no account status anywhere while playing — not in the design's header or mobile menu", async () => {
     renderBoard({});
 

@@ -89,32 +89,42 @@ describe("LoginPage", () => {
   });
 
   it("returns to the page RequireAuth redirected from, once signed in", async () => {
+    // `delay: null` (rather than the bare `userEvent` import's default
+    // `delay: 0`) skips the per-keystroke `setTimeout` between simulated
+    // key presses entirely, instead of just scheduling it for "as soon as
+    // possible" — each of those was a real chance for a busy event loop
+    // (e.g. a pre-push hook run alongside other local processes) to delay
+    // this test past its 5s timeout, which is exactly what was observed.
+    // See this test's history for the flake this fixes.
+    const user = userEvent.setup({ delay: null });
     signInCreateMock.mockResolvedValue({ status: "complete", createdSessionId: "sess_1" });
     renderPage([{ pathname: "/login", state: { from: { pathname: "/ABCDE" } } }]);
 
-    await userEvent.type(screen.getByLabelText("Email"), "alex@example.com");
-    await userEvent.type(screen.getByLabelText("Password"), "correct-password");
-    await userEvent.click(screen.getByRole("button", { name: "Log in" }));
+    await user.type(screen.getByLabelText("Email"), "alex@example.com");
+    await user.type(screen.getByLabelText("Password"), "correct-password");
+    await user.click(screen.getByRole("button", { name: "Log in" }));
 
     expect(await screen.findByText("The lobby")).toBeInTheDocument();
   });
 
   it("requires email and password before submitting a login, on their own fields", async () => {
+    const user = userEvent.setup({ delay: null });
     renderPage();
 
-    await userEvent.click(screen.getByRole("button", { name: "Log in" }));
+    await user.click(screen.getByRole("button", { name: "Log in" }));
 
     expect(screen.getAllByText("Required")).toHaveLength(2);
     expect(signInCreateMock).not.toHaveBeenCalled();
   });
 
   it("only flags the empty field as Required when the other is filled in", async () => {
+    const user = userEvent.setup({ delay: null });
     renderPage();
 
     const emailField = screen.getByLabelText("Email").closest("label");
     const passwordField = screen.getByLabelText("Password").closest("label");
-    await userEvent.type(screen.getByLabelText("Email"), "alex@example.com");
-    await userEvent.click(screen.getByRole("button", { name: "Log in" }));
+    await user.type(screen.getByLabelText("Email"), "alex@example.com");
+    await user.click(screen.getByRole("button", { name: "Log in" }));
 
     expect(passwordField).toHaveTextContent("Required");
     expect(emailField).not.toHaveTextContent("Required");
@@ -122,12 +132,13 @@ describe("LoginPage", () => {
   });
 
   it("logs in and activates the session on a complete sign-in", async () => {
+    const user = userEvent.setup({ delay: null });
     signInCreateMock.mockResolvedValue({ status: "complete", createdSessionId: "sess_1" });
     renderPage();
 
-    await userEvent.type(screen.getByLabelText("Email"), "alex@example.com");
-    await userEvent.type(screen.getByLabelText("Password"), "correct-password");
-    await userEvent.click(screen.getByRole("button", { name: "Log in" }));
+    await user.type(screen.getByLabelText("Email"), "alex@example.com");
+    await user.type(screen.getByLabelText("Password"), "correct-password");
+    await user.click(screen.getByRole("button", { name: "Log in" }));
 
     expect(signInCreateMock).toHaveBeenCalledWith({
       strategy: "password",
@@ -139,32 +150,35 @@ describe("LoginPage", () => {
   });
 
   it("shows the Clerk error message when login fails", async () => {
+    const user = userEvent.setup({ delay: null });
     signInCreateMock.mockRejectedValue({ errors: [{ message: "Incorrect password" }] });
     renderPage();
 
-    await userEvent.type(screen.getByLabelText("Email"), "alex@example.com");
-    await userEvent.type(screen.getByLabelText("Password"), "wrong");
-    await userEvent.click(screen.getByRole("button", { name: "Log in" }));
+    await user.type(screen.getByLabelText("Email"), "alex@example.com");
+    await user.type(screen.getByLabelText("Password"), "wrong");
+    await user.click(screen.getByRole("button", { name: "Log in" }));
 
     expect(await screen.findByText("Incorrect password")).toBeInTheDocument();
   });
 
   it("highlights the email field when the account doesn't exist", async () => {
+    const user = userEvent.setup({ delay: null });
     signInCreateMock.mockRejectedValue({
       errors: [{ message: "Couldn't find your account", meta: { paramName: "identifier" } }],
     });
     renderPage();
 
     const emailField = screen.getByLabelText("Email").closest("label");
-    await userEvent.type(screen.getByLabelText("Email"), "nobody@example.com");
-    await userEvent.type(screen.getByLabelText("Password"), "whatever");
-    await userEvent.click(screen.getByRole("button", { name: "Log in" }));
+    await user.type(screen.getByLabelText("Email"), "nobody@example.com");
+    await user.type(screen.getByLabelText("Password"), "whatever");
+    await user.click(screen.getByRole("button", { name: "Log in" }));
 
     const message = await screen.findByText("Couldn't find your account");
     expect(emailField).toContainElement(message);
   });
 
   it("highlights the password field when the password is wrong", async () => {
+    const user = userEvent.setup({ delay: null });
     signInCreateMock.mockRejectedValue({
       errors: [
         {
@@ -176,9 +190,9 @@ describe("LoginPage", () => {
     renderPage();
 
     const passwordField = screen.getByLabelText("Password").closest("label");
-    await userEvent.type(screen.getByLabelText("Email"), "alex@example.com");
-    await userEvent.type(screen.getByLabelText("Password"), "wrong-password");
-    await userEvent.click(screen.getByRole("button", { name: "Log in" }));
+    await user.type(screen.getByLabelText("Email"), "alex@example.com");
+    await user.type(screen.getByLabelText("Password"), "wrong-password");
+    await user.click(screen.getByRole("button", { name: "Log in" }));
 
     const message = await screen.findByText(
       "Password is incorrect. Try again, or use another method.",
@@ -187,20 +201,22 @@ describe("LoginPage", () => {
   });
 
   it("catches a malformed email client-side, without calling Clerk", async () => {
+    const user = userEvent.setup({ delay: null });
     renderPage();
 
-    await userEvent.type(screen.getByLabelText("Email"), "not-an-email");
-    await userEvent.type(screen.getByLabelText("Password"), "correct-password");
-    await userEvent.click(screen.getByRole("button", { name: "Log in" }));
+    await user.type(screen.getByLabelText("Email"), "not-an-email");
+    await user.type(screen.getByLabelText("Password"), "correct-password");
+    await user.click(screen.getByRole("button", { name: "Log in" }));
 
     expect(screen.getByText("Email address must be a valid email address.")).toBeInTheDocument();
     expect(signInCreateMock).not.toHaveBeenCalled();
   });
 
   it("starts the Google redirect flow when clicked", async () => {
+    const user = userEvent.setup({ delay: null });
     renderPage();
 
-    await userEvent.click(screen.getByRole("button", { name: "Continue with Google" }));
+    await user.click(screen.getByRole("button", { name: "Continue with Google" }));
 
     expect(authenticateWithRedirectMock).toHaveBeenCalledWith({
       strategy: "oauth_google",
@@ -211,27 +227,29 @@ describe("LoginPage", () => {
 
   describe("sign-up tab", () => {
     it("requires a first name in addition to email and password", async () => {
+      const user = userEvent.setup({ delay: null });
       renderPage();
-      await userEvent.click(screen.getByRole("tab", { name: "Sign up" }));
+      await user.click(screen.getByRole("tab", { name: "Sign up" }));
 
-      await userEvent.type(screen.getByLabelText("Email"), "alex@example.com");
-      await userEvent.type(screen.getByLabelText("Password"), "correct-password");
-      await userEvent.click(screen.getByRole("button", { name: "Create account" }));
+      await user.type(screen.getByLabelText("Email"), "alex@example.com");
+      await user.type(screen.getByLabelText("Password"), "correct-password");
+      await user.click(screen.getByRole("button", { name: "Create account" }));
 
       expect(screen.getByText("Required")).toBeInTheDocument();
       expect(signUpCreateMock).not.toHaveBeenCalled();
     });
 
     it("moves to email verification when the sign-up isn't complete yet", async () => {
+      const user = userEvent.setup({ delay: null });
       signUpCreateMock.mockResolvedValue({ status: "missing_requirements" });
       prepareEmailAddressVerificationMock.mockResolvedValue({});
       renderPage();
 
-      await userEvent.click(screen.getByRole("tab", { name: "Sign up" }));
-      await userEvent.type(screen.getByLabelText("First name"), "Alex");
-      await userEvent.type(screen.getByLabelText("Email"), "alex@example.com");
-      await userEvent.type(screen.getByLabelText("Password"), "correct-password");
-      await userEvent.click(screen.getByRole("button", { name: "Create account" }));
+      await user.click(screen.getByRole("tab", { name: "Sign up" }));
+      await user.type(screen.getByLabelText("First name"), "Alex");
+      await user.type(screen.getByLabelText("Email"), "alex@example.com");
+      await user.type(screen.getByLabelText("Password"), "correct-password");
+      await user.click(screen.getByRole("button", { name: "Create account" }));
 
       expect(signUpCreateMock).toHaveBeenCalledWith({
         emailAddress: "alex@example.com",
@@ -243,6 +261,7 @@ describe("LoginPage", () => {
     });
 
     it("completes sign-up once the verification code is accepted", async () => {
+      const user = userEvent.setup({ delay: null });
       signUpCreateMock.mockResolvedValue({ status: "missing_requirements" });
       prepareEmailAddressVerificationMock.mockResolvedValue({});
       attemptEmailAddressVerificationMock.mockResolvedValue({
@@ -251,14 +270,14 @@ describe("LoginPage", () => {
       });
       renderPage();
 
-      await userEvent.click(screen.getByRole("tab", { name: "Sign up" }));
-      await userEvent.type(screen.getByLabelText("First name"), "Alex");
-      await userEvent.type(screen.getByLabelText("Email"), "alex@example.com");
-      await userEvent.type(screen.getByLabelText("Password"), "correct-password");
-      await userEvent.click(screen.getByRole("button", { name: "Create account" }));
+      await user.click(screen.getByRole("tab", { name: "Sign up" }));
+      await user.type(screen.getByLabelText("First name"), "Alex");
+      await user.type(screen.getByLabelText("Email"), "alex@example.com");
+      await user.type(screen.getByLabelText("Password"), "correct-password");
+      await user.click(screen.getByRole("button", { name: "Create account" }));
 
-      await userEvent.type(await screen.findByLabelText("Verification code"), "123456");
-      await userEvent.click(screen.getByRole("button", { name: "Verify email" }));
+      await user.type(await screen.findByLabelText("Verification code"), "123456");
+      await user.click(screen.getByRole("button", { name: "Verify email" }));
 
       expect(attemptEmailAddressVerificationMock).toHaveBeenCalledWith({ code: "123456" });
       expect(setActiveSignUpMock).toHaveBeenCalledWith({ session: "sess_2" });
@@ -268,23 +287,25 @@ describe("LoginPage", () => {
 
   describe("password reset", () => {
     it("requires an email before requesting a reset code", async () => {
+      const user = userEvent.setup({ delay: null });
       renderPage();
-      await userEvent.click(screen.getByRole("link", { name: "Forgot password?" }));
+      await user.click(screen.getByRole("link", { name: "Forgot password?" }));
 
-      await userEvent.click(screen.getByRole("button", { name: "Send reset code" }));
+      await user.click(screen.getByRole("button", { name: "Send reset code" }));
 
       expect(screen.getByText("Required")).toBeInTheDocument();
       expect(signInCreateMock).not.toHaveBeenCalled();
     });
 
     it("requests a reset code, then resets the password and signs the visitor in", async () => {
+      const user = userEvent.setup({ delay: null });
       signInCreateMock.mockResolvedValue({});
       attemptFirstFactorMock.mockResolvedValue({ status: "complete", createdSessionId: "sess_3" });
       renderPage();
 
-      await userEvent.click(screen.getByRole("link", { name: "Forgot password?" }));
-      await userEvent.type(screen.getByLabelText("Email"), "alex@example.com");
-      await userEvent.click(screen.getByRole("button", { name: "Send reset code" }));
+      await user.click(screen.getByRole("link", { name: "Forgot password?" }));
+      await user.type(screen.getByLabelText("Email"), "alex@example.com");
+      await user.click(screen.getByRole("button", { name: "Send reset code" }));
 
       expect(signInCreateMock).toHaveBeenCalledWith({
         strategy: "reset_password_email_code",
@@ -292,10 +313,10 @@ describe("LoginPage", () => {
       });
       expect(await screen.findByLabelText("Verification code")).toBeInTheDocument();
 
-      await userEvent.type(screen.getByLabelText("Verification code"), "123456");
-      await userEvent.type(screen.getByLabelText("New password"), "new-password");
-      await userEvent.type(screen.getByLabelText("Confirm new password"), "new-password");
-      await userEvent.click(screen.getByRole("button", { name: "Reset password" }));
+      await user.type(screen.getByLabelText("Verification code"), "123456");
+      await user.type(screen.getByLabelText("New password"), "new-password");
+      await user.type(screen.getByLabelText("Confirm new password"), "new-password");
+      await user.click(screen.getByRole("button", { name: "Reset password" }));
 
       expect(attemptFirstFactorMock).toHaveBeenCalledWith({
         strategy: "reset_password_email_code",
@@ -307,50 +328,53 @@ describe("LoginPage", () => {
     });
 
     it("highlights the code field, not confirm password, when the code is wrong", async () => {
+      const user = userEvent.setup({ delay: null });
       signInCreateMock.mockResolvedValue({});
       attemptFirstFactorMock.mockRejectedValue({
         errors: [{ message: "Incorrect code", meta: { paramName: "code" } }],
       });
       renderPage();
 
-      await userEvent.click(screen.getByRole("link", { name: "Forgot password?" }));
-      await userEvent.type(screen.getByLabelText("Email"), "alex@example.com");
-      await userEvent.click(screen.getByRole("button", { name: "Send reset code" }));
+      await user.click(screen.getByRole("link", { name: "Forgot password?" }));
+      await user.type(screen.getByLabelText("Email"), "alex@example.com");
+      await user.click(screen.getByRole("button", { name: "Send reset code" }));
 
       const codeField = (await screen.findByLabelText("Verification code")).closest("label");
-      await userEvent.type(screen.getByLabelText("Verification code"), "000000");
-      await userEvent.type(screen.getByLabelText("New password"), "new-password");
-      await userEvent.type(screen.getByLabelText("Confirm new password"), "new-password");
-      await userEvent.click(screen.getByRole("button", { name: "Reset password" }));
+      await user.type(screen.getByLabelText("Verification code"), "000000");
+      await user.type(screen.getByLabelText("New password"), "new-password");
+      await user.type(screen.getByLabelText("Confirm new password"), "new-password");
+      await user.click(screen.getByRole("button", { name: "Reset password" }));
 
       const message = await screen.findByText("Incorrect code");
       expect(codeField).toContainElement(message);
     });
 
     it("rejects a mismatched password confirmation without calling Clerk", async () => {
+      const user = userEvent.setup({ delay: null });
       signInCreateMock.mockResolvedValue({});
       renderPage();
 
-      await userEvent.click(screen.getByRole("link", { name: "Forgot password?" }));
-      await userEvent.type(screen.getByLabelText("Email"), "alex@example.com");
-      await userEvent.click(screen.getByRole("button", { name: "Send reset code" }));
+      await user.click(screen.getByRole("link", { name: "Forgot password?" }));
+      await user.type(screen.getByLabelText("Email"), "alex@example.com");
+      await user.click(screen.getByRole("button", { name: "Send reset code" }));
 
-      await userEvent.type(await screen.findByLabelText("Verification code"), "123456");
-      await userEvent.type(screen.getByLabelText("New password"), "new-password");
-      await userEvent.type(screen.getByLabelText("Confirm new password"), "different");
-      await userEvent.click(screen.getByRole("button", { name: "Reset password" }));
+      await user.type(await screen.findByLabelText("Verification code"), "123456");
+      await user.type(screen.getByLabelText("New password"), "new-password");
+      await user.type(screen.getByLabelText("Confirm new password"), "different");
+      await user.click(screen.getByRole("button", { name: "Reset password" }));
 
       expect(screen.getByText("Passwords don't match")).toBeInTheDocument();
       expect(attemptFirstFactorMock).not.toHaveBeenCalled();
     });
 
     it("returns to log in from the reset form via the back link", async () => {
+      const user = userEvent.setup({ delay: null });
       renderPage();
 
-      await userEvent.click(screen.getByRole("link", { name: "Forgot password?" }));
+      await user.click(screen.getByRole("link", { name: "Forgot password?" }));
       expect(screen.getByRole("button", { name: "Send reset code" })).toBeInTheDocument();
 
-      await userEvent.click(screen.getByRole("link", { name: "Back to log in" }));
+      await user.click(screen.getByRole("link", { name: "Back to log in" }));
 
       expect(screen.getByRole("button", { name: "Log in" })).toBeInTheDocument();
     });

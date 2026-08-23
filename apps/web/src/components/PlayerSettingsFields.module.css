@@ -1,0 +1,51 @@
+/* "compact" variant (MobileMenu, SettingsModal): no container gap — each
+   row's own padding provides the spacing, matching design-system/In
+   Game.dc.html's mobileMenuOpen/settingsModalOpen rows. */
+.switchRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.saveError {
+  margin-top: 8px;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--error);
+}
+
+/* "page" variant (SettingsPage): a gap-based container instead of
+   per-row padding, matching that page's own (roomier) design-system
+   mockup. */
+.controlsPage {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.switchRowPage {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.saveErrorPage {
+  margin-top: 16px;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--error);
+}
+
+.switchLabel {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--ink);
+}
+
+.switchLabelHint {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}

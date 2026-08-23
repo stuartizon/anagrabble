@@ -58,26 +58,3 @@
   flex-direction: column;
   gap: 20px;
 }
-
-/* Copied from MobileMenu.module.css's .switchRow/.switchLabel/.saveError —
-   same "Your settings" field, same treatment. */
-.switchRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 0;
-}
-
-.switchLabel {
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  color: var(--ink);
-}
-
-.saveError {
-  margin-top: 8px;
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  color: var(--error);
-}

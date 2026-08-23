@@ -1,9 +1,7 @@
 import { X } from "lucide-react";
 import type { GameConfig, PlayerSettingsResponse } from "@anagrabble/protocol";
 import { GameConfigList } from "../../../components/GameConfigList";
-import { Select } from "../../../components/Select";
-import { Switch } from "../../../components/Switch";
-import { LANGUAGE_OPTIONS } from "../../../usePlayerSettings";
+import { PlayerSettingsFields } from "../../../components/PlayerSettingsFields";
 import styles from "./SettingsModal.module.css";
 import sharedStyles from "./shared.module.css";
 
@@ -50,28 +48,12 @@ export function SettingsModal({
           {playerSettings && (
             <div>
               <div className={sharedStyles.poolLabel}>Your settings</div>
-              <Select
-                label="Interface language"
-                value={playerSettings.language}
-                options={LANGUAGE_OPTIONS}
-                onChange={() => {
-                  // No-op today — only one option exists (see
-                  // LANGUAGE_OPTIONS).
-                }}
+              <PlayerSettingsFields
+                settings={playerSettings}
+                onUpdate={onUpdatePlayerSettings}
+                saveError={playerSettingsSaveError}
+                showHaptics={false}
               />
-              <div className={styles.switchRow}>
-                <span className={styles.switchLabel}>Sound effects</span>
-                <Switch
-                  label="Sound effects"
-                  checked={playerSettings.soundEnabled}
-                  onChange={(next) =>
-                    onUpdatePlayerSettings({ ...playerSettings, soundEnabled: next })
-                  }
-                />
-              </div>
-              {playerSettingsSaveError && (
-                <div className={styles.saveError}>Couldn&apos;t save your changes.</div>
-              )}
             </div>
           )}
           <div>

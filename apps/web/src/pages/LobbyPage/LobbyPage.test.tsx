@@ -3,33 +3,34 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LobbySnapshot, PlayerState } from "@anagrabble/protocol";
-import type { SocketStatus } from "../useGameSocket";
-import { mockSignedInClerk, setMockClerkIdentity } from "../testUtils/clerkTestMock";
-import { LobbyPage } from "./LobbyPage";
+import type { SocketStatus } from "../../useGameSocket";
+import { mockSignedInClerk, setMockClerkIdentity } from "../../testUtils/clerkTestMock";
+import { LobbyPage } from "./index";
 
 const send = vi.fn();
 const useGameSocketMock = vi.fn();
 
-vi.mock("../useGameSocket", () => ({
+vi.mock("../../useGameSocket", () => ({
   useGameSocket: (...args: unknown[]) => useGameSocketMock(...args),
 }));
 
-vi.mock("../auth", () => mockSignedInClerk());
+vi.mock("../../auth", () => mockSignedInClerk());
 
-vi.mock("../gameId", () => ({
+vi.mock("../../gameId", () => ({
   makeCommandId: () => "cmd-1",
 }));
 
 const leaveGameRequest = vi.fn();
-vi.mock("../fetchLeaveGame", () => ({
+vi.mock("../../fetchLeaveGame", () => ({
   leaveGame: (...args: unknown[]) => leaveGameRequest(...args),
 }));
 
-// LobbyPage now owns the sound engine (anagrabble#36) — mocked the same
-// way SettingsPage.test.tsx does, so its soundEnabled fetch resolves
-// deterministically instead of hitting a real, unmocked fetch() in tests.
+// LobbyPage (via useSoundSettings) owns the sound engine (anagrabble#36) —
+// mocked the same way SettingsPage.test.tsx does, so its soundEnabled fetch
+// resolves deterministically instead of hitting a real, unmocked fetch() in
+// tests.
 const fetchPlayerSettings = vi.fn();
-vi.mock("../fetchPlayerSettings", () => ({
+vi.mock("../../fetchPlayerSettings", () => ({
   fetchPlayerSettings: (...args: unknown[]) => fetchPlayerSettings(...args),
 }));
 

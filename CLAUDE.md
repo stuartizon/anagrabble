@@ -26,7 +26,8 @@ packages/protocol/ Shared TS types: commands, events, WS message shapes
 packages/redis/  Lua scripts + typed Redis client wrapper
 infrastructure/  dev.Dockerfile — the toolchain image docker-compose.yml builds
 design-system/   Claude Design export (tokens, components, screen prototypes)
-docs/            decisions.md, user-stories.md, redis-schema.md
+docs/            decisions.md, redis-schema.md, archive/user-stories.md
+                 (frozen — see "Working conventions" below)
 ```
 
 Node/TS chosen over reviving the old Akka codebase — see "Why not Akka/Pekko" below.
@@ -384,38 +385,39 @@ mechanic without touching anything else.
 
 ## Working conventions
 
-- **Check documentation when a user story completes or changes status.**
-  Whenever work moves a story in `docs/user-stories.md` to `[x]` or `[~]`,
-  check as part of that same piece of work whether `README.md` (Status/Stack/
-  Getting started), `docs/decisions.md` (if a real architecture or design
-  tradeoff was made along the way — new sections there follow the existing
-  Decision/Alternatives/Why format), or this file need updating too. Docs
-  that drift silently from what's actually built are worse than no docs.
+- **Check documentation when a user-story issue closes or changes status.**
+  Whenever work closes (or otherwise changes the status of) a user-story
+  GitHub issue, check as part of that same piece of work whether `README.md`
+  (Status/Stack/Getting started), `docs/decisions.md` (if a real architecture
+  or design tradeoff was made along the way — new sections there follow the
+  existing Decision/Alternatives/Why format), or this file need updating too.
+  Docs that drift silently from what's actually built are worse than no docs.
 - **Commit messages**: a single gitmoji (https://gitmoji.dev/) matching the
   change's nature, followed by a plain imperative-sentence subject and body.
   No Conventional Commits-style scope prefixes (`feat:`, `fix:`, `docs:`,
   etc.) and no ticket/issue numbers.
-- **Track open follow-ups/todos as GitHub issues, not in CLAUDE.md or
-  docs/\*.md.** As of 2026-08-18, non-trivial deferred work (a design
-  decision not yet made, a known gap, a planned-but-not-started piece of
-  work) gets filed as a GitHub issue on this repo rather than appended to
+- **Track user stories and open follow-ups/todos as GitHub issues, not in
+  CLAUDE.md or docs/\*.md.** As of 2026-08-18, non-trivial deferred work (a
+  design decision not yet made, a known gap, a planned-but-not-started piece
+  of work) gets filed as a GitHub issue on this repo rather than appended to
   this file's "Still open" section or scattered through docs/decisions.md.
   Reason: md-file todo lists silently drift out of sync with what's
   actually been resolved (see the removed "Still open / not yet decided"
   section below, which had at least one stale entry describing already-shipped
   work as still open) and don't get the status/labels/close-on-resolve
-  workflow a real issue tracker gives for free. `docs/user-stories.md`
-  stays the canonical _product-scope_ backlog (its own header already
-  invited mirroring stories into issues "for sprint/status tracking if
-  useful") — this convention is about the smaller architecture/cleanup
-  follow-ups that used to accumulate in this file instead.
-- **Test-driven development.** When picking up a user story from
-  `docs/user-stories.md`, or any task involving non-trivial logic (not glue
-  code or config), write a failing test first, make it pass with the minimum
-  code, then refactor (red-green-refactor). Applies especially to
-  `packages/game`'s decomposition search and the Lua scripts in
-  `packages/redis` — see "Testing strategy" above — where correctness bugs are
-  the costliest and least visible if untested.
+  workflow a real issue tracker gives for free. As of 2026-08-23, this also
+  covers product-scope user stories: `docs/user-stories.md` was the
+  canonical backlog until then, but is now archived, frozen, at
+  `docs/archive/user-stories.md` — a historical record of what shipped
+  pre-cutover, not a living doc. New stories are filed as GitHub issues
+  directly, no separate mirroring step.
+- **Test-driven development.** When picking up a user-story GitHub issue, or
+  any task involving non-trivial logic (not glue code or config), write a
+  failing test first, make it pass with the minimum code, then refactor
+  (red-green-refactor). Applies especially to `packages/game`'s decomposition
+  search and the Lua scripts in `packages/redis` — see "Testing strategy"
+  above — where correctness bugs are the costliest and least visible if
+  untested.
 - **A `pre-push` git hook (`simple-git-hooks`, configured in the root
   `package.json`'s `simple-git-hooks` key) runs `pnpm lint && pnpm
 format:check && pnpm typecheck && pnpm test` before every push** — the

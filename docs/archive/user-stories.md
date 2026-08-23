@@ -1,8 +1,10 @@
-# Anagrabble — User Stories
+# Anagrabble — User Stories (archived 2026-08-23)
 
-Source of truth for product scope. Mirror individual stories into GitHub Issues for
-sprint/status tracking if useful, but this file stays the canonical list — easy for
-Claude Code to read alongside implementation work.
+**Frozen.** As of 2026-08-23, product-scope user stories are tracked as
+GitHub issues on this repo, not in this file — see CLAUDE.md "Working
+conventions". This file is kept as a historical record of everything that
+shipped before the cutover; nothing below is being maintained, and no new
+stories are added here.
 
 Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
@@ -155,6 +157,16 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
       hardcoded at 60s (not yet the "configurable" CLAUDE.md describes), and
       the full game-over summary screen is still its own separate,
       not-yet-started story below.
+- [x] As a player, I can see the game's settings (language, minimum word
+      length, turn timer) during play, not just before it starts —
+      `GameBoard`'s mobile menu now has a read-only "Game settings" section
+      below Players and Invite code, matching design-system/In
+      Game.dc.html's mobile menu. That design also bundles a "Your
+      settings" section (sound/haptics/language preferences) into the same
+      panel — left out here as a separate, not-yet-built story. Reuses
+      `GameConfigList` (previously only used pre-start by `WaitingRoomCard`/
+      `JoinInProgressCard`), promoted from `pages/LobbyPage` into
+      `src/components` now that it's shared across three call sites.
 
 ## Post-game
 

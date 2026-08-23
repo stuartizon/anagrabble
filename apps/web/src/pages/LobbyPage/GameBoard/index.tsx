@@ -25,11 +25,12 @@ import styles from "./GameBoard.module.css";
 
 // Minimal slice of design-system/In Game.dc.html: tile-turning, word
 // submission, enough word-list/narration feedback to make a play feel like
-// it did something, and a running history panel. The settings modal (game
-// config + sound/haptics/language) is a separate, not-yet-built story —
-// design-system/In Game.dc.html's mobile menu also bundles a read-only
-// "Game settings" section into the same panel, skipped here rather than
-// quietly resolving that un-started story as a side effect of this one.
+// it did something, and a running history panel. The mobile menu's
+// read-only "Game settings" section (language/min word length/turn timer,
+// via GameConfigList) is wired up; its "Your settings" section
+// (sound/haptics/language preferences, not game config) is a separate,
+// not-yet-built story, skipped here rather than quietly resolving that
+// un-started story as a side effect of this one.
 // The mobile menu's per-player word-count column is skipped too, but for a
 // different reason: deliberately dropped, not deferred — see
 // docs/decisions.md "Word-count badge dropped, not deferred".

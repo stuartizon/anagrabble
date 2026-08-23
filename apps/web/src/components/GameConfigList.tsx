@@ -1,9 +1,10 @@
 import type { GameConfig } from "@anagrabble/protocol";
-import { cx } from "../../cx";
+import { cx } from "../cx";
 import styles from "./GameConfigList.module.css";
 
-// Shared by WaitingRoomCard and JoinInProgressCard — same three rows either
-// way, just embedded in a different surrounding card.
+// Shared by WaitingRoomCard, JoinInProgressCard, and the in-game mobile
+// menu — same three rows everywhere, just embedded in a different
+// surrounding card/section.
 export function GameConfigList({ config }: { config: GameConfig }) {
   return (
     <div className={styles.configList}>

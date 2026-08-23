@@ -2,9 +2,9 @@ import type { LobbySnapshot } from "@anagrabble/protocol";
 import { Header } from "../../components/Header";
 import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
+import { GameConfigList } from "../../components/GameConfigList";
 import { PageShell, PageContent, NarrowColumn } from "../../components/Layout";
 import { RulesLink } from "../../components/RulesLink";
-import { GameConfigList } from "./GameConfigList";
 import { PlayerList } from "./PlayerList";
 import styles from "./shared.module.css";
 

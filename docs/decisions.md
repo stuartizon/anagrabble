@@ -3288,3 +3288,33 @@ failure mode this was meant to close. Skippable via
   configuration work. A live Backend API lookup per request was also
   considered and is strictly worse than the JWT-template approach for the
   same outcome — not worth building either way.
+
+---
+
+## User stories move from `docs/user-stories.md` to GitHub issues
+
+**Decision** (2026-08-23): product-scope user stories are now tracked as
+GitHub issues, the same tracker already used for architecture/cleanup
+follow-ups since 2026-08-18 (see "Track user stories and open
+follow-ups/todos as GitHub issues" in CLAUDE.md's "Working conventions").
+`docs/user-stories.md` is archived, frozen, at `docs/archive/user-stories.md`
+— a historical record of what shipped before the cutover, not a living
+backlog. No new stories are appended there; new ones are filed as issues
+directly, with no separate mirroring step.
+
+**Context**: the 2026-08-18 follow-ups-as-issues convention deliberately
+carved out an exception for `docs/user-stories.md`, reasoning that it was
+the canonical _product-scope_ backlog and the smaller architecture/cleanup
+todos were the actual problem being solved. In practice the same drift risk
+that motivated that change applies here too — a md-file list doesn't get
+status/labels/close-on-resolve for free, and this file had already grown to
+several hundred lines mixing done/in-progress/not-started stories with
+substantial inline implementation notes.
+
+**Why archive rather than delete**: the existing entries are a genuinely
+useful implementation-history record (many are cross-referenced from this
+file's own decision entries above, e.g. "Mid-game join: scope decisions",
+"Mobile playability audit"), so deleting it would break those references
+for no benefit. Freezing it in `docs/archive/` keeps that history readable
+without implying it's still maintained or that it's where a new story
+should be added.

@@ -1,10 +1,11 @@
 import { LogOut, X } from "lucide-react";
 import type { LobbySnapshot, PlayerSettingsResponse } from "@anagrabble/protocol";
 import { GameConfigList } from "../../../components/GameConfigList";
+import { InviteCode } from "../../../components/InviteCode";
 import { Select } from "../../../components/Select";
 import { Switch } from "../../../components/Switch";
 import { LANGUAGE_OPTIONS } from "../../../usePlayerSettings";
-import { PlayersAndInviteSections } from "./PlayersAndInviteSections";
+import { PlayersSection } from "./PlayersSection";
 import styles from "./MobileMenu.module.css";
 import sharedStyles from "./shared.module.css";
 
@@ -38,11 +39,8 @@ export function MobileMenu({
         </button>
       </div>
       <div className={styles.menuBody}>
-        <PlayersAndInviteSections lobby={lobby} colors={colors} shareLink={shareLink} />
-        <div>
-          <div className={sharedStyles.poolLabel}>Game settings</div>
-          <GameConfigList config={lobby.config} />
-        </div>
+        <PlayersSection lobby={lobby} colors={colors} />
+        <InviteCode code={lobby.gameId} shareLink={shareLink} />
         {playerSettings && (
           <div>
             <div className={sharedStyles.poolLabel}>Your settings</div>
@@ -80,6 +78,10 @@ export function MobileMenu({
             )}
           </div>
         )}
+        <div>
+          <div className={sharedStyles.poolLabel}>Game settings</div>
+          <GameConfigList config={lobby.config} />
+        </div>
         <button className={styles.mobileLeaveButton} onClick={onOpenLeaveConfirm}>
           <LogOut size={18} />
           Leave game

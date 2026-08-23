@@ -1,6 +1,7 @@
 import { LogOut, Menu } from "lucide-react";
 import type { Command, LobbySnapshot, PlayerSettingsResponse } from "@anagrabble/protocol";
 import { Header } from "../../../components/Header";
+import { InviteCode } from "../../../components/InviteCode";
 import { LeaveGameConfirm } from "../../../components/LeaveGameConfirm";
 import { makeCommandId } from "../../../gameId";
 import { assignPlayerColors } from "../../../playerColors";
@@ -11,7 +12,7 @@ import type {
   WordPlayNarration,
 } from "../../../useGameSocket";
 import type { SoundName } from "../../../useGameSounds";
-import { PlayersAndInviteSections } from "./PlayersAndInviteSections";
+import { PlayersSection } from "./PlayersSection";
 import { HistorySection } from "./HistorySection";
 import { BoardSection } from "./BoardSection";
 import { WordFormDock } from "./WordFormDock";
@@ -170,7 +171,8 @@ export function GameBoard({
 
       <div className={styles.layout}>
         <aside className={styles.sidebar}>
-          <PlayersAndInviteSections lobby={lobby} colors={colors} shareLink={shareLink} />
+          <PlayersSection lobby={lobby} colors={colors} />
+          <InviteCode code={lobby.gameId} shareLink={shareLink} />
           <HistorySection lobby={lobby} colors={colors} history={history} />
         </aside>
 

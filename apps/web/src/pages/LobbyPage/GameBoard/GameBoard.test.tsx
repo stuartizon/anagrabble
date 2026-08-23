@@ -11,7 +11,7 @@ import type {
 } from "../../../useGameSocket";
 import { mockSignedOutClerk } from "../../../testUtils/clerkTestMock";
 import { GameBoard } from "./index";
-import styles from "./PlayersAndInviteSections.module.css";
+import styles from "./PlayersSection.module.css";
 
 const send = vi.fn();
 const onLeaveGame = vi.fn();
@@ -492,6 +492,22 @@ describe("GameBoard", () => {
     await userEvent.click(menu.getByRole("button", { name: "Close" }));
 
     expect(screen.queryByTestId("mobile-menu")).not.toBeInTheDocument();
+  });
+
+  it("orders the mobile menu as Players, Invite, Your settings, then Game settings", async () => {
+    renderBoard();
+
+    await userEvent.click(screen.getByRole("button", { name: "Menu" }));
+
+    const menuText = screen.getByTestId("mobile-menu").textContent ?? "";
+    const playersIdx = menuText.indexOf("Players");
+    const inviteIdx = menuText.indexOf("Invite code");
+    const yourSettingsIdx = menuText.indexOf("Your settings");
+    const gameSettingsIdx = menuText.indexOf("Game settings");
+    expect(playersIdx).toBeGreaterThanOrEqual(0);
+    expect(playersIdx).toBeLessThan(inviteIdx);
+    expect(inviteIdx).toBeLessThan(yourSettingsIdx);
+    expect(yourSettingsIdx).toBeLessThan(gameSettingsIdx);
   });
 
   describe("your settings (mobile menu)", () => {

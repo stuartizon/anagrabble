@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
-// Owns the mobile menu / leave-confirm dialog open state, plus the two
+// Owns which one of GameBoard's three mutually-exclusive overlays (mobile
+// menu, settings modal, leave-confirm dialog) is open, plus the two
 // non-click ways of leaving this page that a button's onClick can't catch:
 // the browser's native "leave site?" prompt (beforeunload — closing the
 // tab, refreshing, typing a new URL, following an external link) and the
@@ -9,19 +10,26 @@ import { useEffect, useState } from "react";
 // in-app way of leaving (confirming the dialog, or the game ending) is a
 // client-side route change via react-router, which never fires
 // `beforeunload` in the first place.
-export function useLeaveGuard() {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+//
+// A single `overlay` field, rather than one boolean per overlay, matches
+// design-system/In Game.dc.html's own openLeaveConfirm (which sets
+// mobileMenuOpen: false and settingsModalOpen: false in the same setState
+// as opening the confirm dialog, so it never stacks over either) — opening
+// any one of the three always replaces whatever was open, never adds to
+// it, so the three can't drift into an impossible combined state (e.g. the
+// back-button trap firing openLeaveConfirm while the settings modal is
+// still open underneath it).
+type Overlay = "menu" | "settings" | "leaveConfirm" | null;
 
-  // Closes the mobile menu underneath — design-system/In Game.dc.html's
-  // openLeaveConfirm sets mobileMenuOpen: false (and settingsModalOpen:
-  // false, once that not-yet-built story lands) in the same setState, so
-  // the confirm dialog never stacks over the full-screen mobile menu.
-  const openLeaveConfirm = () => {
-    setLeaveConfirmOpen(true);
-    setMenuOpen(false);
-  };
-  const closeLeaveConfirm = () => setLeaveConfirmOpen(false);
+export function useLeaveGuard() {
+  const [overlay, setOverlay] = useState<Overlay>(null);
+
+  const openMenu = () => setOverlay("menu");
+  const closeMenu = () => setOverlay(null);
+  const openSettings = () => setOverlay("settings");
+  const closeSettings = () => setOverlay(null);
+  const openLeaveConfirm = () => setOverlay("leaveConfirm");
+  const closeLeaveConfirm = () => setOverlay(null);
 
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -63,5 +71,15 @@ export function useLeaveGuard() {
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
-  return { menuOpen, setMenuOpen, leaveConfirmOpen, openLeaveConfirm, closeLeaveConfirm };
+  return {
+    menuOpen: overlay === "menu",
+    openMenu,
+    closeMenu,
+    settingsOpen: overlay === "settings",
+    openSettings,
+    closeSettings,
+    leaveConfirmOpen: overlay === "leaveConfirm",
+    openLeaveConfirm,
+    closeLeaveConfirm,
+  };
 }

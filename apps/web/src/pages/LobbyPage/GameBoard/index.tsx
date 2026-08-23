@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { LogOut, Menu, Settings as SettingsIcon } from "lucide-react";
 import type { Command, LobbySnapshot, PlayerSettingsResponse } from "@anagrabble/protocol";
 import { Header } from "../../../components/Header";
@@ -120,9 +119,17 @@ export function GameBoard({
 
   const shareLink = `${window.location.origin}/${gameId}`;
 
-  const { menuOpen, setMenuOpen, leaveConfirmOpen, openLeaveConfirm, closeLeaveConfirm } =
-    useLeaveGuard();
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const {
+    menuOpen,
+    openMenu,
+    closeMenu,
+    settingsOpen,
+    openSettings,
+    closeSettings,
+    leaveConfirmOpen,
+    openLeaveConfirm,
+    closeLeaveConfirm,
+  } = useLeaveGuard();
 
   // Takes priority over the word-feedback toast in the same slot rather
   // than appending a second one: while the socket's down, a lingering "you
@@ -142,14 +149,10 @@ export function GameBoard({
         }}
       >
         <span className={styles.bankCount}>{lobby.bankCount} tiles left</span>
-        <button className={styles.menuButton} aria-label="Menu" onClick={() => setMenuOpen(true)}>
+        <button className={styles.menuButton} aria-label="Menu" onClick={openMenu}>
           <Menu size={20} color="var(--text-muted)" />
         </button>
-        <button
-          className={styles.settingsButton}
-          aria-label="Settings"
-          onClick={() => setSettingsOpen(true)}
-        >
+        <button className={styles.settingsButton} aria-label="Settings" onClick={openSettings}>
           <SettingsIcon size={18} color="var(--text-muted)" />
         </button>
         <button className={styles.leaveButton} onClick={openLeaveConfirm}>
@@ -163,7 +166,7 @@ export function GameBoard({
           lobby={lobby}
           colors={colors}
           shareLink={shareLink}
-          onClose={() => setMenuOpen(false)}
+          onClose={closeMenu}
           onOpenLeaveConfirm={openLeaveConfirm}
           playerSettings={playerSettings}
           onUpdatePlayerSettings={onUpdatePlayerSettings}
@@ -177,7 +180,7 @@ export function GameBoard({
           playerSettings={playerSettings}
           onUpdatePlayerSettings={onUpdatePlayerSettings}
           playerSettingsSaveError={playerSettingsSaveError}
-          onClose={() => setSettingsOpen(false)}
+          onClose={closeSettings}
         />
       )}
 

@@ -845,6 +845,25 @@ describe("GameBoard", () => {
       expect(screen.queryByTestId("mobile-menu")).not.toBeInTheDocument();
     });
 
+    it("closes the settings modal underneath when the back-button trap opens the confirm dialog", async () => {
+      // Regression test for useLeaveGuard's single `overlay` field: the
+      // settings modal has no Leave game button of its own to reach this
+      // through, but the back-button trap (popstate) calls openLeaveConfirm
+      // regardless of what else is open, so it's the one realistic way a
+      // player could have the settings modal open when this fires.
+      renderBoard();
+
+      await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+      expect(screen.getByRole("dialog", { name: "Settings" })).toBeInTheDocument();
+
+      act(() => {
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      });
+
+      expect(screen.getByRole("dialog", { name: "Leave this game?" })).toBeInTheDocument();
+      expect(screen.queryByRole("dialog", { name: "Settings" })).not.toBeInTheDocument();
+    });
+
     it("opens the confirm dialog when clicking the wordmark instead of navigating away", async () => {
       renderBoard();
 

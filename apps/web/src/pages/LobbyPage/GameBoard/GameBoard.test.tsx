@@ -8,9 +8,9 @@ import type {
   HistoryEntry,
   SocketStatus,
   WordPlayNarration,
-} from "../useGameSocket";
-import { mockSignedOutClerk } from "../testUtils/clerkTestMock";
-import { GameBoard } from "./GameBoard";
+} from "../../../useGameSocket";
+import { mockSignedOutClerk } from "../../../testUtils/clerkTestMock";
+import { GameBoard } from "./index";
 import styles from "./GameBoard.module.css";
 
 const send = vi.fn();
@@ -18,11 +18,11 @@ const onLeaveGame = vi.fn();
 const playSound = vi.fn();
 const makeCommandIdMock = vi.fn(() => "cmd-1");
 
-vi.mock("../gameId", () => ({
+vi.mock("../../../gameId", () => ({
   makeCommandId: () => makeCommandIdMock(),
 }));
 
-vi.mock("../auth", () => mockSignedOutClerk());
+vi.mock("../../../auth", () => mockSignedOutClerk());
 
 const ME: PlayerState = { id: "me-1", name: "Me", words: [], score: 0 };
 const OPPONENT: PlayerState = { id: "opp-1", name: "Sam", words: [], score: 0 };

@@ -4,7 +4,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { LobbySnapshot, PlayerState } from "@anagrabble/protocol";
-import { mockSignedOutClerk } from "../testUtils/clerkTestMock";
+import { mockSignedOutClerk } from "../../testUtils/clerkTestMock";
 import { GameOverSummary } from "./GameOverSummary";
 
 const navigateMock = vi.fn();
@@ -13,7 +13,7 @@ vi.mock("react-router-dom", async () => {
   return { ...actual, useNavigate: () => navigateMock };
 });
 
-vi.mock("../auth", () => mockSignedOutClerk());
+vi.mock("../../auth", () => mockSignedOutClerk());
 
 function player(overrides: Partial<PlayerState>): PlayerState {
   return { id: "p", name: "Player", words: [], score: 0, ...overrides };

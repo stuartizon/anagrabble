@@ -2,7 +2,7 @@ import { MemoryRouter } from "react-router-dom";
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { LobbySnapshot, PlayerState } from "@anagrabble/protocol";
+import type { LobbySnapshot, PlayerState, PlayerSettingsResponse } from "@anagrabble/protocol";
 import type {
   GameSocketError,
   HistoryEntry,
@@ -16,7 +16,12 @@ import styles from "./PlayersAndInviteSections.module.css";
 const send = vi.fn();
 const onLeaveGame = vi.fn();
 const playSound = vi.fn();
+const onUpdatePlayerSettings = vi.fn();
 const makeCommandIdMock = vi.fn(() => "cmd-1");
+
+function playerSettings(overrides: Partial<PlayerSettingsResponse> = {}): PlayerSettingsResponse {
+  return { language: "English", soundEnabled: true, hapticsEnabled: false, ...overrides };
+}
 
 vi.mock("../../../gameId", () => ({
   makeCommandId: () => makeCommandIdMock(),
@@ -52,6 +57,8 @@ type BoardProps = {
   status?: SocketStatus;
   leaving?: boolean;
   leaveError?: string | null;
+  playerSettings?: PlayerSettingsResponse | null;
+  playerSettingsSaveError?: boolean;
 };
 
 function boardElement(props: BoardProps = {}) {
@@ -69,6 +76,11 @@ function boardElement(props: BoardProps = {}) {
         onLeaveGame={onLeaveGame}
         leaving={props.leaving ?? false}
         leaveError={props.leaveError ?? null}
+        playerSettings={
+          props.playerSettings === undefined ? playerSettings() : props.playerSettings
+        }
+        onUpdatePlayerSettings={onUpdatePlayerSettings}
+        playerSettingsSaveError={props.playerSettingsSaveError ?? false}
       />
     </MemoryRouter>
   );
@@ -82,6 +94,7 @@ beforeEach(() => {
   send.mockClear();
   onLeaveGame.mockClear();
   playSound.mockClear();
+  onUpdatePlayerSettings.mockClear();
   makeCommandIdMock.mockReset();
   makeCommandIdMock.mockReturnValue("cmd-1");
 });
@@ -479,6 +492,64 @@ describe("GameBoard", () => {
     await userEvent.click(menu.getByRole("button", { name: "Close" }));
 
     expect(screen.queryByTestId("mobile-menu")).not.toBeInTheDocument();
+  });
+
+  describe("your settings (mobile menu)", () => {
+    it("shows the player's settings alongside game settings", async () => {
+      renderBoard({
+        playerSettings: playerSettings({ soundEnabled: true, hapticsEnabled: false }),
+      });
+
+      await userEvent.click(screen.getByRole("button", { name: "Menu" }));
+      const menu = within(screen.getByTestId("mobile-menu"));
+
+      expect(menu.getByText("Your settings")).toBeInTheDocument();
+      expect(menu.getByRole("switch", { name: "Sound effects" })).toHaveAttribute(
+        "aria-checked",
+        "true",
+      );
+      expect(menu.getByRole("switch", { name: "Haptic feedback" })).toHaveAttribute(
+        "aria-checked",
+        "false",
+      );
+    });
+
+    it("updates settings immediately when toggled, without leaving the game", async () => {
+      renderBoard({
+        playerSettings: playerSettings({ soundEnabled: true, hapticsEnabled: false }),
+      });
+
+      await userEvent.click(screen.getByRole("button", { name: "Menu" }));
+      const menu = within(screen.getByTestId("mobile-menu"));
+
+      await userEvent.click(menu.getByRole("switch", { name: "Sound effects" }));
+      expect(onUpdatePlayerSettings).toHaveBeenCalledWith(
+        playerSettings({ soundEnabled: false, hapticsEnabled: false }),
+      );
+
+      await userEvent.click(menu.getByRole("switch", { name: "Haptic feedback" }));
+      expect(onUpdatePlayerSettings).toHaveBeenCalledWith(
+        playerSettings({ soundEnabled: true, hapticsEnabled: true }),
+      );
+    });
+
+    it("hides the section while the player's settings haven't loaded", async () => {
+      renderBoard({ playerSettings: null });
+
+      await userEvent.click(screen.getByRole("button", { name: "Menu" }));
+      const menu = within(screen.getByTestId("mobile-menu"));
+
+      expect(menu.queryByText("Your settings")).not.toBeInTheDocument();
+    });
+
+    it("shows an error if saving a settings change fails", async () => {
+      renderBoard({ playerSettingsSaveError: true });
+
+      await userEvent.click(screen.getByRole("button", { name: "Menu" }));
+      const menu = within(screen.getByTestId("mobile-menu"));
+
+      expect(menu.getByText("Couldn't save your changes.")).toBeInTheDocument();
+    });
   });
 
   it("shows no account status anywhere while playing — not in the design's header or mobile menu", async () => {

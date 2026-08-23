@@ -1,5 +1,5 @@
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LobbySnapshot, PlayerState } from "@anagrabble/protocol";
@@ -25,13 +25,16 @@ vi.mock("../../fetchLeaveGame", () => ({
   leaveGame: (...args: unknown[]) => leaveGameRequest(...args),
 }));
 
-// LobbyPage (via useSoundSettings) owns the sound engine (anagrabble#36) —
-// mocked the same way SettingsPage.test.tsx does, so its soundEnabled fetch
-// resolves deterministically instead of hitting a real, unmocked fetch() in
-// tests.
+// LobbyPage owns player settings (sound engine — anagrabble#36 — and the
+// mobile menu's "Your settings" section — anagrabble#40) via
+// usePlayerSettings — mocked the same way SettingsPage.test.tsx does, so its
+// fetch/save resolve deterministically instead of hitting a real, unmocked
+// fetch() in tests.
 const fetchPlayerSettings = vi.fn();
+const savePlayerSettings = vi.fn();
 vi.mock("../../fetchPlayerSettings", () => ({
   fetchPlayerSettings: (...args: unknown[]) => fetchPlayerSettings(...args),
+  savePlayerSettings: (...args: unknown[]) => savePlayerSettings(...args),
 }));
 
 const HOST: PlayerState = {
@@ -105,6 +108,7 @@ beforeEach(() => {
     soundEnabled: true,
     hapticsEnabled: false,
   });
+  savePlayerSettings.mockReset();
 });
 
 describe("LobbyPage", () => {
@@ -270,6 +274,42 @@ describe("LobbyPage", () => {
         gameId: "ABCDE",
         playerName: "Guest",
       });
+    });
+
+    it("updates a player setting immediately from the in-game mobile menu, without leaving the game", async () => {
+      savePlayerSettings.mockResolvedValue({
+        language: "English",
+        soundEnabled: false,
+        hapticsEnabled: false,
+      });
+      mockSocket({
+        lobby: lobbySnapshot({
+          status: "playing",
+          players: [HOST, GUEST],
+          bankCount: 143,
+          pool: ["A"],
+          turnPlayerId: "host-1",
+          turnDeadline: Date.now() + 30_000,
+        }),
+      });
+      renderAsPlayer("host-1");
+
+      await userEvent.click(screen.getByRole("button", { name: "Menu" }));
+      const menu = within(screen.getByTestId("mobile-menu"));
+      const soundSwitch = await menu.findByRole("switch", { name: "Sound effects" });
+      expect(soundSwitch).toHaveAttribute("aria-checked", "true");
+
+      await userEvent.click(soundSwitch);
+
+      expect(savePlayerSettings).toHaveBeenCalledWith("test-token", {
+        language: "English",
+        soundEnabled: false,
+        hapticsEnabled: false,
+      });
+      // Same mounted tree throughout — no navigation to /settings and back,
+      // proving the mobile-menu toggle takes effect live (anagrabble#40),
+      // unlike the pre-#40 fetch-once-on-mount behavior anagrabble#37 flags.
+      await waitFor(() => expect(soundSwitch).toHaveAttribute("aria-checked", "false"));
     });
 
     it("leaving mid-game navigates home directly, without the pre-start REST call", async () => {

@@ -5,6 +5,8 @@ import { Header } from "../../components/Header";
 import { PageShell, PageContent } from "../../components/Layout";
 import { Loader } from "../../components/Loader";
 import { useGameSocket } from "../../useGameSocket";
+import { useGameSounds } from "../../useGameSounds";
+import { usePlayerSettings } from "../../usePlayerSettings";
 import { getDisplayName } from "../../clerkDisplayName";
 import { makeCommandId } from "../../gameId";
 import { assignPlayerColors } from "../../playerColors";
@@ -14,7 +16,6 @@ import { GameOverSummary } from "./GameOverSummary";
 import { GameNotFoundCard } from "./GameNotFoundCard";
 import { JoinInProgressCard } from "./JoinInProgressCard";
 import { WaitingRoomCard } from "./WaitingRoomCard";
-import { useSoundSettings } from "./useSoundSettings";
 
 // Matches design-system/Lobby.dc.html — the live waiting room, and also the
 // invite-link destination for players who haven't joined yet (RequireAuth
@@ -28,7 +29,13 @@ import { useSoundSettings } from "./useSoundSettings";
 // shape): each screen below (GameNotFoundCard/JoinInProgressCard/
 // WaitingRoomCard) is a thin render of props, owning no state of its own —
 // this component keeps only the state that's genuinely shared across
-// screens (the socket connection, in-flight action flags, sound).
+// screens (the socket connection, in-flight action flags, player settings).
+//
+// Player settings (sound/haptics/language — anagrabble#40) are owned here,
+// not fetched independently by GameBoard/MobileMenu, so a change made from
+// the in-game mobile menu takes effect in this same mounted tree (no
+// navigation/remount to lean on) — see anagrabble#37's "`soundEnabled` and a
+// future in-game settings toggle" for why that matters.
 
 export function LobbyPage() {
   const { gameId = "" } = useParams();
@@ -41,7 +48,18 @@ export function LobbyPage() {
   const [leaving, setLeaving] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
 
-  const { playSound } = useSoundSettings();
+  const {
+    state: settingsState,
+    saveError: settingsSaveError,
+    update: updateSettings,
+  } = usePlayerSettings();
+  // Defaults sound on (matches the Postgres `player_settings` default) so a
+  // sound can play before the fetch resolves; flips off shortly after mount
+  // if the player has actually disabled it.
+  const soundEnabled =
+    settingsState.status === "loaded" ? settingsState.settings.soundEnabled : true;
+  const { playSound } = useGameSounds(soundEnabled);
+  const playerSettings = settingsState.status === "loaded" ? settingsState.settings : null;
 
   const { status, lobby, error, wordPlay, history, send } = useGameSocket(gameId, () =>
     playSound("tileTurn"),
@@ -161,6 +179,9 @@ export function LobbyPage() {
         onLeaveGame={leaveGame}
         leaving={leaving}
         leaveError={leaveError}
+        playerSettings={playerSettings}
+        onUpdatePlayerSettings={updateSettings}
+        playerSettingsSaveError={settingsSaveError}
       />
     );
   }

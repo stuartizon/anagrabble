@@ -1,5 +1,5 @@
 import { LogOut, Menu } from "lucide-react";
-import type { Command, LobbySnapshot } from "@anagrabble/protocol";
+import type { Command, LobbySnapshot, PlayerSettingsResponse } from "@anagrabble/protocol";
 import { Header } from "../../../components/Header";
 import { LeaveGameConfirm } from "../../../components/LeaveGameConfirm";
 import { makeCommandId } from "../../../gameId";
@@ -27,10 +27,11 @@ import styles from "./GameBoard.module.css";
 // submission, enough word-list/narration feedback to make a play feel like
 // it did something, and a running history panel. The mobile menu's
 // read-only "Game settings" section (language/min word length/turn timer,
-// via GameConfigList) is wired up; its "Your settings" section
-// (sound/haptics/language preferences, not game config) is a separate,
-// not-yet-built story, skipped here rather than quietly resolving that
-// un-started story as a side effect of this one.
+// via GameConfigList) and its "Your settings" section (sound/haptics/
+// language preferences, not game config — anagrabble#40) are both wired up;
+// `playerSettings`/`onUpdatePlayerSettings` are owned by LobbyPage (see its
+// own comment) rather than fetched here, so a change made in the mobile menu
+// takes effect immediately without a navigation/remount.
 // The mobile menu's per-player word-count column is skipped too, but for a
 // different reason: deliberately dropped, not deferred — see
 // docs/decisions.md "Word-count badge dropped, not deferred".
@@ -53,6 +54,9 @@ interface GameBoardProps {
   onLeaveGame: () => void;
   leaving: boolean;
   leaveError: string | null;
+  playerSettings: PlayerSettingsResponse | null;
+  onUpdatePlayerSettings: (next: PlayerSettingsResponse) => void;
+  playerSettingsSaveError: boolean;
 }
 
 export function GameBoard({
@@ -67,6 +71,9 @@ export function GameBoard({
   onLeaveGame,
   leaving,
   leaveError,
+  playerSettings,
+  onUpdatePlayerSettings,
+  playerSettingsSaveError,
 }: GameBoardProps) {
   const colors = assignPlayerColors(lobby.players, playerId);
   const currentPlayer = lobby.players.find((p) => p.id === lobby.turnPlayerId);
@@ -145,6 +152,9 @@ export function GameBoard({
           shareLink={shareLink}
           onClose={() => setMenuOpen(false)}
           onOpenLeaveConfirm={openLeaveConfirm}
+          playerSettings={playerSettings}
+          onUpdatePlayerSettings={onUpdatePlayerSettings}
+          playerSettingsSaveError={playerSettingsSaveError}
         />
       )}
 

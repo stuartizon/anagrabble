@@ -68,6 +68,31 @@
    mobileMenuOpen leave button (error-colored text, not the header button's
    muted/neutral treatment, since there's no separate settings icon next to
    it here competing for attention). */
+/* Copied from SettingsPage.module.css — same "Your settings" fields
+   (interface language/sound effects/haptic feedback), rendered here too
+   (anagrabble#40) so a change takes effect immediately without leaving the
+   game. */
+.switchRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.switchLabel {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--ink);
+}
+
+.saveError {
+  margin-top: 8px;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--error);
+}
+
 .mobileLeaveButton {
   margin-top: 4px;
   background: none;

@@ -1,7 +1,7 @@
 import type { RefObject } from "react";
 import { Input } from "../../../components/Input";
 import { Button } from "../../../components/Button";
-import styles from "./GameBoard.module.css";
+import styles from "./WordFormDock.module.css";
 
 interface WordFormDockProps {
   value: string;

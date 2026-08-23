@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import type { PlayerState } from "@anagrabble/protocol";
 import { presenceLabel } from "../../presenceLabel";
 import { cx } from "../../cx";
-import styles from "./LobbyPage.module.css";
+import styles from "./PlayerList.module.css";
 
 // Shared by WaitingRoomCard and JoinInProgressCard — the pre-game player
 // roster with presence-derived "away" styling (see CLAUDE.md "Player

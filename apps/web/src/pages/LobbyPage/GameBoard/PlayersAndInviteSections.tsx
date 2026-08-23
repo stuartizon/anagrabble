@@ -3,7 +3,8 @@ import type { LobbySnapshot } from "@anagrabble/protocol";
 import { InviteCode } from "../../../components/InviteCode";
 import { presenceLabel } from "../../../presenceLabel";
 import { cx } from "../../../cx";
-import styles from "./GameBoard.module.css";
+import styles from "./PlayersAndInviteSections.module.css";
+import sharedStyles from "./shared.module.css";
 
 /** Players/Invite/History — identical content for the desktop sidebar
  * (`<aside>`, always mounted, hidden below 840px by CSS) and the mobile
@@ -29,7 +30,7 @@ export function PlayersAndInviteSections({
   return (
     <>
       <div className={styles.playersSection}>
-        <div className={styles.poolLabel}>Players</div>
+        <div className={sharedStyles.poolLabel}>Players</div>
         {lobby.players.map((p) => {
           const label = presenceLabel(p.presence);
           // Design (In Game.dc.html) hollows out the swatch to a colored

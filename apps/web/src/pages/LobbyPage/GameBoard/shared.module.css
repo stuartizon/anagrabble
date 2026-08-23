@@ -1,0 +1,20 @@
+/* Section-heading/empty-state primitives shared across more than one
+   GameBoard sidebar/board section — kept here rather than duplicated
+   per-file so they can't silently drift apart. Anything used by exactly
+   one section lives in that section's own .module.css instead. */
+
+.poolLabel {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-wider);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.wordsEmpty {
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+}

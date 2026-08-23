@@ -11,7 +11,7 @@ import type {
 } from "../../../useGameSocket";
 import { mockSignedOutClerk } from "../../../testUtils/clerkTestMock";
 import { GameBoard } from "./index";
-import styles from "./GameBoard.module.css";
+import styles from "./PlayersAndInviteSections.module.css";
 
 const send = vi.fn();
 const onLeaveGame = vi.fn();

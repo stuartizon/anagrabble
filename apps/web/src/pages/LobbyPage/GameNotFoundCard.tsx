@@ -2,8 +2,7 @@ import { Header } from "../../components/Header";
 import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
 import { PageShell, PageContent, NarrowColumn } from "../../components/Layout";
-import { cx } from "../../cx";
-import styles from "./LobbyPage.module.css";
+import styles from "./GameNotFoundCard.module.css";
 
 export function GameNotFoundCard({ onBackHome }: { onBackHome: () => void }) {
   return (
@@ -12,7 +11,7 @@ export function GameNotFoundCard({ onBackHome }: { onBackHome: () => void }) {
       <PageContent>
         <NarrowColumn>
           <Card>
-            <div className={cx(styles.title, styles.notFoundTitleOverride)}>Game not found</div>
+            <div className={styles.title}>Game not found</div>
             <div className={styles.notFoundBody}>
               Check the link, or ask whoever sent it for a fresh one.
             </div>

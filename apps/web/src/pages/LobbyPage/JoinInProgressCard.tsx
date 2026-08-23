@@ -6,7 +6,7 @@ import { PageShell, PageContent, NarrowColumn } from "../../components/Layout";
 import { RulesLink } from "../../components/RulesLink";
 import { GameConfigList } from "./GameConfigList";
 import { PlayerList } from "./PlayerList";
-import styles from "./LobbyPage.module.css";
+import styles from "./shared.module.css";
 
 // A guest who opens a mid-game invite link without ever calling JoinGame is
 // otherwise just as "transport-ready" as anyone else — the WS connect

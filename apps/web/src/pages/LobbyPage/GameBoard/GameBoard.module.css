@@ -33,8 +33,8 @@
    solid-color gradient overlay) so it works regardless of what's
    underneath and needs no color to match .page's background. Harmless
    when content is shorter than the scroll area (fades empty space, not
-   content); only visible in practice once .board's content overflows and
-   the last row would otherwise cut off flush against the word input. */
+   content); only visible in practice once BoardSection's content overflows
+   and the last row would otherwise cut off flush against the word input. */
 .scrollArea {
   flex: 1;
   min-height: 0;
@@ -43,15 +43,6 @@
   justify-content: center;
   mask-image: linear-gradient(to bottom, black calc(100% - 48px), transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 48px), transparent 100%);
-}
-
-.board {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  width: 100%;
-  max-width: 760px;
-  padding: 24px 20px;
 }
 
 .bankCount {
@@ -84,10 +75,11 @@
 }
 
 /* Desktop-only leave-game button — inverse breakpoint of .menuButton, since
-   the mobile menu carries its own leave button instead (.mobileLeaveButton
-   below). Matches design-system/In Game.dc.html's header leave button
-   exactly (border/color/hover), which shares its `settingsIconDisplay`
-   desktop-only visibility with the (not-yet-built) settings icon. */
+   the mobile menu carries its own leave button instead
+   (MobileMenu.module.css's .mobileLeaveButton). Matches design-system/In
+   Game.dc.html's header leave button exactly (border/color/hover), which
+   shares its `settingsIconDisplay` desktop-only visibility with the
+   (not-yet-built) settings icon. */
 .leaveButton {
   display: none;
   align-items: center;
@@ -114,228 +106,25 @@
   }
 }
 
-/* Full-screen takeover, not a dimmed dialog — matches design-system/In
-   Game.dc.html's mobileMenuOpen treatment (opaque --surface-card, no
-   backdrop scrim). Sits above everything else in the page. Content fills
-   100% of this at every width the menu button is even reachable at (no
-   max-width anywhere in the panel), so there's never an exposed backdrop
-   pixel to click — a click-outside-to-close handler would be genuinely
-   dead code, not just untested; the X button is the only close affordance,
-   matching what's actually reachable in the design source too (its own
-   backdrop div is fully covered by a height:100% inner panel with no
-   width cap either). */
-.menuOverlay {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: flex;
-  flex-direction: column;
-  background: var(--surface-card);
-}
-
-/* Padding matches components/Header.module.css's `.header` exactly (16px
-   24px), not design-system/In Game.dc.html's own 14px/20px — that source
-   value was for its own, differently-padded header, but our built Header
-   component already deviates from it (16px 24px). Matching our Header
-   keeps this overlay's open/close from visibly changing the header's
-   height against the page underneath it. */
-.menuHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-/* font-size 22px (not var(--text-lg)'s 20px) so this line-box is the same
-   height as components/Wordmark.module.css's `.md` (also 22px) — the
-   other half of matching .menuHeader's height to the real Header's, see
-   that rule's comment. */
-.menuTitle {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 22px;
-  color: var(--ink);
-}
-
-/* Same touch-target expansion as .menuButton above. */
-.menuCloseButton {
-  display: flex;
-  background: none;
-  border: none;
-  padding: 12px;
-  margin: -12px;
-  cursor: pointer;
-}
-
-.menuBody {
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  overflow-y: auto;
-  min-height: 0;
-  flex: 1;
-}
-
-/* Bottom of the mobile menu — matches design-system/In Game.dc.html's own
-   mobileMenuOpen leave button (error-colored text, not the header button's
-   muted/neutral treatment, since there's no separate settings icon next to
-   it here competing for attention). */
-.mobileLeaveButton {
-  margin-top: 4px;
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 12px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  font-weight: 600;
-  color: var(--error);
-}
-
-.poolLabel {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: var(--text-sm);
-  letter-spacing: var(--tracking-wider);
-  color: var(--text-muted);
-  text-transform: uppercase;
-  margin-bottom: 10px;
-}
-
-/* Houses "Upturned tiles" plus the turn control (button, or plain-text
-   hint) on the same line, right-aligned — matches design-system/In
-   Game.dc.html's header row for that section. */
-/* min-height reserves space for the tallest of the three things that can
-   sit in the right-hand slot (TurnTileButton, .turnHint text,
-   EndGameCountdown) — EndGameCountdown's own row is taller than the other
-   two (bigger digit font), so without this the whole header (and
-   everything below it) jumps down the moment the bank empties and it
-   first appears. */
-.poolHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 8px;
-  min-height: 40px;
-  margin-bottom: 10px;
-}
-
-.poolHeader .poolLabel {
-  margin-bottom: 0;
-}
-
-/* min-height reserves exactly one row of "md" LetterTiles (48px, see
-   LetterTile.module.css's .md) plus this element's own vertical padding, so
-   turning the first tile doesn't grow the box — only wrapping past one row
-   does. */
-.poolTiles {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  min-height: 80px;
-  padding: 16px;
-  background: var(--surface-sunken);
-  border-radius: var(--radius-lg);
-}
-
-.poolEmpty {
-  color: var(--text-muted);
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  align-self: center;
-}
-
-/* Deliberately plain text, not a disabled-looking button — "Sam's turn" or
-   "No more tiles" isn't something to click, so it shouldn't be styled
-   like something that almost is. Matches TurnTileButton's own padding
-   (same font-size too) so swapping between the button and this text
-   mid-turn doesn't change .poolHeader's height and shove the tile pool
-   and everything below it up the page. */
-.turnHint {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-  padding: 8px 14px;
-}
-
-/* min-height reserves exactly one row of WordTags (26px, the design
-   system's own WordTag hint-size) plus this element's own vertical
-   padding, so the first word played doesn't grow the box — only wrapping
-   past one row does. Same reasoning as .poolTiles' min-height above.
-   align-content: center keeps that single short line (the "No words"
-   text, or one row of tags) sitting in the middle of the reserved height
-   instead of flush against the top with dead space below; align-items:
-   flex-start stops a WordTag span itself stretching to fill that extra
-   height. Both stop mattering once real content wraps past one line. */
-.wordsList {
-  display: flex;
-  flex-wrap: wrap;
-  align-content: center;
-  align-items: flex-start;
-  gap: 6px;
-  min-height: 50px;
-  background: var(--surface-sunken);
-  border-radius: var(--radius-md);
-  padding: 12px;
-}
-
-.wordsEmpty {
-  color: var(--text-muted);
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-}
-
-/* Matches design-system WordTag's shape="rounded" (radius-md, not a full
-   pill) and indicator="dot" (a circular swatch, not the square used
-   elsewhere for player chips/tile-turn indicators). */
-.wordTag {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px 4px 4px;
-  border-radius: var(--radius-md);
-  background: var(--surface-card);
-  border: 1px solid var(--border);
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: var(--text-sm);
-  color: var(--ink);
-}
-
-.wordTagDot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
 /* Zero-height positioning anchor sitting between .scrollArea and
-   .wordFormDock, exactly matching design-system/In Game.dc.html's own
-   `hasMessage` wrapper (`position:relative` around an absolutely-positioned
-   toast). Zero height because its only child is taken out of flow, so
-   inserting/removing it never changes .scrollArea's size — the toast floats
-   over the bottom of the scrollable content instead of displacing it, so
-   nothing left/right/behind it ever gets pushed or hidden by a reflow. */
+   WordFormDock.module.css's .wordFormDock, exactly matching design-system/
+   In Game.dc.html's own `hasMessage` wrapper (`position:relative` around an
+   absolutely-positioned toast). Zero height because its only child is taken
+   out of flow, so inserting/removing it never changes .scrollArea's size —
+   the toast floats over the bottom of the scrollable content instead of
+   displacing it, so nothing left/right/behind it ever gets pushed or
+   hidden by a reflow. */
 .messageAnchor {
   position: relative;
 }
 
 /* Positioned/pointer-events per design-system/In Game.dc.html's `hasMessage`
    block, adapted to sit flush (bottom: 0, not that source's 8px gap) with
-   .messageAnchor's bottom edge — i.e. flush with the top of .wordFormDock,
-   right where the scrollable content ends. Full-width but `pointer-events:
-   none` and no background of its own — this row is purely a centering
-   container, so it's never the thing obscuring content, only .messagePill
-   (its one child) is. */
+   .messageAnchor's bottom edge — i.e. flush with the top of the word form
+   dock, right where the scrollable content ends. Full-width but
+   `pointer-events: none` and no background of its own — this row is purely
+   a centering container, so it's never the thing obscuring content, only
+   .messagePill (its one child) is. */
 .message {
   position: absolute;
   left: 0;
@@ -389,151 +178,4 @@
   .sidebar {
     display: flex;
   }
-}
-
-.playersSection {
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-}
-
-.playerRow {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.playerRowMuted {
-  opacity: 0.55;
-}
-
-.playerDot {
-  width: 12px;
-  height: 12px;
-  border-radius: 2px;
-  flex-shrink: 0;
-  background: var(--dot-color);
-}
-
-.playerDotMuted {
-  background: transparent;
-  box-shadow: inset 0 0 0 2px var(--dot-color);
-}
-
-.playerName {
-  flex: 1;
-  font-family: var(--font-body);
-  font-weight: 600;
-  font-size: var(--text-base);
-  color: var(--ink);
-}
-
-.playerScore {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: var(--text-base);
-  color: var(--gold);
-  /* Fixed width (monospace font, so `ch` is exact) so a badge/name to its
-     left doesn't shift right when a neighboring row's score gains a digit. */
-  min-width: 3ch;
-  text-align: right;
-}
-
-/* Grows to fill whatever height .sidebar has left — today that's the
-   whole sidebar below Players (History is the only other section), later
-   it'll be whatever's left below Players/Invite. min-height: 0 is required
-   for the flex child to shrink below its content size so .historyList's
-   own overflow can scroll instead of the section just growing forever. */
-.historySection {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-}
-
-.historyList {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-.historyEntry {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-}
-
-.historyDot {
-  width: 9px;
-  height: 9px;
-  border-radius: 2px;
-  flex-shrink: 0;
-  margin-top: 4px;
-}
-
-.historyText {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  line-height: var(--leading-snug);
-  color: var(--ink);
-}
-
-/* No border or background at any width — blends into the same surface as
-   the rest of the main column, on mobile as well as desktop. Deliberately
-   diverges from design-system/In Game.dc.html's `wordBarDockStyle`, which
-   gives the mobile variant a border-top + `--surface-card` background +
-   shadow (a distinct docked panel look); judged a mistake in that source
-   rather than an intentional mobile/desktop difference worth preserving
-   (see docs/decisions.md "Word input dock has no border/background at any
-   width"). The safe-area-inset-bottom padding stays for mobile regardless
-   — that's a device notch concern, unrelated to the look. */
-.wordFormDock {
-  padding: 16px 20px calc(16px + env(safe-area-inset-bottom));
-  display: flex;
-  justify-content: center;
-}
-
-@media (min-width: 840px) {
-  .wordFormDock {
-    /* Design-system's desktop `wordBarDockStyle` has zero top padding
-       (`'0 28px 24px'`) — fine when the scroll area has slack below the
-       content, but collapses to nothing the moment content is tall enough
-       to fill/overflow it (e.g. a large pool of upturned tiles), leaving
-       the input flush against whatever's above with no breathing room.
-       24px matches the section-to-section rhythm used elsewhere (.board's
-       own `gap`, .sidebar's `gap`) and is guaranteed regardless of
-       content length, same guarantee mobile's 16px top padding already
-       gives — see docs/decisions.md "Word input dock has no border/
-       background at any width" for the other divergence from this same
-       source style. Horizontal 20px (not the design source's 28px) matches
-       .board's own horizontal padding exactly, so .wordForm's edges stay
-       flush with .poolTiles/.wordsList above it at every viewport width —
-       not just once .board is wide enough to hit its own 760px cap. */
-    padding: 24px 20px;
-  }
-}
-
-/* max-width 720, not .board's own 760 — .board's panels (.poolTiles,
-   .wordsList) render at 720px because .board's 760px max-width already
-   includes its own 20px horizontal padding on each side. Matching that
-   here (rather than reusing 760 directly) is what keeps this row's edges
-   flush with the panels above it instead of overhanging them by 20px a
-   side. */
-.wordForm {
-  display: flex;
-  gap: 12px;
-  align-items: flex-end;
-  flex-wrap: nowrap;
-  width: 100%;
-  max-width: 720px;
-}
-
-.wordFormInput {
-  flex: 1 1 200px;
-  min-width: 0;
 }

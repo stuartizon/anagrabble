@@ -1,0 +1,86 @@
+/* Full-screen takeover, not a dimmed dialog — matches design-system/In
+   Game.dc.html's mobileMenuOpen treatment (opaque --surface-card, no
+   backdrop scrim). Sits above everything else in the page. Content fills
+   100% of this at every width the menu button is even reachable at (no
+   max-width anywhere in the panel), so there's never an exposed backdrop
+   pixel to click — a click-outside-to-close handler would be genuinely
+   dead code, not just untested; the X button is the only close affordance,
+   matching what's actually reachable in the design source too (its own
+   backdrop div is fully covered by a height:100% inner panel with no
+   width cap either). */
+.menuOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-card);
+}
+
+/* Padding matches components/Header.module.css's `.header` exactly (16px
+   24px), not design-system/In Game.dc.html's own 14px/20px — that source
+   value was for its own, differently-padded header, but our built Header
+   component already deviates from it (16px 24px). Matching our Header
+   keeps this overlay's open/close from visibly changing the header's
+   height against the page underneath it. */
+.menuHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* font-size 22px (not var(--text-lg)'s 20px) so this line-box is the same
+   height as components/Wordmark.module.css's `.md` (also 22px) — the
+   other half of matching .menuHeader's height to the real Header's, see
+   that rule's comment. */
+.menuTitle {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 22px;
+  color: var(--ink);
+}
+
+/* Same touch-target expansion as GameBoard.module.css's .menuButton (the
+   header button that opens this overlay). */
+.menuCloseButton {
+  display: flex;
+  background: none;
+  border: none;
+  padding: 12px;
+  margin: -12px;
+  cursor: pointer;
+}
+
+.menuBody {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+}
+
+/* Bottom of the mobile menu — matches design-system/In Game.dc.html's own
+   mobileMenuOpen leave button (error-colored text, not the header button's
+   muted/neutral treatment, since there's no separate settings icon next to
+   it here competing for attention). */
+.mobileLeaveButton {
+  margin-top: 4px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--error);
+}

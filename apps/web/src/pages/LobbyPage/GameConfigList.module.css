@@ -1,0 +1,34 @@
+.configList {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.configRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--surface-sunken);
+  border-bottom: 1px solid var(--border);
+}
+
+/* declared after .configRow so it wins the border-bottom tiebreak */
+.configRowLastOverride {
+  border-bottom: none;
+}
+
+.configLabel {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.configValue {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  color: var(--ink);
+}

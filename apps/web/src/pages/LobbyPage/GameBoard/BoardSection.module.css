@@ -1,0 +1,116 @@
+.board {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  max-width: 760px;
+  padding: 24px 20px;
+}
+
+/* Houses "Upturned tiles" plus the turn control (button, or plain-text
+   hint) on the same line, right-aligned — matches design-system/In
+   Game.dc.html's header row for that section. */
+/* min-height reserves space for the tallest of the three things that can
+   sit in the right-hand slot (TurnTileButton, .turnHint text,
+   EndGameCountdown) — EndGameCountdown's own row is taller than the other
+   two (bigger digit font), so without this the whole header (and
+   everything below it) jumps down the moment the bank empties and it
+   first appears. */
+.poolHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 40px;
+  margin-bottom: 10px;
+}
+
+/* The "Upturned tiles" label specifically — composes shared.module.css's
+   .poolLabel (used as-is by the other section labels) rather than a
+   `.poolHeader .poolLabel` descendant selector, since .poolHeader and
+   .poolLabel now live in different CSS modules and can't be combined via a
+   plain compound selector across that boundary. */
+.poolHeaderLabel {
+  composes: poolLabel from "./shared.module.css";
+  margin-bottom: 0;
+}
+
+/* min-height reserves exactly one row of "md" LetterTiles (48px, see
+   LetterTile.module.css's .md) plus this element's own vertical padding, so
+   turning the first tile doesn't grow the box — only wrapping past one row
+   does. */
+.poolTiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-height: 80px;
+  padding: 16px;
+  background: var(--surface-sunken);
+  border-radius: var(--radius-lg);
+}
+
+.poolEmpty {
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  align-self: center;
+}
+
+/* Deliberately plain text, not a disabled-looking button — "Sam's turn" or
+   "No more tiles" isn't something to click, so it shouldn't be styled
+   like something that almost is. Matches TurnTileButton's own padding
+   (same font-size too) so swapping between the button and this text
+   mid-turn doesn't change .poolHeader's height and shove the tile pool
+   and everything below it up the page. */
+.turnHint {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  padding: 8px 14px;
+}
+
+/* min-height reserves exactly one row of WordTags (26px, the design
+   system's own WordTag hint-size) plus this element's own vertical
+   padding, so the first word played doesn't grow the box — only wrapping
+   past one row does. Same reasoning as .poolTiles' min-height above.
+   align-content: center keeps that single short line (the "No words"
+   text, or one row of tags) sitting in the middle of the reserved height
+   instead of flush against the top with dead space below; align-items:
+   flex-start stops a WordTag span itself stretching to fill that extra
+   height. Both stop mattering once real content wraps past one line. */
+.wordsList {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 50px;
+  background: var(--surface-sunken);
+  border-radius: var(--radius-md);
+  padding: 12px;
+}
+
+/* Matches design-system WordTag's shape="rounded" (radius-md, not a full
+   pill) and indicator="dot" (a circular swatch, not the square used
+   elsewhere for player chips/tile-turn indicators). */
+.wordTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 4px;
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  border: 1px solid var(--border);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+
+.wordTagDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}

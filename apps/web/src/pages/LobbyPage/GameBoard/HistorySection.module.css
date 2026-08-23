@@ -1,0 +1,42 @@
+/* Grows to fill whatever height .sidebar (GameBoard.module.css) has left —
+   today that's the whole sidebar below Players (History is the only other
+   section), later it'll be whatever's left below Players/Invite.
+   min-height: 0 is required for the flex child to shrink below its content
+   size so .historyList's own overflow can scroll instead of the section
+   just growing forever. */
+.historySection {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.historyList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.historyEntry {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.historyDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.historyText {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+  color: var(--ink);
+}

@@ -1,6 +1,6 @@
 import type { GameConfig } from "@anagrabble/protocol";
 import { cx } from "../../cx";
-import styles from "./LobbyPage.module.css";
+import styles from "./GameConfigList.module.css";
 
 // Shared by WaitingRoomCard and JoinInProgressCard — same three rows either
 // way, just embedded in a different surrounding card.

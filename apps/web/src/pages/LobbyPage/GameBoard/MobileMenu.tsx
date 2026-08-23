@@ -1,7 +1,7 @@
 import { LogOut, X } from "lucide-react";
 import type { LobbySnapshot } from "@anagrabble/protocol";
 import { PlayersAndInviteSections } from "./PlayersAndInviteSections";
-import styles from "./GameBoard.module.css";
+import styles from "./MobileMenu.module.css";
 
 interface MobileMenuProps {
   lobby: LobbySnapshot;

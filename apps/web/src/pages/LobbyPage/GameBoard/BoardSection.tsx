@@ -2,7 +2,8 @@ import type { LobbySnapshot, PlayerState } from "@anagrabble/protocol";
 import { LetterTile } from "../../../components/LetterTile";
 import { TurnTileButton } from "../../../components/TurnTileButton";
 import { EndGameCountdown } from "../../../components/EndGameCountdown";
-import styles from "./GameBoard.module.css";
+import styles from "./BoardSection.module.css";
+import sharedStyles from "./shared.module.css";
 
 // The post-bank-empty idle timeout (CLAUDE.md "Game-end condition") is
 // hardcoded server-side too (apply_turn_tile.lua / apply_submit_word.lua's
@@ -43,7 +44,7 @@ export function BoardSection({
     <div className={styles.board}>
       <div>
         <div className={styles.poolHeader}>
-          <div className={styles.poolLabel}>Upturned tiles</div>
+          <div className={styles.poolHeaderLabel}>Upturned tiles</div>
           {lobby.bankCount <= 0 ? (
             endGameDeadline !== null ? (
               <EndGameCountdown secondsLeft={endGameSecondsLeft} totalSeconds={IDLE_TIMEOUT_SEC} />
@@ -75,10 +76,10 @@ export function BoardSection({
 
       {others.length > 0 && (
         <div>
-          <div className={styles.poolLabel}>Everyone else&rsquo;s words</div>
+          <div className={sharedStyles.poolLabel}>Everyone else&rsquo;s words</div>
           <div className={styles.wordsList}>
             {others.every((p) => p.words.length === 0) ? (
-              <span className={styles.wordsEmpty}>No words</span>
+              <span className={sharedStyles.wordsEmpty}>No words</span>
             ) : (
               others.flatMap((p) =>
                 p.words.map((w, i) => (
@@ -94,10 +95,10 @@ export function BoardSection({
       )}
 
       <div>
-        <div className={styles.poolLabel}>Your words</div>
+        <div className={sharedStyles.poolLabel}>Your words</div>
         <div className={styles.wordsList}>
           {!me || me.words.length === 0 ? (
-            <span className={styles.wordsEmpty}>No words</span>
+            <span className={sharedStyles.wordsEmpty}>No words</span>
           ) : (
             me.words.map((w, i) => (
               <span key={`${i}-${w}`} className={styles.wordTag}>

@@ -7,7 +7,8 @@ import { PageShell, PageContent, NarrowColumn } from "../../components/Layout";
 import { RulesLink } from "../../components/RulesLink";
 import { GameConfigList } from "./GameConfigList";
 import { PlayerList } from "./PlayerList";
-import styles from "./LobbyPage.module.css";
+import styles from "./WaitingRoomCard.module.css";
+import sharedStyles from "./shared.module.css";
 
 interface WaitingRoomCardProps {
   lobby: LobbySnapshot;
@@ -61,8 +62,8 @@ export function WaitingRoomCard({
       <PageContent>
         <NarrowColumn>
           <Card>
-            <div className={styles.title}>New game</div>
-            <div className={styles.subtitle}>{subtitle}</div>
+            <div className={sharedStyles.title}>New game</div>
+            <div className={sharedStyles.subtitle}>{subtitle}</div>
 
             <div className={styles.shareLinkRow}>
               <InviteCode code={gameId} shareLink={shareLink} />
@@ -70,7 +71,7 @@ export function WaitingRoomCard({
 
             <GameConfigList config={lobby.config} />
 
-            <div className={styles.rulesLinkRow}>
+            <div className={sharedStyles.rulesLinkRow}>
               <RulesLink />
             </div>
 

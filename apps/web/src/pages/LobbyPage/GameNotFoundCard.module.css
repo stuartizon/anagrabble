@@ -1,0 +1,14 @@
+.title {
+  composes: title from "./shared.module.css";
+  /* wins the margin-bottom tiebreak against the composed base — a
+     composed class's own rules always land after the base's in the
+     generated CSS, so plain source order (this file only) decides it. */
+  margin-bottom: 8px;
+}
+
+.notFoundBody {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}

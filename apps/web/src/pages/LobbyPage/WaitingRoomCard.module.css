@@ -1,0 +1,29 @@
+.shareLinkRow {
+  margin-bottom: 20px;
+}
+
+.waitingText {
+  text-align: center;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  padding: 12px 0;
+}
+
+.startHint {
+  text-align: center;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.leaveRow {
+  margin-top: 12px;
+}
+
+.errorText {
+  margin-top: 12px;
+  font-size: var(--text-sm);
+  color: var(--error);
+}

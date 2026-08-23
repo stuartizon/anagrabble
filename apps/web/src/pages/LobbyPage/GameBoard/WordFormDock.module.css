@@ -1,0 +1,54 @@
+/* No border or background at any width — blends into the same surface as
+   the rest of the main column, on mobile as well as desktop. Deliberately
+   diverges from design-system/In Game.dc.html's `wordBarDockStyle`, which
+   gives the mobile variant a border-top + `--surface-card` background +
+   shadow (a distinct docked panel look); judged a mistake in that source
+   rather than an intentional mobile/desktop difference worth preserving
+   (see docs/decisions.md "Word input dock has no border/background at any
+   width"). The safe-area-inset-bottom padding stays for mobile regardless
+   — that's a device notch concern, unrelated to the look. */
+.wordFormDock {
+  padding: 16px 20px calc(16px + env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: center;
+}
+
+@media (min-width: 840px) {
+  .wordFormDock {
+    /* Design-system's desktop `wordBarDockStyle` has zero top padding
+       (`'0 28px 24px'`) — fine when the scroll area has slack below the
+       content, but collapses to nothing the moment content is tall enough
+       to fill/overflow it (e.g. a large pool of upturned tiles), leaving
+       the input flush against whatever's above with no breathing room.
+       24px matches the section-to-section rhythm used elsewhere (.board's
+       own `gap`, .sidebar's `gap`) and is guaranteed regardless of
+       content length, same guarantee mobile's 16px top padding already
+       gives — see docs/decisions.md "Word input dock has no border/
+       background at any width" for the other divergence from this same
+       source style. Horizontal 20px (not the design source's 28px) matches
+       .board's own horizontal padding exactly, so .wordForm's edges stay
+       flush with .poolTiles/.wordsList above it at every viewport width —
+       not just once .board is wide enough to hit its own 760px cap. */
+    padding: 24px 20px;
+  }
+}
+
+/* max-width 720, not .board's own 760 — .board's panels (.poolTiles,
+   .wordsList) render at 720px because .board's 760px max-width already
+   includes its own 20px horizontal padding on each side. Matching that
+   here (rather than reusing 760 directly) is what keeps this row's edges
+   flush with the panels above it instead of overhanging them by 20px a
+   side. */
+.wordForm {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: nowrap;
+  width: 100%;
+  max-width: 720px;
+}
+
+.wordFormInput {
+  flex: 1 1 200px;
+  min-width: 0;
+}

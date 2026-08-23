@@ -1,0 +1,24 @@
+/* Typographic primitives shared by more than one LobbyPage screen
+   (GameNotFoundCard/JoinInProgressCard/WaitingRoomCard) — kept here rather
+   than duplicated per-file so they can't silently drift apart. Anything
+   used by exactly one screen lives in that screen's own .module.css
+   instead. */
+
+.title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-xl);
+  color: var(--ink);
+  margin-bottom: 12px;
+}
+
+.subtitle {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.rulesLinkRow {
+  margin-bottom: 20px;
+}

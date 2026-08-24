@@ -94,8 +94,9 @@ describe("LoginPage", () => {
     // key presses entirely, instead of just scheduling it for "as soon as
     // possible" — each of those was a real chance for a busy event loop
     // (e.g. a pre-push hook run alongside other local processes) to delay
-    // this test past its 5s timeout, which is exactly what was observed.
-    // See this test's history for the flake this fixes.
+    // this test past its timeout. Still flaked afterwards under enough
+    // contention, so vitest.config.ts also bumps the suite's testTimeout —
+    // see that file's comment.
     const user = userEvent.setup({ delay: null });
     signInCreateMock.mockResolvedValue({ status: "complete", createdSessionId: "sess_1" });
     renderPage([{ pathname: "/login", state: { from: { pathname: "/ABCDE" } } }]);

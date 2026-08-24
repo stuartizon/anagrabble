@@ -6,27 +6,147 @@ import {
   RECONNECT_DELAYS_MS,
   type SocketStatus,
 } from "../client/gameSocketClient";
-import {
-  applyGameSocketMessage,
-  initialGameSocketState,
-  type GameSocketError,
-  type GameSocketState,
-  type HistoryEntry,
-  type PlayerJoinedHistoryEntry,
-  type TileTurnNarration,
-  type WordPlayNarration,
-} from "./gameSocketReducer";
-import type { Command } from "@anagrabble/protocol";
+import type { Command, Event, LobbySnapshot, UsedWord } from "@anagrabble/protocol";
 
 export { PING_INTERVAL_MS, RECONNECT_DELAYS_MS };
-export type {
-  GameSocketError,
-  HistoryEntry,
-  PlayerJoinedHistoryEntry,
-  SocketStatus,
-  TileTurnNarration,
-  WordPlayNarration,
-};
+export type { SocketStatus };
+
+/** Narration data for the most recent WordPlayed event — enough for a
+ * client to render "Sam stole CAT from You -> CAST" (CLAUDE.md "Core
+ * gameplay") without diffing successive `lobby` snapshots itself. A new
+ * object every time (never mutated), so consumers can key a useEffect off
+ * its identity to show a one-shot toast. */
+export interface WordPlayNarration {
+  seq: number;
+  playerId: string;
+  word: string;
+  usedWords: UsedWord[];
+}
+
+interface WordPlayHistoryEntry extends WordPlayNarration {
+  kind: "wordPlay";
+}
+
+/** A player joining the game — narrated from the real `PlayerJoined` event
+ * (fires on genuine first join, including mid-game; see apps/server's
+ * `joinGame`), not synthesized from a diff. */
+export interface PlayerJoinedHistoryEntry {
+  kind: "playerJoined";
+  seq: number;
+  playerId: string;
+}
+
+/** One row in the history panel — either a word play or a player joining.
+ * Deliberately doesn't cover connect/disconnect/reconnect: those aren't
+ * discrete server events (presence writes don't bump `seq` or broadcast on
+ * their own — see docs/redis-schema.md "Presence"), so showing them here
+ * would mean client-side diffing of `players[].presence` across snapshots —
+ * skipped as unnecessary noise for now (see docs/decisions.md "History
+ * panel is client-side only"). */
+export type HistoryEntry = WordPlayHistoryEntry | PlayerJoinedHistoryEntry;
+
+export interface GameSocketError {
+  code: string;
+  message: string;
+  /** The commandId of whatever was rejected, when the server sent one — lets
+   * a consumer correlate this specific rejection back to the specific
+   * command that caused it (e.g. which SubmitWord attempt), rather than
+   * assuming it's whatever they most recently did. */
+  commandId?: string;
+}
+
+/** Narration for the most recent TileTurned event — just enough identity
+ * (`seq`) for a consumer to key a useEffect off it and fire a one-shot
+ * notification (sound/haptics); `lobby` already carries the resulting pool,
+ * so there's nothing else worth carrying here. Mirrors `wordPlay`'s
+ * state-not-callback shape rather than being its own separate mechanism. */
+export interface TileTurnNarration {
+  seq: number;
+}
+
+interface GameSocketState {
+  status: SocketStatus;
+  lobby: LobbySnapshot | null;
+  error: GameSocketError | null;
+  wordPlay: WordPlayNarration | null;
+  tileTurn: TileTurnNarration | null;
+  /** Every WordPlayed and PlayerJoined event seen this connection,
+   * oldest-first — unlike `wordPlay` (latest-only, for the toast), this
+   * accumulates for the history panel. Deliberately resets only on a
+   * genuine new connection (fresh page load, or gameId change) — not on
+   * every message — so a mid-session reconnect preserves it rather than
+   * trashing what's already shown. Purely client-side and ephemeral by
+   * design: nothing server-side persists a play log today, so a fresh page
+   * load legitimately starts from empty (see docs/decisions.md "History
+   * panel is client-side only"). */
+  history: HistoryEntry[];
+}
+
+function initialGameSocketState(): GameSocketState {
+  return {
+    status: "connecting",
+    lobby: null,
+    error: null,
+    wordPlay: null,
+    tileTurn: null,
+    history: [],
+  };
+}
+
+/** Pure reducer over one incoming game event — testable with fixture events
+ * alone, no real/mock WebSocket needed. Never sees `Handshake` — that's a
+ * connection-level concern the socket client handles and swallows itself
+ * (see gameSocketClient.ts), not a game event. */
+function applyGameSocketMessage(state: GameSocketState, message: Event): GameSocketState {
+  switch (message.type) {
+    // Pong is the heartbeat reply — see PING_INTERVAL_MS and PongEvent's doc
+    // comment (packages/protocol/src/ws.ts). `lobby` is only present when
+    // this connection is seated as a player; treat it the same as any other
+    // snapshot-bearing event below when it is.
+    case "Pong":
+      return message.lobby ? { ...state, lobby: message.lobby } : state;
+
+    case "Error":
+      return {
+        ...state,
+        error: { code: message.code, message: message.message, commandId: message.commandId },
+      };
+
+    case "WordPlayed": {
+      const narration: WordPlayNarration = {
+        seq: message.seq,
+        playerId: message.playerId,
+        word: message.word,
+        usedWords: message.usedWords,
+      };
+      return {
+        ...state,
+        lobby: message.lobby,
+        error: null,
+        wordPlay: narration,
+        history: [...state.history, { kind: "wordPlay", ...narration }],
+      };
+    }
+
+    case "PlayerJoined": {
+      const joined: PlayerJoinedHistoryEntry = {
+        kind: "playerJoined",
+        seq: message.seq,
+        playerId: message.player.id,
+      };
+      return { ...state, lobby: message.lobby, error: null, history: [...state.history, joined] };
+    }
+
+    case "TileTurned":
+      return { ...state, lobby: message.lobby, error: null, tileTurn: { seq: message.seq } };
+
+    case "LobbyState":
+    case "PlayerLeft":
+    case "GameStarted":
+    case "GameEnded":
+      return { ...state, lobby: message.lobby, error: null };
+  }
+}
 
 /** Opens (and re-opens, on gameId change) a WebSocket scoped to one lobby
  * page. See CLAUDE.md "Sequencing" — LobbyState/PlayerJoined/PlayerLeft all
@@ -46,10 +166,10 @@ export type {
  *
  * The WebSocket connect/reconnect/heartbeat mechanics (plus the Handshake
  * protocol-version check) live in `client/gameSocketClient.ts` — pure
- * connection plumbing with no notion of game state. The per-message state
- * transitions, which *are* game logic, live alongside this hook in
- * `./gameSocketReducer.ts`. This hook just wires the two to React state,
- * plus the Clerk-token ref plumbing below. */
+ * connection plumbing with no notion of game state, kept separate so it's
+ * exercisable (e.g. against a mock WebSocket) with no hook/render involved.
+ * Everything else — the per-message state transitions, which *are* game
+ * logic — lives right here alongside the hook that owns it. */
 export function useGameSocket(gameId?: string) {
   const [state, setState] = useState<GameSocketState>(initialGameSocketState);
   const clientRef = useRef<ReturnType<typeof createGameSocketClient> | null>(null);

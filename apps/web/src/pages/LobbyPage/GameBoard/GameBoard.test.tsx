@@ -7,6 +7,7 @@ import type {
   GameSocketError,
   HistoryEntry,
   SocketStatus,
+  TileTurnNarration,
   WordPlayNarration,
 } from "../../../hooks/useGameSocket";
 import { mockSignedOutClerk } from "../../../testUtils/clerkTestMock";
@@ -54,6 +55,7 @@ type BoardProps = {
   lobby?: LobbySnapshot;
   error?: GameSocketError | null;
   wordPlay?: WordPlayNarration | null;
+  tileTurn?: TileTurnNarration | null;
   history?: HistoryEntry[];
   status?: SocketStatus;
   leaving?: boolean;
@@ -71,6 +73,7 @@ function boardElement(props: BoardProps = {}) {
         send={send}
         error={props.error ?? null}
         wordPlay={props.wordPlay ?? null}
+        tileTurn={props.tileTurn ?? null}
         playSound={playSound}
         vibrate={vibrate}
         history={props.history ?? []}
@@ -366,6 +369,13 @@ describe("GameBoard", () => {
 
     expect(playSound).toHaveBeenCalledWith("wordClaim");
     expect(vibrate).toHaveBeenCalledWith("wordClaim");
+  });
+
+  it("plays the tile-turn sound for any TileTurned event, table-wide like the claim sound", () => {
+    renderBoard({ tileTurn: { seq: 5 } });
+
+    expect(playSound).toHaveBeenCalledWith("tileTurn");
+    expect(vibrate).toHaveBeenCalledWith("tileTurn");
   });
 
   it("shows no toast when another player steals from a third player", () => {

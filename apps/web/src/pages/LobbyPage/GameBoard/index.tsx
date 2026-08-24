@@ -9,6 +9,7 @@ import type {
   GameSocketError,
   HistoryEntry,
   SocketStatus,
+  TileTurnNarration,
   WordPlayNarration,
 } from "../../../hooks/useGameSocket";
 import type { SoundName } from "../../../hooks/useGameSounds";
@@ -53,6 +54,7 @@ interface GameBoardProps {
   send: (command: Command) => void;
   error: GameSocketError | null;
   wordPlay: WordPlayNarration | null;
+  tileTurn: TileTurnNarration | null;
   playSound: (name: SoundName) => void;
   vibrate: (name: HapticName) => void;
   history: HistoryEntry[];
@@ -71,6 +73,7 @@ export function GameBoard({
   send,
   error,
   wordPlay,
+  tileTurn,
   playSound,
   vibrate,
   history,
@@ -106,6 +109,7 @@ export function GameBoard({
     lobby,
     playerId,
     wordPlay,
+    tileTurn,
     error,
     playSound,
     vibrate,

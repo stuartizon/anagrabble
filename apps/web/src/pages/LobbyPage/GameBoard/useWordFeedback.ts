@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { LobbySnapshot } from "@anagrabble/protocol";
-import type { GameSocketError, WordPlayNarration } from "../../../hooks/useGameSocket";
+import type {
+  GameSocketError,
+  TileTurnNarration,
+  WordPlayNarration,
+} from "../../../hooks/useGameSocket";
 import type { SoundName } from "../../../hooks/useGameSounds";
 import type { HapticName } from "../../../hooks/useHaptics";
 import { errorText, narrateOwnPlay } from "./narration";
@@ -11,6 +15,7 @@ interface UseWordFeedbackArgs {
   lobby: LobbySnapshot;
   playerId: string;
   wordPlay: WordPlayNarration | null;
+  tileTurn: TileTurnNarration | null;
   error: GameSocketError | null;
   playSound: (name: SoundName) => void;
   vibrate: (name: HapticName) => void;
@@ -18,14 +23,15 @@ interface UseWordFeedbackArgs {
 
 // Owns the one-line toast shown above the word form: a claimed/stolen word
 // (own plays only — see the effect below) or a rejected submission, plus
-// the sounds that accompany each. `registerAttempt` lets the submit handler
-// (useWordForm) record what a given commandId tried to play, so an
-// asynchronous rejection can still name the right word even after the
-// input's been cleared.
+// the sounds that accompany each and the table-wide tile-turn sound.
+// `registerAttempt` lets the submit handler (useWordForm) record what a
+// given commandId tried to play, so an asynchronous rejection can still name
+// the right word even after the input's been cleared.
 export function useWordFeedback({
   lobby,
   playerId,
   wordPlay,
+  tileTurn,
   error,
   playSound,
   vibrate,
@@ -55,6 +61,14 @@ export function useWordFeedback({
     playSound("wordClaim");
     vibrate("wordClaim");
   }, [wordPlay, playSound, vibrate]);
+
+  // tile_turn is the same kind of table-wide notification as word_claim
+  // above — every player hears it, not just whoever turned the tile.
+  useEffect(() => {
+    if (!tileTurn) return;
+    playSound("tileTurn");
+    vibrate("tileTurn");
+  }, [tileTurn, playSound, vibrate]);
 
   useEffect(() => {
     // Only the actor's own play gets a toast — someone else's success is

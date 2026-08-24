@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth, useUser } from "../../auth";
 import { Header } from "../../components/Header";
@@ -68,12 +68,6 @@ export function LobbyPage() {
   const playerSettings = settingsState.status === "loaded" ? settingsState.settings : null;
 
   const { status, lobby, error, wordPlay, tileTurn, history, send } = useGameSocket(gameId);
-
-  useEffect(() => {
-    if (!tileTurn) return;
-    playSound("tileTurn");
-    vibrate("tileTurn");
-  }, [tileTurn, playSound, vibrate]);
 
   const shareLink = `${window.location.origin}/${gameId}`;
 
@@ -183,6 +177,7 @@ export function LobbyPage() {
         send={send}
         error={error}
         wordPlay={wordPlay}
+        tileTurn={tileTurn}
         playSound={playSound}
         vibrate={vibrate}
         history={history}

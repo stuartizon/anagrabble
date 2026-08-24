@@ -45,11 +45,21 @@ export interface GameSocketError {
   commandId?: string;
 }
 
+/** Narration for the most recent TileTurned event — just enough identity
+ * (`seq`) for a consumer to key a useEffect off it and fire a one-shot
+ * notification (sound/haptics); `lobby` already carries the resulting pool,
+ * so there's nothing else worth carrying here. Mirrors `wordPlay`'s
+ * state-not-callback shape rather than being its own separate mechanism. */
+export interface TileTurnNarration {
+  seq: number;
+}
+
 export interface GameSocketState {
   status: SocketStatus;
   lobby: LobbySnapshot | null;
   error: GameSocketError | null;
   wordPlay: WordPlayNarration | null;
+  tileTurn: TileTurnNarration | null;
   /** Every WordPlayed and PlayerJoined event seen this connection,
    * oldest-first — unlike `wordPlay` (latest-only, for the toast), this
    * accumulates for the history panel. Deliberately resets only on a
@@ -63,7 +73,14 @@ export interface GameSocketState {
 }
 
 export function initialGameSocketState(): GameSocketState {
-  return { status: "connecting", lobby: null, error: null, wordPlay: null, history: [] };
+  return {
+    status: "connecting",
+    lobby: null,
+    error: null,
+    wordPlay: null,
+    tileTurn: null,
+    history: [],
+  };
 }
 
 /** Pure reducer over one incoming game event — the message-type dispatch
@@ -112,6 +129,8 @@ export function applyGameSocketMessage(state: GameSocketState, message: Event): 
     }
 
     case "TileTurned":
+      return { ...state, lobby: message.lobby, error: null, tileTurn: { seq: message.seq } };
+
     case "LobbyState":
     case "PlayerLeft":
     case "GameStarted":

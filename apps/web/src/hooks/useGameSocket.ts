@@ -13,6 +13,7 @@ import {
   type GameSocketState,
   type HistoryEntry,
   type PlayerJoinedHistoryEntry,
+  type TileTurnNarration,
   type WordPlayNarration,
 } from "./gameSocketReducer";
 import type { Command } from "@anagrabble/protocol";
@@ -23,6 +24,7 @@ export type {
   HistoryEntry,
   PlayerJoinedHistoryEntry,
   SocketStatus,
+  TileTurnNarration,
   WordPlayNarration,
 };
 
@@ -36,20 +38,19 @@ export type {
  * apps/server's `resolveActingPlayerId` — so the caller doesn't need to
  * tell this hook who it is.
  *
- * `onTileTurn`, unlike `wordPlay`/`history`, is a callback rather than
- * returned state — TileTurned doesn't need a lobby-derived value (`lobby`
- * already carries the resulting pool), just a one-shot notification, and a
- * callback avoids needing a consumer-side effect to detect "this changed
- * since last render" for something that's really just an event pulse (see
- * anagrabble#36).
+ * `tileTurn`, like `wordPlay`, is returned state rather than a callback —
+ * both are one-shot event pulses a consumer keys a useEffect off of (by
+ * `seq`) to fire a notification (sound/haptics), not values that need
+ * ongoing tracking. TileTurned doesn't need a lobby-derived value of its own
+ * (`lobby` already carries the resulting pool), just that pulse.
  *
  * The WebSocket connect/reconnect/heartbeat mechanics (plus the Handshake
  * protocol-version check) live in `client/gameSocketClient.ts` — pure
  * connection plumbing with no notion of game state. The per-message state
  * transitions, which *are* game logic, live alongside this hook in
  * `./gameSocketReducer.ts`. This hook just wires the two to React state,
- * plus the Clerk-token/callback ref plumbing below. */
-export function useGameSocket(gameId?: string, onTileTurn?: () => void) {
+ * plus the Clerk-token ref plumbing below. */
+export function useGameSocket(gameId?: string) {
   const [state, setState] = useState<GameSocketState>(initialGameSocketState);
   const clientRef = useRef<ReturnType<typeof createGameSocketClient> | null>(null);
 
@@ -64,15 +65,6 @@ export function useGameSocket(gameId?: string, onTileTurn?: () => void) {
     getTokenRef.current = getToken;
   }, [getToken]);
 
-  // Same reasoning as getTokenRef above: a fresh inline callback every
-  // render must not be a dependency of the connect effect below (that would
-  // tear down and reopen the socket on every render of the caller), so it's
-  // read via a ref instead.
-  const onTileTurnRef = useRef(onTileTurn);
-  useEffect(() => {
-    onTileTurnRef.current = onTileTurn;
-  }, [onTileTurn]);
-
   useEffect(() => {
     setState(initialGameSocketState());
 
@@ -80,10 +72,7 @@ export function useGameSocket(gameId?: string, onTileTurn?: () => void) {
       gameId,
       getToken: () => getTokenRef.current(),
       onStatusChange: (status) => setState((s) => ({ ...s, status })),
-      onMessage: (message) => {
-        if (message.type === "TileTurned") onTileTurnRef.current?.();
-        setState((s) => applyGameSocketMessage(s, message));
-      },
+      onMessage: (message) => setState((s) => applyGameSocketMessage(s, message)),
     });
     clientRef.current = client;
 

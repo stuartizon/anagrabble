@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth, useUser } from "../../auth";
 import { Header } from "../../components/Header";
@@ -67,10 +67,13 @@ export function LobbyPage() {
   const { vibrate } = useHaptics(hapticsEnabled);
   const playerSettings = settingsState.status === "loaded" ? settingsState.settings : null;
 
-  const { status, lobby, error, wordPlay, history, send } = useGameSocket(gameId, () => {
+  const { status, lobby, error, wordPlay, tileTurn, history, send } = useGameSocket(gameId);
+
+  useEffect(() => {
+    if (!tileTurn) return;
     playSound("tileTurn");
     vibrate("tileTurn");
-  });
+  }, [tileTurn, playSound, vibrate]);
 
   const shareLink = `${window.location.origin}/${gameId}`;
 

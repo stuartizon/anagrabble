@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { LobbySnapshot } from "@anagrabble/protocol";
 import type { GameSocketError, WordPlayNarration } from "../../../useGameSocket";
 import type { SoundName } from "../../../useGameSounds";
+import type { HapticName } from "../../../useHaptics";
 import { errorText, narrateOwnPlay } from "./narration";
 
 const MESSAGE_DISMISS_MS = 2500;
@@ -12,6 +13,7 @@ interface UseWordFeedbackArgs {
   wordPlay: WordPlayNarration | null;
   error: GameSocketError | null;
   playSound: (name: SoundName) => void;
+  vibrate: (name: HapticName) => void;
 }
 
 // Owns the one-line toast shown above the word form: a claimed/stolen word
@@ -26,6 +28,7 @@ export function useWordFeedback({
   wordPlay,
   error,
   playSound,
+  vibrate,
 }: UseWordFeedbackArgs) {
   const [message, setMessage] = useState<string | null>(null);
   // Read inside the wordPlay effect via ref rather than as a dependency —
@@ -50,7 +53,8 @@ export function useWordFeedback({
   useEffect(() => {
     if (!wordPlay) return;
     playSound("wordClaim");
-  }, [wordPlay, playSound]);
+    vibrate("wordClaim");
+  }, [wordPlay, playSound, vibrate]);
 
   useEffect(() => {
     // Only the actor's own play gets a toast — someone else's success is
@@ -73,10 +77,11 @@ export function useWordFeedback({
     const text = errorText(error.code, lobby.config.minWordLength, attemptedWord, error.message);
     if (text === null) return;
     playSound("wordRejected");
+    vibrate("wordRejected");
     setMessage(text);
     const timer = setTimeout(() => setMessage(null), MESSAGE_DISMISS_MS);
     return () => clearTimeout(timer);
-  }, [error, lobby.config.minWordLength, playSound]);
+  }, [error, lobby.config.minWordLength, playSound, vibrate]);
 
   const registerAttempt = (commandId: string, word: string) => {
     pendingWordsRef.current.set(commandId, word);

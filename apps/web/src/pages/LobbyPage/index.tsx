@@ -6,6 +6,7 @@ import { PageShell, PageContent } from "../../components/Layout";
 import { Loader } from "../../components/Loader";
 import { useGameSocket } from "../../useGameSocket";
 import { useGameSounds } from "../../useGameSounds";
+import { useHaptics } from "../../useHaptics";
 import { usePlayerSettings } from "../../usePlayerSettings";
 import { getDisplayName } from "../../clerkDisplayName";
 import { makeCommandId } from "../../gameId";
@@ -59,11 +60,17 @@ export function LobbyPage() {
   const soundEnabled =
     settingsState.status === "loaded" ? settingsState.settings.soundEnabled : true;
   const { playSound } = useGameSounds(soundEnabled);
+  // Same defaults-on-before-fetch-resolves reasoning as soundEnabled above
+  // (matches DEFAULT_PLAYER_SETTINGS.hapticsEnabled).
+  const hapticsEnabled =
+    settingsState.status === "loaded" ? settingsState.settings.hapticsEnabled : true;
+  const { vibrate } = useHaptics(hapticsEnabled);
   const playerSettings = settingsState.status === "loaded" ? settingsState.settings : null;
 
-  const { status, lobby, error, wordPlay, history, send } = useGameSocket(gameId, () =>
-    playSound("tileTurn"),
-  );
+  const { status, lobby, error, wordPlay, history, send } = useGameSocket(gameId, () => {
+    playSound("tileTurn");
+    vibrate("tileTurn");
+  });
 
   const shareLink = `${window.location.origin}/${gameId}`;
 
@@ -174,6 +181,7 @@ export function LobbyPage() {
         error={error}
         wordPlay={wordPlay}
         playSound={playSound}
+        vibrate={vibrate}
         history={history}
         status={status}
         onLeaveGame={leaveGame}

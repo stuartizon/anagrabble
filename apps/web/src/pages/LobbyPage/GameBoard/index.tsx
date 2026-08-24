@@ -12,6 +12,7 @@ import type {
   WordPlayNarration,
 } from "../../../useGameSocket";
 import type { SoundName } from "../../../useGameSounds";
+import type { HapticName } from "../../../useHaptics";
 import { PlayersSection } from "./PlayersSection";
 import { HistorySection } from "./HistorySection";
 import { BoardSection } from "./BoardSection";
@@ -53,6 +54,7 @@ interface GameBoardProps {
   error: GameSocketError | null;
   wordPlay: WordPlayNarration | null;
   playSound: (name: SoundName) => void;
+  vibrate: (name: HapticName) => void;
   history: HistoryEntry[];
   status: SocketStatus;
   onLeaveGame: () => void;
@@ -70,6 +72,7 @@ export function GameBoard({
   error,
   wordPlay,
   playSound,
+  vibrate,
   history,
   status,
   onLeaveGame,
@@ -105,6 +108,7 @@ export function GameBoard({
     wordPlay,
     error,
     playSound,
+    vibrate,
   });
   const { wordValue, setWordValue, inputRef, submitWord, refocusInput } = useWordForm({
     gameId,

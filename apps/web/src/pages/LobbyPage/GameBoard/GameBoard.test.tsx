@@ -16,6 +16,7 @@ import styles from "./PlayersSection.module.css";
 const send = vi.fn();
 const onLeaveGame = vi.fn();
 const playSound = vi.fn();
+const vibrate = vi.fn();
 const onUpdatePlayerSettings = vi.fn();
 const makeCommandIdMock = vi.fn(() => "cmd-1");
 
@@ -71,6 +72,7 @@ function boardElement(props: BoardProps = {}) {
         error={props.error ?? null}
         wordPlay={props.wordPlay ?? null}
         playSound={playSound}
+        vibrate={vibrate}
         history={props.history ?? []}
         status={props.status ?? "open"}
         onLeaveGame={onLeaveGame}
@@ -94,6 +96,7 @@ beforeEach(() => {
   send.mockClear();
   onLeaveGame.mockClear();
   playSound.mockClear();
+  vibrate.mockClear();
   onUpdatePlayerSettings.mockClear();
   makeCommandIdMock.mockReset();
   makeCommandIdMock.mockReturnValue("cmd-1");
@@ -362,6 +365,7 @@ describe("GameBoard", () => {
     });
 
     expect(playSound).toHaveBeenCalledWith("wordClaim");
+    expect(vibrate).toHaveBeenCalledWith("wordClaim");
   });
 
   it("shows no toast when another player steals from a third player", () => {
@@ -392,12 +396,14 @@ describe("GameBoard", () => {
 
     expect(screen.getByText("XYZZY isn't in the dictionary")).toBeInTheDocument();
     expect(playSound).toHaveBeenCalledWith("wordRejected");
+    expect(vibrate).toHaveBeenCalledWith("wordRejected");
   });
 
-  it("plays no sound for a suppressed NotYourTurn rejection (never shown as a toast either)", () => {
+  it("plays no sound or haptic for a suppressed NotYourTurn rejection (never shown as a toast either)", () => {
     renderBoard({ error: { code: "NotYourTurn", message: "raw server message" } });
 
     expect(playSound).not.toHaveBeenCalledWith("wordRejected");
+    expect(vibrate).not.toHaveBeenCalledWith("wordRejected");
   });
 
   it("correlates a rejection to the word that actually caused it, not whichever was typed most recently", async () => {

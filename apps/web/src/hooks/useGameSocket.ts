@@ -1,14 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../auth";
-import {
-  createGameSocketClient,
-  PING_INTERVAL_MS,
-  RECONNECT_DELAYS_MS,
-  type SocketStatus,
-} from "../client/gameSocketClient";
+import { createGameSocketClient, type SocketStatus } from "../client/gameSocketClient";
 import type { Command, Event, LobbySnapshot, UsedWord } from "@anagrabble/protocol";
 
-export { PING_INTERVAL_MS, RECONNECT_DELAYS_MS };
 export type { SocketStatus };
 
 /** Narration data for the most recent WordPlayed event — enough for a

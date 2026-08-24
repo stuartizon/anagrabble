@@ -8,7 +8,8 @@
 
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { PING_INTERVAL_MS, RECONNECT_DELAYS_MS, useGameSocket } from "./useGameSocket";
+import { PING_INTERVAL_MS, RECONNECT_DELAYS_MS } from "../client/gameSocketClient";
+import { useGameSocket } from "./useGameSocket";
 
 const getTokenMock = vi.fn();
 

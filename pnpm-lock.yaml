@@ -72,6 +72,9 @@ importers:
         specifier: ^8.18.0
         version: 8.21.3
     devDependencies:
+      '@testcontainers/postgresql':
+        specifier: ^12.1.0
+        version: 12.1.0
       '@testcontainers/redis':
         specifier: ^12.1.0
         version: 12.1.0

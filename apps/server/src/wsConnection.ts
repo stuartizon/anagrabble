@@ -1,8 +1,8 @@
 // The WS command-dispatch protocol handler: verifies the connecting
 // client's Clerk session, seats a reconnecting player, and switches on each
-// Command type to call into lobby.ts/game.ts, publish the resulting Event
-// via the shared Broadcaster, and (for StartGame/EndGame/SubmitWord) fire
-// off the async Postgres durable-history write. See docs/decisions.md
+// Command type to call into gameSession.ts/game.ts, publish the resulting
+// Event via the shared Broadcaster, and (for StartGame/EndGame/SubmitWord)
+// fire off the async Postgres durable-history write. See docs/decisions.md
 // "Backend Clerk session verification" and CLAUDE.md "Command idempotency"/
 // "Sequencing".
 
@@ -22,9 +22,9 @@ import {
   type Event,
   type ErrorEvent,
   type HandshakeMessage,
-  type LobbySnapshot,
+  type GameSnapshot,
 } from "@anagrabble/protocol";
-import { joinGame, loadLobbySnapshot, stateKey, toLobbySnapshot } from "./lobby.js";
+import { joinGame, loadGameSnapshot, stateKey, toGameSnapshot } from "./gameSession.js";
 import { endGame, startGame, submitWord, turnTile } from "./game.js";
 import { resolveActingPlayerId, verifyMockSessionToken, verifySessionToken } from "./auth.js";
 import type { Broadcaster } from "./broadcast.js";
@@ -62,8 +62,14 @@ function sendError(
   socket.send(JSON.stringify(event));
 }
 
-function lobbyStateEvent(snapshot: LobbySnapshot): Event {
-  return { type: "LobbyState", seq: snapshot.seq, gameId: snapshot.gameId, lobby: snapshot };
+function gameSnapshotEvent(snapshot: GameSnapshot): Event {
+  return {
+    type: "LobbyState",
+    seq: snapshot.seq,
+    gameId: snapshot.gameId,
+    lobby: snapshot,
+    game: snapshot,
+  };
 }
 
 /** Builds the `wss.on("connection", ...)` callback — one closure per server
@@ -116,7 +122,7 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
 
     if (gameId) {
       identityReady
-        .then(() => loadLobbySnapshot(redis, gameId))
+        .then(() => loadGameSnapshot(redis, gameId))
         .then(async (snapshot) => {
           if (!snapshot) {
             sendError(socket, "GameNotFound", `No game with id ${gameId}`, gameId);
@@ -151,18 +157,20 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
               // pattern as JoinGame's PlayerJoined broadcast), and every
               // other connected client sees the presence refresh immediately
               // instead of waiting on their own next heartbeat's Pong.
+              const presenceSnapshot = toGameSnapshot(gameId, presenceResult.state);
               await publish({
                 type: "LobbyState",
                 seq: presenceResult.state.seq,
                 gameId,
-                lobby: toLobbySnapshot(gameId, presenceResult.state),
+                lobby: presenceSnapshot,
+                game: presenceSnapshot,
               });
               return;
             }
           }
-          send(socket, lobbyStateEvent(snapshot));
+          send(socket, gameSnapshotEvent(snapshot));
         })
-        .catch((err) => console.error("[ws] failed to load lobby on connect", err));
+        .catch((err) => console.error("[ws] failed to load game on connect", err));
     }
 
     socket.on("message", async (data) => {
@@ -204,9 +212,10 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
                 gameId: command.gameId,
                 player: result.player,
                 lobby: result.snapshot,
+                game: result.snapshot,
               });
             } else {
-              send(socket, lobbyStateEvent(result.snapshot));
+              send(socket, gameSnapshotEvent(result.snapshot));
             }
             break;
           }
@@ -242,6 +251,7 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
               seq: result.snapshot.seq,
               gameId: command.gameId,
               lobby: result.snapshot,
+              game: result.snapshot,
             });
             break;
           }
@@ -267,6 +277,7 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
               seq: result.snapshot.seq,
               gameId: command.gameId,
               lobby: result.snapshot,
+              game: result.snapshot,
             });
             break;
           }
@@ -303,6 +314,7 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
               seq: result.snapshot.seq,
               gameId: command.gameId,
               lobby: result.snapshot,
+              game: result.snapshot,
             });
             break;
           }
@@ -345,6 +357,7 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
               usedWords: result.usedWords,
               usedPoolLetters: result.usedPoolLetters,
               lobby: result.snapshot,
+              game: result.snapshot,
             });
             break;
           }
@@ -363,11 +376,13 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
                 lastSeenAt: Date.now(),
               });
               if (!("error" in result)) {
+                const pongSnapshot = toGameSnapshot(meta.gameId, result.state);
                 send(socket, {
                   type: "Pong",
                   seq: 0,
                   gameId: command.gameId,
-                  lobby: toLobbySnapshot(meta.gameId, result.state),
+                  lobby: pongSnapshot,
+                  game: pongSnapshot,
                 });
                 break;
               }

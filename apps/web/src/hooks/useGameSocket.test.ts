@@ -1,7 +1,7 @@
 // Focused on the token-attachment plumbing added for Clerk session
 // verification (see apps/server's auth.ts) — the rest of useGameSocket's
 // message handling is exercised indirectly through the pages that mock this
-// hook entirely (GameBoard/LobbyPage/NewGamePage). What's genuinely
+// hook entirely (GameBoard/GamePage/NewGamePage). What's genuinely
 // non-trivial here, and worth its own test, is the async race: the token
 // must resolve before the socket opens, and an unmount mid-resolution must
 // not leak a socket.
@@ -197,13 +197,13 @@ describe("useGameSocket reconnection", () => {
     expect(MockWebSocket.instances).toHaveLength(3);
   });
 
-  it("preserves accumulated lobby/history state across a reconnect", async () => {
+  it("preserves accumulated game/history state across a reconnect", async () => {
     const { result } = renderHook(() => useGameSocket("game-1"));
     await flush();
     const socket1 = MockWebSocket.instances[0]!;
     await act(async () => socket1.emitOpen());
 
-    const lobby = {
+    const game = {
       gameId: "game-1",
       hostId: "host-1",
       status: "playing",
@@ -224,7 +224,10 @@ describe("useGameSocket reconnection", () => {
       word: "CAT",
       usedWords: [],
       usedPoolLetters: ["C", "A", "T"],
-      lobby,
+      // Deliberately only `lobby`, no `game` — proves the fallback (see
+      // docs/decisions.md "Lobby -> Game wire rename") still populates
+      // state from a server that hasn't redeployed the expand phase yet.
+      lobby: game,
     };
     await act(async () => {
       for (const cb of socket1.listeners.message ?? []) {
@@ -238,7 +241,7 @@ describe("useGameSocket reconnection", () => {
     await act(async () => MockWebSocket.instances[1]!.emitOpen());
 
     expect(result.current.history).toHaveLength(1);
-    expect(result.current.lobby).toEqual(lobby);
+    expect(result.current.game).toEqual(game);
   });
 
   it("appends a playerJoined history entry from a PlayerJoined event", async () => {
@@ -247,7 +250,7 @@ describe("useGameSocket reconnection", () => {
     const socket1 = MockWebSocket.instances[0]!;
     await act(async () => socket1.emitOpen());
 
-    const lobby = {
+    const game = {
       gameId: "game-1",
       hostId: "host-1",
       status: "playing",
@@ -265,7 +268,7 @@ describe("useGameSocket reconnection", () => {
       seq: 2,
       gameId: "game-1",
       player: { id: "opp-1", name: "Sam", words: [], score: 0 },
-      lobby,
+      game,
     };
 
     await act(async () => {
@@ -275,10 +278,10 @@ describe("useGameSocket reconnection", () => {
     });
 
     expect(result.current.history).toEqual([{ kind: "playerJoined", seq: 2, playerId: "opp-1" }]);
-    expect(result.current.lobby).toEqual(lobby);
+    expect(result.current.game).toEqual(game);
   });
 
-  it("sets tileTurn state for a TileTurned event, and updates lobby the same as any other snapshot", async () => {
+  it("sets tileTurn state for a TileTurned event, and updates game the same as any other snapshot", async () => {
     const { result } = renderHook(() => useGameSocket("game-1"));
     await flush();
     const socket1 = MockWebSocket.instances[0]!;
@@ -286,7 +289,7 @@ describe("useGameSocket reconnection", () => {
 
     expect(result.current.tileTurn).toBeNull();
 
-    const lobby = {
+    const game = {
       gameId: "game-1",
       hostId: "host-1",
       status: "playing",
@@ -299,7 +302,7 @@ describe("useGameSocket reconnection", () => {
       pool: ["Q"],
       players: [],
     };
-    const tileTurned = { type: "TileTurned", seq: 3, gameId: "game-1", lobby };
+    const tileTurned = { type: "TileTurned", seq: 3, gameId: "game-1", game };
 
     await act(async () => {
       for (const cb of socket1.listeners.message ?? []) {
@@ -308,7 +311,7 @@ describe("useGameSocket reconnection", () => {
     });
 
     expect(result.current.tileTurn).toEqual({ seq: 3 });
-    expect(result.current.lobby).toEqual(lobby);
+    expect(result.current.game).toEqual(game);
   });
 });
 
@@ -357,13 +360,13 @@ describe("useGameSocket heartbeat", () => {
     expect(socket.sent).toHaveLength(1);
   });
 
-  it("adopts the lobby snapshot carried on a Pong reply", async () => {
+  it("adopts the game snapshot carried on a Pong reply", async () => {
     const { result } = renderHook(() => useGameSocket("game-1"));
     await flush();
     const socket = MockWebSocket.instances[0]!;
     await act(async () => socket.emitOpen());
 
-    const lobby = {
+    const game = {
       gameId: "game-1",
       hostId: "host-1",
       status: "lobby",
@@ -376,7 +379,7 @@ describe("useGameSocket heartbeat", () => {
       pool: [],
       players: [{ id: "host-1", name: "Host", words: [], score: 0, presence: "connected" }],
     };
-    const pong = { type: "Pong", seq: 0, gameId: "game-1", lobby };
+    const pong = { type: "Pong", seq: 0, gameId: "game-1", game };
 
     await act(async () => {
       for (const cb of socket.listeners.message ?? []) {
@@ -384,10 +387,40 @@ describe("useGameSocket heartbeat", () => {
       }
     });
 
-    expect(result.current.lobby).toEqual(lobby);
+    expect(result.current.game).toEqual(game);
   });
 
-  it("ignores a Pong with no lobby (an unjoined/anonymous connection)", async () => {
+  it("adopts a Pong reply carrying only the old `lobby` field (server mid-rollout)", async () => {
+    const { result } = renderHook(() => useGameSocket("game-1"));
+    await flush();
+    const socket = MockWebSocket.instances[0]!;
+    await act(async () => socket.emitOpen());
+
+    const game = {
+      gameId: "game-1",
+      hostId: "host-1",
+      status: "lobby",
+      seq: 2,
+      config: { turnTimerSec: 30, minWordLength: 3, language: "en" },
+      turnPlayerId: "host-1",
+      turnDeadline: null,
+      endGameDeadline: null,
+      bankCount: 0,
+      pool: [],
+      players: [{ id: "host-1", name: "Host", words: [], score: 0, presence: "connected" }],
+    };
+    const pong = { type: "Pong", seq: 0, gameId: "game-1", lobby: game };
+
+    await act(async () => {
+      for (const cb of socket.listeners.message ?? []) {
+        cb({ data: JSON.stringify(pong) });
+      }
+    });
+
+    expect(result.current.game).toEqual(game);
+  });
+
+  it("ignores a Pong with no snapshot (an unjoined/anonymous connection)", async () => {
     const { result } = renderHook(() => useGameSocket("game-1"));
     await flush();
     const socket = MockWebSocket.instances[0]!;
@@ -400,6 +433,6 @@ describe("useGameSocket heartbeat", () => {
       }
     });
 
-    expect(result.current.lobby).toBeNull();
+    expect(result.current.game).toBeNull();
   });
 });

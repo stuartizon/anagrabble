@@ -3,7 +3,7 @@
 -- and the mutation a single atomic step, so two clients racing to fire
 -- TurnTile right as a deadline passes can't both succeed.
 --
--- KEYS[1] state, KEYS[2] seq, KEYS[3] cmds, KEYS[4] bag (see lobby.ts key
+-- KEYS[1] state, KEYS[2] seq, KEYS[3] cmds, KEYS[4] bag (see gameSession.ts key
 -- builders — bagKey is the one addition, a Redis list of the shuffled draw
 -- order, never sent to clients).
 -- ARGV[1] commandId, ARGV[2] playerId, ARGV[3] now (ms), ARGV[4] cmds TTL (s)
@@ -32,10 +32,10 @@ if state.bankCount <= 0 then
   return stateRaw
 end
 
--- "Unreachable" mirrors apps/server/src/lobby.ts's isReachable() exactly.
+-- "Unreachable" mirrors apps/server/src/gameSession.ts's isReachable() exactly.
 -- PRESENCE_STALE_MS arrives as ARGV[6] rather than a Lua literal — Redis's
 -- sandboxed Lua has no io/os libraries, so it can't read a config file or
--- env var itself; apps/server/src/lobby.ts's exported constant is the sole
+-- env var itself; apps/server/src/gameSession.ts's exported constant is the sole
 -- source of truth, passed in on every call. See docs/decisions.md "Player
 -- presence: connected/disconnected tracking". Missing lastSeenAt
 -- (shouldn't happen for a real game, but possible for state persisted

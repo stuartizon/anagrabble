@@ -1,5 +1,5 @@
 import { LogOut, Menu, Settings as SettingsIcon } from "lucide-react";
-import type { Command, LobbySnapshot, PlayerSettingsResponse } from "@anagrabble/protocol";
+import type { Command, GameSnapshot, PlayerSettingsResponse } from "@anagrabble/protocol";
 import { Header } from "../../../components/Header";
 import { InviteCode } from "../../../components/InviteCode";
 import { LeaveGameConfirm } from "../../../components/LeaveGameConfirm";
@@ -35,7 +35,7 @@ import styles from "./GameBoard.module.css";
 // language preferences, not game config — anagrabble#40) are both wired up,
 // with a desktop counterpart in SettingsModal (settings cog, sound only —
 // no haptics, since desktop has no haptic feedback to toggle);
-// `playerSettings`/`onUpdatePlayerSettings` are owned by LobbyPage (see its
+// `playerSettings`/`onUpdatePlayerSettings` are owned by GamePage (see its
 // own comment) rather than fetched here, so a change made in either menu
 // takes effect immediately without a navigation/remount.
 // The mobile menu's per-player word-count column is skipped too, but for a
@@ -49,7 +49,7 @@ import styles from "./GameBoard.module.css";
 // this file just wires them together.
 
 interface GameBoardProps {
-  lobby: LobbySnapshot;
+  game: GameSnapshot;
   playerId: string;
   send: (command: Command) => void;
   error: GameSocketError | null;
@@ -68,7 +68,7 @@ interface GameBoardProps {
 }
 
 export function GameBoard({
-  lobby,
+  game,
   playerId,
   send,
   error,
@@ -85,28 +85,28 @@ export function GameBoard({
   onUpdatePlayerSettings,
   playerSettingsSaveError,
 }: GameBoardProps) {
-  const colors = assignPlayerColors(lobby.players, playerId);
-  const currentPlayer = lobby.players.find((p) => p.id === lobby.turnPlayerId);
+  const colors = assignPlayerColors(game.players, playerId);
+  const currentPlayer = game.players.find((p) => p.id === game.turnPlayerId);
   const isCurrentPlayer = currentPlayer?.id === playerId;
-  const gameId = lobby.gameId;
+  const gameId = game.gameId;
 
   const currentPlayerUnreachable =
     currentPlayer?.presence != null && currentPlayer.presence !== "connected";
   const secondsLeft = useTurnTimer({
-    turnDeadline: lobby.turnDeadline,
+    turnDeadline: game.turnDeadline,
     gameId,
-    bankCount: lobby.bankCount,
+    bankCount: game.bankCount,
     currentPlayerUnreachable,
     send,
   });
 
   // Gated on status === "playing" so the idle countdown stops firing once
   // the game has actually ended.
-  const endGameDeadline = lobby.status === "playing" ? lobby.endGameDeadline : null;
+  const endGameDeadline = game.status === "playing" ? game.endGameDeadline : null;
   const endGameSecondsLeft = useEndGameTimer({ endGameDeadline, gameId, send });
 
   const { message: feedbackMessage, registerAttempt } = useWordFeedback({
-    lobby,
+    game,
     playerId,
     wordPlay,
     tileTurn,
@@ -156,7 +156,7 @@ export function GameBoard({
           openLeaveConfirm();
         }}
       >
-        <span className={styles.bankCount}>{lobby.bankCount} tiles left</span>
+        <span className={styles.bankCount}>{game.bankCount} tiles left</span>
         <button className={styles.menuButton} aria-label="Menu" onClick={openMenu}>
           <Menu size={20} color="var(--text-muted)" />
         </button>
@@ -171,7 +171,7 @@ export function GameBoard({
 
       {menuOpen && (
         <MobileMenu
-          lobby={lobby}
+          game={game}
           colors={colors}
           shareLink={shareLink}
           onClose={closeMenu}
@@ -184,7 +184,7 @@ export function GameBoard({
 
       {settingsOpen && (
         <SettingsModal
-          config={lobby.config}
+          config={game.config}
           playerSettings={playerSettings}
           onUpdatePlayerSettings={onUpdatePlayerSettings}
           playerSettingsSaveError={playerSettingsSaveError}
@@ -194,7 +194,7 @@ export function GameBoard({
 
       {leaveConfirmOpen && (
         <LeaveGameConfirm
-          gameCode={lobby.gameId}
+          gameCode={game.gameId}
           leaving={leaving}
           error={leaveError}
           onKeepPlaying={closeLeaveConfirm}
@@ -204,15 +204,15 @@ export function GameBoard({
 
       <div className={styles.layout}>
         <aside className={styles.sidebar}>
-          <PlayersSection lobby={lobby} colors={colors} />
-          <InviteCode code={lobby.gameId} shareLink={shareLink} />
-          <HistorySection lobby={lobby} colors={colors} history={history} />
+          <PlayersSection game={game} colors={colors} />
+          <InviteCode code={game.gameId} shareLink={shareLink} />
+          <HistorySection game={game} colors={colors} history={history} />
         </aside>
 
         <div className={styles.main}>
           <div className={styles.scrollArea}>
             <BoardSection
-              lobby={lobby}
+              game={game}
               colors={colors}
               playerId={playerId}
               currentPlayer={currentPlayer}

@@ -2,7 +2,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { LobbySnapshot } from "@anagrabble/protocol";
+import type { GameSnapshot } from "@anagrabble/protocol";
 import { mockSignedInClerk, setMockClerkIdentity } from "../testUtils/clerkTestMock";
 import { NewGamePage } from "./NewGamePage";
 
@@ -24,7 +24,7 @@ vi.mock("../client/fetchCreateGame", () => ({
 
 vi.mock("../auth", () => mockSignedInClerk());
 
-function sampleSnapshot(overrides: Partial<LobbySnapshot> = {}): LobbySnapshot {
+function sampleSnapshot(overrides: Partial<GameSnapshot> = {}): GameSnapshot {
   return {
     gameId: "FIXED1",
     hostId: "host-1",
@@ -49,7 +49,7 @@ function AppTree() {
     >
       <Routes>
         <Route path="/" element={<NewGamePage />} />
-        <Route path="/:gameId" element={<div>Navigated to lobby</div>} />
+        <Route path="/:gameId" element={<div>Navigated to game</div>} />
       </Routes>
     </MemoryRouter>
   );
@@ -100,13 +100,13 @@ describe("NewGamePage", () => {
     expect(screen.getByRole("dialog", { name: "Rules" })).toBeInTheDocument();
   });
 
-  it("navigates to the lobby once the server confirms the game was created", async () => {
+  it("navigates to the game once the server confirms the game was created", async () => {
     createGame.mockResolvedValue(sampleSnapshot());
     renderPage();
 
     await userEvent.click(screen.getByRole("button", { name: "Create game" }));
 
-    expect(await screen.findByText("Navigated to lobby")).toBeInTheDocument();
+    expect(await screen.findByText("Navigated to game")).toBeInTheDocument();
   });
 
   it("shows a generic message and re-enables the button on any failure", async () => {

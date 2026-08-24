@@ -2,7 +2,7 @@
 -- whatever a concurrent mutation (TurnTile, SubmitWord) may be doing to the
 -- same state blob at the same moment. See docs/decisions.md "Player
 -- presence: connected/disconnected tracking" — "reachable" is always
--- derived from this timestamp at read time (apps/server/src/lobby.ts's
+-- derived from this timestamp at read time (apps/server/src/gameSession.ts's
 -- isReachable, mirrored in apply_turn_tile.lua), never tracked via a
 -- scheduled timer, so this script only ever needs to record a timestamp,
 -- never schedule or cancel anything. Deliberately has no commandId

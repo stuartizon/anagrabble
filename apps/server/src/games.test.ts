@@ -1,7 +1,7 @@
 // Unit tests, not integration — handleCreateGameRequest is a thin
-// auth/validation/dispatch wrapper around lobby.ts's createGame(), so
+// auth/validation/dispatch wrapper around gameSession.ts's createGame(), so
 // Redis mutation correctness (idempotency dedup, seq, state shape) is
-// lobby.test.ts's job (real Redis via testcontainers). What's ours to
+// gameSession.test.ts's job (real Redis via testcontainers). What's ours to
 // verify here is auth/validation/status-code/response-shape wiring, same
 // split as stats.test.ts/settings.test.ts — plus the gameId-generation/
 // collision-retry loop, which is genuinely new logic this file owns (see
@@ -9,7 +9,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Redis } from "@anagrabble/redis";
-import type { CreateGameRequest, LobbySnapshot } from "@anagrabble/protocol";
+import type { CreateGameRequest, GameSnapshot } from "@anagrabble/protocol";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -25,12 +25,12 @@ vi.mock("./auth.js", () => ({
 const createGame = vi.fn();
 const leaveGame = vi.fn();
 const loadGameState = vi.fn();
-const toLobbySnapshot = vi.fn();
-vi.mock("./lobby.js", () => ({
+const toGameSnapshot = vi.fn();
+vi.mock("./gameSession.js", () => ({
   createGame: (...args: unknown[]) => createGame(...args),
   leaveGame: (...args: unknown[]) => leaveGame(...args),
   loadGameState: (...args: unknown[]) => loadGameState(...args),
-  toLobbySnapshot: (...args: unknown[]) => toLobbySnapshot(...args),
+  toGameSnapshot: (...args: unknown[]) => toGameSnapshot(...args),
 }));
 
 const { handleCreateGameRequest, handleLeaveGameRequest } = await import("./games.js");
@@ -43,7 +43,7 @@ const VALID_BODY: CreateGameRequest = {
   config: { turnTimerSec: 30, minWordLength: 3, language: "English" },
 };
 
-function sampleSnapshot(gameId: string): LobbySnapshot {
+function sampleSnapshot(gameId: string): GameSnapshot {
   return {
     gameId,
     hostId: "user_1",
@@ -162,7 +162,7 @@ describe("handleCreateGameRequest", () => {
     );
     expect(createGame.mock.calls[0]![1].commandId).toBeTruthy();
     expect(result.status).toBe(201);
-    expect((result.body as LobbySnapshot).gameId).toMatch(/^[A-Z0-9]{5}$/);
+    expect((result.body as GameSnapshot).gameId).toMatch(/^[A-Z0-9]{5}$/);
   });
 
   it("retries with a freshly generated gameId when the first choice collides, and succeeds", async () => {
@@ -268,7 +268,7 @@ describe("handleLeaveGameRequest", () => {
     const before = sampleSnapshot("GAME1");
     loadGameState.mockResolvedValue(before);
     leaveGame.mockResolvedValue(null);
-    toLobbySnapshot.mockReturnValue(before);
+    toGameSnapshot.mockReturnValue(before);
 
     const result = await handleLeaveGameRequest(
       FAKE_REDIS,

@@ -299,7 +299,7 @@ exists — marked below.
   verifying atomic behavior under real `EVAL` semantics. Landed for
   `apply_turn_tile.lua` (the tile-turning story's Lua script — the lobby
   slice still mutates Redis directly via `MULTI`, not `EVAL`; see
-  `apps/server/src/lobby.ts`/`game.ts` for which paths use which), including
+  `apps/server/src/gameSession.ts`/`game.ts` for which paths use which), including
   the concurrent-race case: fire two eligible `TurnTile` calls at the same
   script back-to-back right after a deadline passes, assert exactly one
   wins deterministically. The word-submission story will add its own
@@ -308,7 +308,7 @@ exists — marked below.
 - **`apps/server`** (WS/HTTP gateway): **Vitest** integration tests against
   a **real Redis** via `@testcontainers/redis` — idempotency dedup, `seq`
   bumps, and state-machine guards, not mocked, for the same reason as above.
-  Covers `lobby.ts` (create/join/leave-game) and `game.ts` (start-game/
+  Covers `gameSession.ts` (create/join/leave-game) and `game.ts` (start-game/
   turn-tile command validation and error codes — the Lua script's own
   atomicity/race coverage lives in `packages/redis` above, this layer just
   covers the wrapper). Extends to full WS round-trip tests (a real `ws`
@@ -322,7 +322,7 @@ exists — marked below.
   (see "Schema evolution" above), not before.
 - **`apps/web`** (React frontend): **Vitest + React Testing Library** for
   component/interaction tests, mocking `useGameSocket` (NewGamePage,
-  LobbyPage). **Playwright** for a small number of true end-to-end flows
+  GamePage). **Playwright** for a small number of true end-to-end flows
   against the real backend + Redis + browser — currently: create a game, join
   it via the invite link from a second browser context, see it update live
   with no mock anywhere in the stack; and a dropped connection reconnects

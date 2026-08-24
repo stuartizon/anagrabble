@@ -1,23 +1,23 @@
 // Integration tests against a real Redis (not a mock) — see CLAUDE.md
-// "Testing strategy", same rationale/harness as lobby.test.ts. The
+// "Testing strategy", same rationale/harness as gameSession.test.ts. The
 // TurnTile-specific atomicity/race coverage lives in
 // packages/redis/src/applyTurnTile.test.ts (the Lua script itself); this
 // file covers the apps/server wrapper: command validation, error codes, and
-// wiring the result back into a LobbySnapshot.
+// wiring the result back into a GameSnapshot.
 
 import { RedisContainer, type StartedRedisContainer } from "@testcontainers/redis";
 import { createRedisClient, type Redis } from "@anagrabble/redis";
 import type {
   EndGameCommand,
+  GameSnapshot,
   GameState,
   JoinGameCommand,
-  LobbySnapshot,
   StartGameCommand,
   SubmitWordCommand,
   TurnTileCommand,
 } from "@anagrabble/protocol";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { createGame, joinGame, stateKey, type CreateGameParams } from "./lobby.js";
+import { createGame, joinGame, stateKey, type CreateGameParams } from "./gameSession.js";
 import { endGame, startGame, submitWord, turnTile } from "./game.js";
 
 const CONFIG = { turnTimerSec: 30, minWordLength: 3, language: "en" };
@@ -106,7 +106,7 @@ describe("game", () => {
   }
 
   /** Backdates the host's lastSeenAt past PRESENCE_STALE_MS, so
-   * deriveHostId (lobby.ts) treats them as unreachable and host status
+   * deriveHostId (gameSession.ts) treats them as unreachable and host status
    * migrates to the next reachable player. */
   async function makeHostStale() {
     const raw = await redis.get(stateKey("game-1"));
@@ -155,7 +155,7 @@ describe("game", () => {
       await createGame(redis, createGameCommand(), HOST_ID);
       const result = await startGame(redis, startGameCommand(), HOST_ID);
       expect(result).not.toHaveProperty("error");
-      const { snapshot } = result as { snapshot: LobbySnapshot };
+      const { snapshot } = result as { snapshot: GameSnapshot };
       expect(snapshot.status).toBe("playing");
     });
 
@@ -177,7 +177,7 @@ describe("game", () => {
       const result = await startGame(redis, startGameCommand(), HOST_ID);
 
       expect(result).not.toHaveProperty("error");
-      const { snapshot } = result as { snapshot: LobbySnapshot };
+      const { snapshot } = result as { snapshot: GameSnapshot };
       expect(snapshot.status).toBe("playing");
       expect(snapshot.turnPlayerId).toBe(HOST_ID);
       expect(snapshot.bankCount).toBe(144);
@@ -208,7 +208,7 @@ describe("game", () => {
       const result = await startGame(redis, startGameCommand(), PLAYER_ID);
 
       expect(result).not.toHaveProperty("error");
-      const { snapshot } = result as { snapshot: LobbySnapshot };
+      const { snapshot } = result as { snapshot: GameSnapshot };
       expect(snapshot.status).toBe("playing");
       expect(snapshot.players.map((p) => p.id)).toEqual([HOST_ID, PLAYER_ID]);
     });
@@ -228,7 +228,7 @@ describe("game", () => {
       const result = await turnTile(redis, turnTileCommand(), HOST_ID);
 
       expect(result).not.toHaveProperty("error");
-      const { snapshot } = result as { snapshot: LobbySnapshot };
+      const { snapshot } = result as { snapshot: GameSnapshot };
       expect(snapshot.pool).toHaveLength(1);
       expect(snapshot.bankCount).toBe(143);
       expect(snapshot.turnPlayerId).toBe(PLAYER_ID);
@@ -251,7 +251,7 @@ describe("game", () => {
       const result = await turnTile(redis, turnTileCommand(), PLAYER_ID);
 
       expect(result).not.toHaveProperty("error");
-      const { snapshot } = result as { snapshot: LobbySnapshot };
+      const { snapshot } = result as { snapshot: GameSnapshot };
       expect(snapshot.turnPlayerId).toBe(PLAYER_ID);
     });
   });
@@ -284,7 +284,7 @@ describe("game", () => {
       const result = await endGame(redis, endGameCommand());
 
       expect(result).not.toHaveProperty("error");
-      const { snapshot } = result as { snapshot: LobbySnapshot };
+      const { snapshot } = result as { snapshot: GameSnapshot };
       expect(snapshot.status).toBe("ended");
     });
   });
@@ -294,7 +294,7 @@ describe("game", () => {
     // the atomic re-verify/apply (packages/redis apply_submit_word.lua,
     // including its own concurrent-race coverage) are tested at their own
     // layers — this only covers the apps/server wrapper: loading state,
-    // calling through, and turning the result into a LobbySnapshot + the
+    // calling through, and turning the result into a GameSnapshot + the
     // narration fields the WordPlayed event needs.
 
     it("returns GameNotFound for an unknown game", async () => {

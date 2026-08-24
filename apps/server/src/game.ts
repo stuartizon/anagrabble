@@ -13,8 +13,8 @@ import {
 } from "@anagrabble/game";
 import type {
   EndGameCommand,
+  GameSnapshot,
   GameState,
-  LobbySnapshot,
   StartGameCommand,
   SubmitWordCommand,
   TurnTileCommand,
@@ -26,17 +26,17 @@ import {
   bagKey,
   cmdsKey,
   deriveHostId,
+  loadGameSnapshot,
   loadGameState,
-  loadLobbySnapshot,
   markCommandSeen,
   nextSeq,
   seqKey,
   stateKey,
-  toLobbySnapshot,
-  type LobbyError,
-} from "./lobby.js";
+  toGameSnapshot,
+  type GameSessionError,
+} from "./gameSession.js";
 
-export type StartGameError = LobbyError | "NotHost";
+export type StartGameError = GameSessionError | "NotHost";
 export type TurnTileError = "GameNotFound" | "GameNotStarted" | "NotYourTurn";
 
 /** Host-only lobby -> playing transition: shuffles the tile bag (see
@@ -49,13 +49,13 @@ export async function startGame(
   redis: Redis,
   cmd: StartGameCommand,
   hostId: string,
-): Promise<{ snapshot: LobbySnapshot } | { error: StartGameError }> {
+): Promise<{ snapshot: GameSnapshot } | { error: StartGameError }> {
   const state = await loadGameState(redis, cmd.gameId);
   if (!state) return { error: "GameNotFound" };
 
   const alreadySeen = await markCommandSeen(redis, cmd.gameId, cmd.commandId);
   if (alreadySeen) {
-    const snapshot = await loadLobbySnapshot(redis, cmd.gameId);
+    const snapshot = await loadGameSnapshot(redis, cmd.gameId);
     if (snapshot) return { snapshot };
   }
 
@@ -79,7 +79,7 @@ export async function startGame(
   if (bag.length > 0) multi.rPush(bagKey(cmd.gameId), bag);
   await multi.exec();
 
-  return { snapshot: toLobbySnapshot(cmd.gameId, nextState) };
+  return { snapshot: toGameSnapshot(cmd.gameId, nextState) };
 }
 
 /** Turns one tile. Delegates the actual verify+mutate to
@@ -90,7 +90,7 @@ export async function turnTile(
   redis: Redis,
   cmd: TurnTileCommand,
   playerId: string,
-): Promise<{ snapshot: LobbySnapshot } | { error: TurnTileError }> {
+): Promise<{ snapshot: GameSnapshot } | { error: TurnTileError }> {
   const result = await applyTurnTile(redis, {
     stateKey: stateKey(cmd.gameId),
     seqKey: seqKey(cmd.gameId),
@@ -105,7 +105,7 @@ export async function turnTile(
   });
 
   if ("error" in result) return { error: result.error };
-  return { snapshot: toLobbySnapshot(cmd.gameId, result.state) };
+  return { snapshot: toGameSnapshot(cmd.gameId, result.state) };
 }
 
 export type EndGameError = "GameNotFound" | "GameNotStarted" | "GameNotIdle";
@@ -117,7 +117,7 @@ export type EndGameError = "GameNotFound" | "GameNotStarted" | "GameNotIdle";
 export async function endGame(
   redis: Redis,
   cmd: EndGameCommand,
-): Promise<{ snapshot: LobbySnapshot } | { error: EndGameError }> {
+): Promise<{ snapshot: GameSnapshot } | { error: EndGameError }> {
   const result = await applyEndGame(redis, {
     stateKey: stateKey(cmd.gameId),
     seqKey: seqKey(cmd.gameId),
@@ -128,13 +128,13 @@ export async function endGame(
   });
 
   if ("error" in result) return { error: result.error };
-  return { snapshot: toLobbySnapshot(cmd.gameId, result.state) };
+  return { snapshot: toGameSnapshot(cmd.gameId, result.state) };
 }
 
 export type SubmitWordError = ApplySubmitWordError | WordPlayError;
 
 export interface SubmitWordSuccess {
-  snapshot: LobbySnapshot;
+  snapshot: GameSnapshot;
   word: string;
   usedWords: UsedWord[];
   usedPoolLetters: string[];
@@ -193,7 +193,7 @@ export async function submitWord(
 
   if ("error" in result) return { error: result.error };
   return {
-    snapshot: toLobbySnapshot(cmd.gameId, result.state),
+    snapshot: toGameSnapshot(cmd.gameId, result.state),
     word,
     usedWords: resolved.plan.usedWords,
     usedPoolLetters: resolved.plan.usedPoolLetters,

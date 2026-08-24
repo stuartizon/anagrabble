@@ -58,7 +58,7 @@ function renderPage(
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/" element={<div>Home</div>} />
-        <Route path="/ABCDE" element={<div>The lobby</div>} />
+        <Route path="/ABCDE" element={<div>The game</div>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -105,7 +105,7 @@ describe("LoginPage", () => {
     await user.type(screen.getByLabelText("Password"), "correct-password");
     await user.click(screen.getByRole("button", { name: "Log in" }));
 
-    expect(await screen.findByText("The lobby")).toBeInTheDocument();
+    expect(await screen.findByText("The game")).toBeInTheDocument();
   });
 
   it("requires email and password before submitting a login, on their own fields", async () => {

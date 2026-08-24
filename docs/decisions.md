@@ -3318,3 +3318,72 @@ file's own decision entries above, e.g. "Mid-game join: scope decisions",
 for no benefit. Freezing it in `docs/archive/` keeps that history readable
 without implying it's still maintained or that it's where a new story
 should be added.
+
+---
+
+## Lobby -> Game wire rename
+
+**Decision** (2026-08-25, anagrabble#38): renamed the wire type
+`LobbySnapshot` to `GameSnapshot`, the `lobby` field it's carried under on
+every WS event to `game`, and the full-resync event `LobbyStateEvent`/
+`"LobbyState"` to `GameSnapshotEvent`/`"GameSnapshot"`. Alongside it,
+`apps/web/src/pages/LobbyPage/` became `pages/GamePage/` and
+`apps/server/src/lobby.ts` became `gameSession.ts` (with its
+`toLobbySnapshot`/`loadLobbySnapshot`/`LobbyError` exports renamed to
+match). `GameStatus`'s `"lobby"` enum value — the narrower "pre-start
+phase" meaning — is deliberately untouched; only the "whole game session at
+any status" sense of "lobby" moved.
+
+**Context**: flagged in anagrabble#38. `LobbySnapshot`/`lobby` trace back to
+"Lobby slice: routing and Redis schema" above — the very first slice built
+was create/join/leave, before gameplay existed, so "the lobby" and "the
+whole game session" were the same thing by definition at the time. That
+same decision deliberately made `GameState` "the _full_ eventual game
+state... not a lobby-only shape," specifically so gameplay could fill in
+placeholders later "without a reshape" — and that's exactly what happened:
+`StartGame`/`TurnTile`/`SubmitWord`/`EndGame` all ended up reusing the same
+`lobby: LobbySnapshot` field on their events, unrenamed, for every gameplay
+slice built since. The result was `GameStatus`'s own `"lobby"` value (the
+narrow, correct, pre-start-only sense) sitting one field away from
+`LobbySnapshot` (the broad, "whole session, any status" sense) — internally
+consistent but confusing to anyone who only knows the colloquial "lobby
+means waiting room" meaning, which is exactly what made `LobbyPage`
+rendering the entire game lifecycle (not just the pre-start screen) read as
+a misnomer.
+
+**Scope decision**: the alternative was a page/server-only rename (leave
+`LobbySnapshot`/the wire `lobby` field alone, just rename the page and
+`lobby.ts`) — safer, since it touches no wire shape and needs no rollout
+coordination. Went with the full rename anyway: a page-only rename would
+have fixed the confusing part users/readers actually see while leaving the
+same "lobby" ambiguity baked into the protocol layer underneath, which is
+exactly the kind of half-fix CLAUDE.md's "docs that drift silently... are
+worse than no docs" reasoning argues against applying to code structure
+too.
+
+**Rollout — two commits, not one diff**: a rename of a wire field/type is a
+genuine breaking change under CLAUDE.md's expand/contract discipline
+(`packages/protocol`), and this repo pushes straight to `main` with every
+push deploying (no PR gate, see "Working conventions" - no PR workflow) —
+so "two rollouts" here means two real, separately-deployed commits, not two
+hunks in one PR.
+
+- **Expand commit**: added `game`/`GameSnapshot` as new fields/types
+  alongside the still-present `lobby`/`LobbySnapshot` (both populated with
+  the same value by `toGameSnapshot()`), and added `GameSnapshotEvent`/
+  `"GameSnapshot"` as an additional, not-yet-emitted member of the `Event`
+  union — purely additive, safe to deploy alone. The frontend switched to
+  reading `event.game ?? event.lobby` (tolerating an old backend that
+  hasn't redeployed yet) and added a `case "GameSnapshot":` arm identical to
+  `case "LobbyState":` (so it already understands the future wire value).
+  All the page/file/prop renames (`LobbyPage` -> `GamePage`, `lobby.ts` ->
+  `gameSession.ts`, `lobby` props -> `game` throughout the component tree)
+  rode along in this same commit since none of them are wire-visible.
+- **Contract commit**: once the expand commit is confirmed live, drop the
+  old `lobby` field and `LobbySnapshot`/`LobbyStateEvent`/`"LobbyState"`
+  entirely, flip the backend to emit only `"GameSnapshot"`/`game`, remove
+  the frontend's now-dead `?? event.lobby` fallback and `"LobbyState"` case,
+  and bump `PROTOCOL_VERSION` (matching the precedent set when `hostId`/
+  `playerId` were removed from the wire protocol) so a genuinely stale tab
+  logs the mismatch instead of silently getting `undefined` where it
+  expects a snapshot.

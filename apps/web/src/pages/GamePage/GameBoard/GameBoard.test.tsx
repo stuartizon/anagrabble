@@ -2,7 +2,7 @@ import { MemoryRouter } from "react-router-dom";
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { LobbySnapshot, PlayerState, PlayerSettingsResponse } from "@anagrabble/protocol";
+import type { GameSnapshot, PlayerState, PlayerSettingsResponse } from "@anagrabble/protocol";
 import type {
   GameSocketError,
   HistoryEntry,
@@ -34,7 +34,7 @@ vi.mock("../../../auth", () => mockSignedOutClerk());
 const ME: PlayerState = { id: "me-1", name: "Me", words: [], score: 0 };
 const OPPONENT: PlayerState = { id: "opp-1", name: "Sam", words: [], score: 0 };
 
-function lobbySnapshot(overrides: Partial<LobbySnapshot> = {}): LobbySnapshot {
+function gameSnapshot(overrides: Partial<GameSnapshot> = {}): GameSnapshot {
   return {
     gameId: "ABCDE",
     hostId: "me-1",
@@ -52,7 +52,7 @@ function lobbySnapshot(overrides: Partial<LobbySnapshot> = {}): LobbySnapshot {
 }
 
 type BoardProps = {
-  lobby?: LobbySnapshot;
+  game?: GameSnapshot;
   error?: GameSocketError | null;
   wordPlay?: WordPlayNarration | null;
   tileTurn?: TileTurnNarration | null;
@@ -68,7 +68,7 @@ function boardElement(props: BoardProps = {}) {
   return (
     <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <GameBoard
-        lobby={props.lobby ?? lobbySnapshot()}
+        game={props.game ?? gameSnapshot()}
         playerId="me-1"
         send={send}
         error={props.error ?? null}
@@ -113,7 +113,7 @@ describe("GameBoard", () => {
 
   it("lists the viewer's own words under 'Your words' and others separately", () => {
     renderBoard({
-      lobby: lobbySnapshot({
+      game: gameSnapshot({
         players: [
           { ...ME, words: ["CAT"], score: 1 },
           { ...OPPONENT, words: ["TAR"], score: 1 },
@@ -129,7 +129,7 @@ describe("GameBoard", () => {
 
   it("hides the 'Everyone else's words' section in a solo game", () => {
     renderBoard({
-      lobby: lobbySnapshot({ players: [{ ...ME, words: ["CAT"], score: 1 }] }),
+      game: gameSnapshot({ players: [{ ...ME, words: ["CAT"], score: 1 }] }),
     });
 
     expect(screen.getByText("Your words")).toBeInTheDocument();
@@ -139,7 +139,7 @@ describe("GameBoard", () => {
 
   it("lists players in the sidebar with their name and score, in turn order", () => {
     renderBoard({
-      lobby: lobbySnapshot({
+      game: gameSnapshot({
         players: [
           { ...ME, score: 4 },
           { ...OPPONENT, score: 7 },
@@ -155,7 +155,7 @@ describe("GameBoard", () => {
 
   it("shows no away indicator for a connected player", () => {
     renderBoard({
-      lobby: lobbySnapshot({ players: [{ ...ME }, { ...OPPONENT, presence: "connected" }] }),
+      game: gameSnapshot({ players: [{ ...ME }, { ...OPPONENT, presence: "connected" }] }),
     });
 
     expect(screen.queryByText("Disconnected")).not.toBeInTheDocument();
@@ -165,7 +165,7 @@ describe("GameBoard", () => {
 
   it("marks a disconnected player's row as away via a title tooltip and muted styling, with no visible icon or text", () => {
     renderBoard({
-      lobby: lobbySnapshot({ players: [{ ...ME }, { ...OPPONENT, presence: "disconnected" }] }),
+      game: gameSnapshot({ players: [{ ...ME }, { ...OPPONENT, presence: "disconnected" }] }),
     });
 
     expect(screen.queryByText("Disconnected")).not.toBeInTheDocument();
@@ -177,7 +177,7 @@ describe("GameBoard", () => {
 
   it("hollows out a non-connected player's color swatch to a ring instead of a filled dot", () => {
     renderBoard({
-      lobby: lobbySnapshot({ players: [{ ...ME }, { ...OPPONENT, presence: "disconnected" }] }),
+      game: gameSnapshot({ players: [{ ...ME }, { ...OPPONENT, presence: "disconnected" }] }),
     });
 
     const names = screen.getAllByTestId("sidebar-player-name");
@@ -289,7 +289,7 @@ describe("GameBoard", () => {
 
   it("narrates a steal that combines words from two different opponents", () => {
     renderBoard({
-      lobby: lobbySnapshot({
+      game: gameSnapshot({
         players: [ME, OPPONENT, { id: "third-1", name: "Ash", words: [], score: 0 }],
       }),
       wordPlay: {
@@ -322,10 +322,10 @@ describe("GameBoard", () => {
     expect(screen.getByText("You stole CAT from Sam + BAD → CATBAD")).toBeInTheDocument();
   });
 
-  it("does not resurrect a dismissed toast when the lobby snapshot updates afterward (e.g. a tile turn)", () => {
-    // Regression test: the toast effect used to depend on the whole `lobby`
+  it("does not resurrect a dismissed toast when the game snapshot updates afterward (e.g. a tile turn)", () => {
+    // Regression test: the toast effect used to depend on the whole `game`
     // object, which gets a new reference on every snapshot update (not just
-    // WordPlayed). A lobby update arriving after the toast's own dismiss
+    // WordPlayed). A game update arriving after the toast's own dismiss
     // timer had already fired was re-running the effect against the same,
     // still-not-null `wordPlay` and showing it again.
     vi.useFakeTimers();
@@ -344,9 +344,9 @@ describe("GameBoard", () => {
       });
       expect(screen.queryByText("You played TAR")).not.toBeInTheDocument();
 
-      // Same wordPlay reference, but a fresh lobby object — as happens on a
+      // Same wordPlay reference, but a fresh game object — as happens on a
       // TileTurned/LobbyState update after the play.
-      rerender(boardElement({ wordPlay, lobby: lobbySnapshot({ bankCount: 99 }) }));
+      rerender(boardElement({ wordPlay, game: gameSnapshot({ bankCount: 99 }) }));
 
       expect(screen.queryByText("You played TAR")).not.toBeInTheDocument();
     } finally {
@@ -380,7 +380,7 @@ describe("GameBoard", () => {
 
   it("shows no toast when another player steals from a third player", () => {
     renderBoard({
-      lobby: lobbySnapshot({
+      game: gameSnapshot({
         players: [ME, OPPONENT, { id: "third-1", name: "Ash", words: [], score: 0 }],
       }),
       wordPlay: {
@@ -443,7 +443,7 @@ describe("GameBoard", () => {
 
   it("includes this game's minWordLength in the TooShort message", () => {
     renderBoard({
-      lobby: lobbySnapshot({ config: { turnTimerSec: 30, minWordLength: 5, language: "English" } }),
+      game: gameSnapshot({ config: { turnTimerSec: 30, minWordLength: 5, language: "English" } }),
       error: { code: "TooShort", message: "raw server message" },
     });
 
@@ -486,7 +486,7 @@ describe("GameBoard", () => {
 
   it("opens the mobile menu with players and invite link (no history — not part of the design's mobile menu), and closes via the close button", async () => {
     renderBoard({
-      lobby: lobbySnapshot({
+      game: gameSnapshot({
         players: [
           { ...ME, score: 4 },
           { ...OPPONENT, score: 7 },
@@ -675,7 +675,7 @@ describe("GameBoard", () => {
 
     it("shows the read-only game settings", async () => {
       renderBoard({
-        lobby: lobbySnapshot({
+        game: gameSnapshot({
           config: { turnTimerSec: 45, minWordLength: 4, language: "English" },
         }),
       });
@@ -735,7 +735,7 @@ describe("GameBoard", () => {
 
   it("shows the idle countdown once the bank is empty but the game is still playing", () => {
     renderBoard({
-      lobby: lobbySnapshot({
+      game: gameSnapshot({
         status: "playing",
         bankCount: 0,
         endGameDeadline: Date.now() + 45_000,
@@ -749,7 +749,7 @@ describe("GameBoard", () => {
   });
 
   it("falls back to plain 'No more tiles.' copy once the game has ended (no countdown left to show)", () => {
-    renderBoard({ lobby: lobbySnapshot({ status: "ended", bankCount: 0 }) });
+    renderBoard({ game: gameSnapshot({ status: "ended", bankCount: 0 }) });
 
     expect(screen.queryByTestId("end-game-countdown")).not.toBeInTheDocument();
     expect(screen.getByText("No more tiles.")).toBeInTheDocument();
@@ -760,7 +760,7 @@ describe("GameBoard", () => {
     try {
       const now = Date.now();
       renderBoard({
-        lobby: lobbySnapshot({ bankCount: 0, endGameDeadline: now + 1000 }),
+        game: gameSnapshot({ bankCount: 0, endGameDeadline: now + 1000 }),
       });
 
       act(() => {
@@ -782,7 +782,7 @@ describe("GameBoard", () => {
     try {
       const now = Date.now();
       renderBoard({
-        lobby: lobbySnapshot({ status: "ended", bankCount: 0, endGameDeadline: now - 1 }),
+        game: gameSnapshot({ status: "ended", bankCount: 0, endGameDeadline: now - 1 }),
       });
 
       act(() => {
@@ -801,7 +801,7 @@ describe("GameBoard", () => {
     // accept branch (apply_turn_tile.lua) had no client path that could
     // ever reach it before the full turnTimerSec elapsed.
     renderBoard({
-      lobby: lobbySnapshot({
+      game: gameSnapshot({
         turnPlayerId: "opp-1",
         turnDeadline: Date.now() + 30_000, // far away — not why this fires
         players: [ME, { ...OPPONENT, presence: "disconnected" }],
@@ -818,7 +818,7 @@ describe("GameBoard", () => {
 
   it("does not fire TurnTile early while the current player is still connected", () => {
     renderBoard({
-      lobby: lobbySnapshot({
+      game: gameSnapshot({
         turnPlayerId: "opp-1",
         turnDeadline: Date.now() + 30_000,
         players: [ME, { ...OPPONENT, presence: "connected" }],

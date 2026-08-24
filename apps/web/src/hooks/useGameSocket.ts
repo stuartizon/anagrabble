@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../auth";
 import { createGameSocketClient, type SocketStatus } from "../client/gameSocketClient";
-import type { Command, Event, LobbySnapshot, UsedWord } from "@anagrabble/protocol";
+import type { Command, Event, GameSnapshot, UsedWord } from "@anagrabble/protocol";
 
 export type { SocketStatus };
 
 /** Narration data for the most recent WordPlayed event — enough for a
  * client to render "Sam stole CAT from You -> CAST" (CLAUDE.md "Core
- * gameplay") without diffing successive `lobby` snapshots itself. A new
+ * gameplay") without diffing successive `game` snapshots itself. A new
  * object every time (never mutated), so consumers can key a useEffect off
  * its identity to show a one-shot toast. */
 export interface WordPlayNarration {
@@ -51,7 +51,7 @@ export interface GameSocketError {
 
 /** Narration for the most recent TileTurned event — just enough identity
  * (`seq`) for a consumer to key a useEffect off it and fire a one-shot
- * notification (sound/haptics); `lobby` already carries the resulting pool,
+ * notification (sound/haptics); `game` already carries the resulting pool,
  * so there's nothing else worth carrying here. Mirrors `wordPlay`'s
  * state-not-callback shape rather than being its own separate mechanism. */
 export interface TileTurnNarration {
@@ -60,7 +60,7 @@ export interface TileTurnNarration {
 
 interface GameSocketState {
   status: SocketStatus;
-  lobby: LobbySnapshot | null;
+  game: GameSnapshot | null;
   error: GameSocketError | null;
   wordPlay: WordPlayNarration | null;
   tileTurn: TileTurnNarration | null;
@@ -79,7 +79,7 @@ interface GameSocketState {
 function initialGameSocketState(): GameSocketState {
   return {
     status: "connecting",
-    lobby: null,
+    game: null,
     error: null,
     wordPlay: null,
     tileTurn: null,
@@ -90,15 +90,23 @@ function initialGameSocketState(): GameSocketState {
 /** Pure reducer over one incoming game event — testable with fixture events
  * alone, no real/mock WebSocket needed. Never sees `Handshake` — that's a
  * connection-level concern the socket client handles and swallows itself
- * (see gameSocketClient.ts), not a game event. */
+ * (see gameSocketClient.ts), not a game event.
+ *
+ * `message.game ?? message.lobby` throughout: mid-rollout scaffolding (see
+ * docs/decisions.md "Lobby -> Game wire rename") — tolerates a server that
+ * hasn't redeployed yet and so still only sends the old `lobby` field.
+ * Drops once the contract half of that rollout lands and every server
+ * always sends `game`. */
 function applyGameSocketMessage(state: GameSocketState, message: Event): GameSocketState {
   switch (message.type) {
     // Pong is the heartbeat reply — see PING_INTERVAL_MS and PongEvent's doc
-    // comment (packages/protocol/src/ws.ts). `lobby` is only present when
-    // this connection is seated as a player; treat it the same as any other
-    // snapshot-bearing event below when it is.
-    case "Pong":
-      return message.lobby ? { ...state, lobby: message.lobby } : state;
+    // comment (packages/protocol/src/ws.ts). The snapshot is only present
+    // when this connection is seated as a player; treat it the same as any
+    // other snapshot-bearing event below when it is.
+    case "Pong": {
+      const snapshot = message.game ?? message.lobby;
+      return snapshot ? { ...state, game: snapshot } : state;
+    }
 
     case "Error":
       return {
@@ -115,7 +123,7 @@ function applyGameSocketMessage(state: GameSocketState, message: Event): GameSoc
       };
       return {
         ...state,
-        lobby: message.lobby,
+        game: message.game ?? message.lobby,
         error: null,
         wordPlay: narration,
         history: [...state.history, { kind: "wordPlay", ...narration }],
@@ -128,25 +136,41 @@ function applyGameSocketMessage(state: GameSocketState, message: Event): GameSoc
         seq: message.seq,
         playerId: message.player.id,
       };
-      return { ...state, lobby: message.lobby, error: null, history: [...state.history, joined] };
+      return {
+        ...state,
+        game: message.game ?? message.lobby,
+        error: null,
+        history: [...state.history, joined],
+      };
     }
 
     case "TileTurned":
-      return { ...state, lobby: message.lobby, error: null, tileTurn: { seq: message.seq } };
+      return {
+        ...state,
+        game: message.game ?? message.lobby,
+        error: null,
+        tileTurn: { seq: message.seq },
+      };
 
     case "LobbyState":
     case "PlayerLeft":
     case "GameStarted":
     case "GameEnded":
-      return { ...state, lobby: message.lobby, error: null };
+      return { ...state, game: message.game ?? message.lobby, error: null };
+
+    // Not yet sent by any server (see GameSnapshotEvent's own doc comment)
+    // — added ahead of time so this dispatcher already understands it once
+    // the contract phase flips LobbyState's wire name over.
+    case "GameSnapshot":
+      return { ...state, game: message.game, error: null };
   }
 }
 
-/** Opens (and re-opens, on gameId change) a WebSocket scoped to one lobby
+/** Opens (and re-opens, on gameId change) a WebSocket scoped to one game
  * page. See CLAUDE.md "Sequencing" — LobbyState/PlayerJoined/PlayerLeft all
  * carry a full snapshot, so the component never has to hand-merge deltas.
  *
- * A same-page reconnect (a Lobby page reload, or the socket client's own
+ * A same-page reconnect (a game page reload, or the socket client's own
  * reconnect-with-backoff after an unexpected drop) is recognized as the
  * same player via the verified Clerk session token alone — see
  * apps/server's `resolveActingPlayerId` — so the caller doesn't need to
@@ -155,8 +179,8 @@ function applyGameSocketMessage(state: GameSocketState, message: Event): GameSoc
  * `tileTurn`, like `wordPlay`, is returned state rather than a callback —
  * both are one-shot event pulses a consumer keys a useEffect off of (by
  * `seq`) to fire a notification (sound/haptics), not values that need
- * ongoing tracking. TileTurned doesn't need a lobby-derived value of its own
- * (`lobby` already carries the resulting pool), just that pulse.
+ * ongoing tracking. TileTurned doesn't need a game-derived value of its own
+ * (`game` already carries the resulting pool), just that pulse.
  *
  * The WebSocket connect/reconnect/heartbeat mechanics (plus the Handshake
  * protocol-version check) live in `client/gameSocketClient.ts` — pure

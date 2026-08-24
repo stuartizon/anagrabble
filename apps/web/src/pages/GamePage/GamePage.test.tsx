@@ -2,10 +2,10 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { LobbySnapshot, PlayerState } from "@anagrabble/protocol";
+import type { GameSnapshot, PlayerState } from "@anagrabble/protocol";
 import type { SocketStatus } from "../../hooks/useGameSocket";
 import { mockSignedInClerk, setMockClerkIdentity } from "../../testUtils/clerkTestMock";
-import { LobbyPage } from "./index";
+import { GamePage } from "./index";
 
 const send = vi.fn();
 const useGameSocketMock = vi.fn();
@@ -25,7 +25,7 @@ vi.mock("../../client/fetchLeaveGame", () => ({
   leaveGame: (...args: unknown[]) => leaveGameRequest(...args),
 }));
 
-// LobbyPage owns player settings (sound engine — anagrabble#36 — and the
+// GamePage owns player settings (sound engine — anagrabble#36 — and the
 // mobile menu's "Your settings" section — anagrabble#40) via
 // usePlayerSettings — mocked the same way SettingsPage.test.tsx does, so its
 // fetch/save resolve deterministically instead of hitting a real, unmocked
@@ -50,7 +50,7 @@ const GUEST: PlayerState = {
   score: 0,
 };
 
-function lobbySnapshot(overrides: Partial<LobbySnapshot> = {}): LobbySnapshot {
+function gameSnapshot(overrides: Partial<GameSnapshot> = {}): GameSnapshot {
   return {
     gameId: "ABCDE",
     hostId: "host-1",
@@ -69,12 +69,12 @@ function lobbySnapshot(overrides: Partial<LobbySnapshot> = {}): LobbySnapshot {
 
 function mockSocket(overrides: {
   status?: SocketStatus;
-  lobby?: LobbySnapshot | null;
+  game?: GameSnapshot | null;
   error?: { code: string; message: string } | null;
 }) {
   useGameSocketMock.mockReturnValue({
     status: overrides.status ?? "open",
-    lobby: overrides.lobby === undefined ? lobbySnapshot() : overrides.lobby,
+    game: overrides.game === undefined ? gameSnapshot() : overrides.game,
     error: overrides.error ?? null,
     wordPlay: null,
     history: [],
@@ -90,7 +90,7 @@ function renderAsPlayer(playerId: string) {
       future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
     >
       <Routes>
-        <Route path="/:gameId" element={<LobbyPage />} />
+        <Route path="/:gameId" element={<GamePage />} />
         <Route path="/" element={<div>Home</div>} />
       </Routes>
     </MemoryRouter>,
@@ -111,9 +111,9 @@ beforeEach(() => {
   savePlayerSettings.mockReset();
 });
 
-describe("LobbyPage", () => {
+describe("GamePage", () => {
   it("shows a loading indicator while the lobby hasn't loaded yet", () => {
-    mockSocket({ lobby: null });
+    mockSocket({ game: null });
     renderAsPlayer("host-1");
 
     expect(screen.queryByText(/game/i)).not.toBeInTheDocument();
@@ -133,7 +133,7 @@ describe("LobbyPage", () => {
 
   it("does not swap to the not-found page for a non-fatal error (e.g. a rejected word)", () => {
     mockSocket({
-      lobby: lobbySnapshot({ players: [HOST, GUEST] }),
+      game: gameSnapshot({ players: [HOST, GUEST] }),
       error: { code: "NotAWord", message: "Not a word we know" },
     });
     renderAsPlayer("guest-1");
@@ -143,7 +143,7 @@ describe("LobbyPage", () => {
   });
 
   it("opens the rules modal from the Review the rules link", async () => {
-    mockSocket({ lobby: lobbySnapshot({ players: [HOST] }) });
+    mockSocket({ game: gameSnapshot({ players: [HOST] }) });
     renderAsPlayer("host-1");
 
     await userEvent.click(screen.getByRole("button", { name: "Review the rules" }));
@@ -153,7 +153,7 @@ describe("LobbyPage", () => {
 
   describe("as the host", () => {
     it("shows the player list and allows starting solo, with a hint to wait for others", () => {
-      mockSocket({ lobby: lobbySnapshot({ players: [HOST] }) });
+      mockSocket({ game: gameSnapshot({ players: [HOST] }) });
       renderAsPlayer("host-1");
 
       expect(screen.getByText("1 player at the table")).toBeInTheDocument();
@@ -162,7 +162,7 @@ describe("LobbyPage", () => {
     });
 
     it("keeps Start enabled once a second player has joined", () => {
-      mockSocket({ lobby: lobbySnapshot({ players: [HOST, GUEST] }) });
+      mockSocket({ game: gameSnapshot({ players: [HOST, GUEST] }) });
       renderAsPlayer("host-1");
 
       expect(screen.getByText("2 players at the table")).toBeInTheDocument();
@@ -171,7 +171,7 @@ describe("LobbyPage", () => {
 
     it("marks a disconnected player's row as away via a title tooltip, with no visible icon or text", () => {
       mockSocket({
-        lobby: lobbySnapshot({
+        game: gameSnapshot({
           players: [
             { ...HOST, presence: "connected" },
             { ...GUEST, presence: "disconnected" },
@@ -189,7 +189,7 @@ describe("LobbyPage", () => {
     });
 
     it("sends StartGame when Start is clicked", async () => {
-      mockSocket({ lobby: lobbySnapshot({ players: [HOST, GUEST] }) });
+      mockSocket({ game: gameSnapshot({ players: [HOST, GUEST] }) });
       renderAsPlayer("host-1");
 
       await userEvent.click(screen.getByRole("button", { name: "Start game" }));
@@ -202,8 +202,8 @@ describe("LobbyPage", () => {
     });
 
     it("can leave via POST /games/:gameId/leave, then navigates home", async () => {
-      leaveGameRequest.mockResolvedValue(lobbySnapshot({ players: [GUEST] }));
-      mockSocket({ lobby: lobbySnapshot({ players: [HOST, GUEST] }) });
+      leaveGameRequest.mockResolvedValue(gameSnapshot({ players: [GUEST] }));
+      mockSocket({ game: gameSnapshot({ players: [HOST, GUEST] }) });
       renderAsPlayer("host-1");
 
       await userEvent.click(screen.getByRole("button", { name: "Leave game" }));
@@ -214,7 +214,7 @@ describe("LobbyPage", () => {
 
     it("shows an error and stays put if leaving fails", async () => {
       leaveGameRequest.mockRejectedValue(new Error("GameNotFound"));
-      mockSocket({ lobby: lobbySnapshot({ players: [HOST, GUEST] }) });
+      mockSocket({ game: gameSnapshot({ players: [HOST, GUEST] }) });
       renderAsPlayer("host-1");
 
       await userEvent.click(screen.getByRole("button", { name: "Leave game" }));
@@ -229,7 +229,7 @@ describe("LobbyPage", () => {
   describe("once the game has started", () => {
     it("renders the game board for a joined player", () => {
       mockSocket({
-        lobby: lobbySnapshot({
+        game: gameSnapshot({
           status: "playing",
           players: [HOST, GUEST],
           bankCount: 143,
@@ -246,7 +246,7 @@ describe("LobbyPage", () => {
 
     it("gates an unjoined guest behind a join prompt instead of the game board", async () => {
       mockSocket({
-        lobby: lobbySnapshot({
+        game: gameSnapshot({
           status: "playing",
           players: [HOST],
           bankCount: 143,
@@ -283,7 +283,7 @@ describe("LobbyPage", () => {
         hapticsEnabled: false,
       });
       mockSocket({
-        lobby: lobbySnapshot({
+        game: gameSnapshot({
           status: "playing",
           players: [HOST, GUEST],
           bankCount: 143,
@@ -314,7 +314,7 @@ describe("LobbyPage", () => {
 
     it("leaving mid-game navigates home directly, without the pre-start REST call", async () => {
       mockSocket({
-        lobby: lobbySnapshot({
+        game: gameSnapshot({
           status: "playing",
           players: [HOST, GUEST],
           bankCount: 143,
@@ -342,7 +342,7 @@ describe("LobbyPage", () => {
       // view (share link, "Start game" button) instead of a game-over
       // screen.
       mockSocket({
-        lobby: lobbySnapshot({
+        game: gameSnapshot({
           status: "ended",
           players: [HOST, GUEST],
           bankCount: 0,
@@ -357,7 +357,7 @@ describe("LobbyPage", () => {
 
   describe("as an unjoined guest", () => {
     it("sends JoinGame with the signed-in player's identity when Join is clicked", async () => {
-      mockSocket({ lobby: lobbySnapshot({ players: [HOST] }) });
+      mockSocket({ game: gameSnapshot({ players: [HOST] }) });
       renderAsPlayer("guest-1");
 
       const joinButton = screen.getByRole("button", { name: "Join game" });
@@ -374,7 +374,7 @@ describe("LobbyPage", () => {
     });
 
     it("has no Leave game button — there's nothing to leave yet", () => {
-      mockSocket({ lobby: lobbySnapshot({ players: [HOST] }) });
+      mockSocket({ game: gameSnapshot({ players: [HOST] }) });
       renderAsPlayer("guest-1");
 
       expect(screen.queryByRole("button", { name: "Leave game" })).not.toBeInTheDocument();
@@ -383,7 +383,7 @@ describe("LobbyPage", () => {
 
   describe("as a joined non-host player", () => {
     it("shows a waiting message and no Join/Start controls", () => {
-      mockSocket({ lobby: lobbySnapshot({ players: [HOST, GUEST] }) });
+      mockSocket({ game: gameSnapshot({ players: [HOST, GUEST] }) });
       renderAsPlayer("guest-1");
 
       expect(screen.getByText("Waiting for the host to start the game…")).toBeInTheDocument();
@@ -394,8 +394,8 @@ describe("LobbyPage", () => {
     });
 
     it("can also leave via Leave game", async () => {
-      leaveGameRequest.mockResolvedValue(lobbySnapshot({ players: [HOST] }));
-      mockSocket({ lobby: lobbySnapshot({ players: [HOST, GUEST] }) });
+      leaveGameRequest.mockResolvedValue(gameSnapshot({ players: [HOST] }));
+      mockSocket({ game: gameSnapshot({ players: [HOST, GUEST] }) });
       renderAsPlayer("guest-1");
 
       await userEvent.click(screen.getByRole("button", { name: "Leave game" }));

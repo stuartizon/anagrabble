@@ -1,15 +1,15 @@
-import type { LobbySnapshot } from "@anagrabble/protocol";
+import type { GameSnapshot } from "@anagrabble/protocol";
 import type { HistoryEntry } from "../../../hooks/useGameSocket";
 import { describeJoined, describePlay, playerName } from "./narration";
 import styles from "./HistorySection.module.css";
 import sharedStyles from "./shared.module.css";
 
 export function HistorySection({
-  lobby,
+  game,
   colors,
   history,
 }: {
-  lobby: LobbySnapshot;
+  game: GameSnapshot;
   colors: Map<string, string>;
   history: HistoryEntry[];
 }) {
@@ -21,9 +21,9 @@ export function HistorySection({
           <span className={sharedStyles.wordsEmpty}>Nothing has happened yet.</span>
         ) : (
           [...history].reverse().map((entry) => {
-            const name = playerName(lobby, entry.playerId);
+            const name = playerName(game, entry.playerId);
             const text =
-              entry.kind === "wordPlay" ? describePlay(name, lobby, entry) : describeJoined(name);
+              entry.kind === "wordPlay" ? describePlay(name, game, entry) : describeJoined(name);
             return (
               <div key={entry.seq} className={styles.historyEntry}>
                 <span

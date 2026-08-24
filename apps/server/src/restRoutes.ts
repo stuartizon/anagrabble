@@ -107,6 +107,7 @@ export async function registerRestRoutes(
         gameId: request.params.gameId,
         playerId: result.playerId,
         lobby: result.body,
+        game: result.body,
       });
     }
     return reply.code(result.status).send(result.body);

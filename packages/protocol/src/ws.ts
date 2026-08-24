@@ -31,6 +31,10 @@ export interface PongEvent extends BaseEvent {
    * else's presence, without a separate server-initiated broadcast on every
    * heartbeat tick. Absent for a viewer who hasn't joined/isn't seated. */
   lobby?: LobbySnapshot;
+  /** Same value as `lobby` — additive field, mid-rollout (see
+   * docs/decisions.md "Lobby -> Game wire rename"). `lobby` drops once the
+   * contract half of that rollout lands; `game` is the field to read. */
+  game?: GameSnapshot;
 }
 
 // --- Game state shape ---
@@ -56,13 +60,13 @@ export interface PlayerState {
   /** Epoch ms of the last heartbeat/command received from this player's
    * connection — persisted, never sent to clients directly (clock-skew
    * sensitive). "Reachable" is derived from it at read time rather than
-   * tracked via a scheduled timer — see apps/server/src/lobby.ts's
+   * tracked via a scheduled timer — see apps/server/src/gameSession.ts's
    * `isReachable` and docs/decisions.md "Player presence:
    * connected/disconnected tracking". Absent for a player who has never
    * connected (shouldn't happen in practice — set on join/create). */
   lastSeenAt?: number;
-  /** Derived, wire-only — computed fresh into every LobbySnapshot
-   * (apps/server/src/lobby.ts's `toLobbySnapshot`), never persisted
+  /** Derived, wire-only — computed fresh into every GameSnapshot
+   * (apps/server/src/gameSession.ts's `toGameSnapshot`), never persisted
    * alongside `lastSeenAt` in Redis. Absent from an older server's
    * snapshot during a rollout window; treat as `"connected"`. */
   presence?: "connected" | "disconnected";
@@ -99,6 +103,12 @@ export interface LobbySnapshot extends GameState {
   gameId: string;
   hostId: string;
 }
+
+/** Alias for `LobbySnapshot`, mid-rollout (see docs/decisions.md "Lobby ->
+ * Game wire rename"). `LobbySnapshot` is a temporary re-export during the
+ * expand phase; `GameSnapshot` is the name that survives the contract
+ * phase, so prefer it in new code. */
+export type GameSnapshot = LobbySnapshot;
 
 export interface JoinGameCommand extends BaseCommand {
   type: "JoinGame";
@@ -161,12 +171,16 @@ export interface PlayerJoinedEvent extends BaseEvent {
   type: "PlayerJoined";
   player: PlayerState;
   lobby: LobbySnapshot;
+  /** Same value as `lobby` — see `PongEvent.game`'s doc comment. */
+  game: GameSnapshot;
 }
 
 export interface PlayerLeftEvent extends BaseEvent {
   type: "PlayerLeft";
   playerId: string;
   lobby: LobbySnapshot;
+  /** Same value as `lobby` — see `PongEvent.game`'s doc comment. */
+  game: GameSnapshot;
 }
 
 /** Full-state sync — sent on WS connect (when the URL names a game), right
@@ -175,16 +189,32 @@ export interface PlayerLeftEvent extends BaseEvent {
 export interface LobbyStateEvent extends BaseEvent {
   type: "LobbyState";
   lobby: LobbySnapshot;
+  /** Same value as `lobby` — see `PongEvent.game`'s doc comment. */
+  game: GameSnapshot;
+}
+
+/** Same full-state sync as `LobbyStateEvent`, under the wire name this
+ * rollout is moving to (see docs/decisions.md "Lobby -> Game wire rename").
+ * Not yet emitted by the server — added ahead of time in the expand phase
+ * so the contract phase can flip `LobbyStateEvent`'s `type` value over
+ * without a third rollout. */
+export interface GameSnapshotEvent extends BaseEvent {
+  type: "GameSnapshot";
+  game: GameSnapshot;
 }
 
 export interface GameStartedEvent extends BaseEvent {
   type: "GameStarted";
   lobby: LobbySnapshot;
+  /** Same value as `lobby` — see `PongEvent.game`'s doc comment. */
+  game: GameSnapshot;
 }
 
 export interface TileTurnedEvent extends BaseEvent {
   type: "TileTurned";
   lobby: LobbySnapshot;
+  /** Same value as `lobby` — see `PongEvent.game`'s doc comment. */
+  game: GameSnapshot;
 }
 
 /** The idle countdown (see CLAUDE.md "Game-end condition") expired with no
@@ -193,6 +223,8 @@ export interface TileTurnedEvent extends BaseEvent {
 export interface GameEndedEvent extends BaseEvent {
   type: "GameEnded";
   lobby: LobbySnapshot;
+  /** Same value as `lobby` — see `PongEvent.game`'s doc comment. */
+  game: GameSnapshot;
 }
 
 /** A claimed word this play consumed — either stolen from another player or
@@ -216,6 +248,8 @@ export interface WordPlayedEvent extends BaseEvent {
   usedWords: UsedWord[];
   usedPoolLetters: string[];
   lobby: LobbySnapshot;
+  /** Same value as `lobby` — see `PongEvent.game`'s doc comment. */
+  game: GameSnapshot;
 }
 
 export interface ErrorEvent {
@@ -254,6 +288,7 @@ export type Event =
   | PlayerJoinedEvent
   | PlayerLeftEvent
   | LobbyStateEvent
+  | GameSnapshotEvent
   | GameStartedEvent
   | TileTurnedEvent
   | WordPlayedEvent

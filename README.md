@@ -120,7 +120,7 @@ Runs each package's unit/component/integration test suite: Vitest unit and
 property-based (fast-check) tests for the tile bag and word-decomposition
 search in `packages/game`, real-Redis integration tests for the
 `apply_turn_tile`/`apply_submit_word` Lua scripts in `packages/redis` and for
-the lobby/game modules in `apps/server` (spins up a container via
+the gameSession/game modules in `apps/server` (spins up a container via
 testcontainers — needs Docker), and mocked component tests for `apps/web`.
 
 ```bash

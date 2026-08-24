@@ -20,7 +20,7 @@
 
 /* The default word (LOADING, 7 letters) at md size (48px tile + 6px gap)
    needs 7*48 + 6*6 = 372px, plus PageContent's 40px horizontal
-   padding (StatsPage/SettingsPage/LobbyPage all render this directly
+   padding (StatsPage/SettingsPage/GamePage all render this directly
    inside PageContent, no Card padding) — 412px of viewport. 480px
    gives that comfortable margin; below it, this overrides the rendered
    tiles down to LetterTile's own sm dimensions (LetterTile.module.css's

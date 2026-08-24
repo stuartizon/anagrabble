@@ -15,7 +15,7 @@
 -- out correctly: it already tolerates the same word string appearing more
 -- than once in a player's `words`.
 --
--- KEYS[1] state, KEYS[2] seq, KEYS[3] cmds (see lobby.ts key builders).
+-- KEYS[1] state, KEYS[2] seq, KEYS[3] cmds (see gameSession.ts key builders).
 -- ARGV[1] commandId, ARGV[2] submitterId, ARGV[3] now (ms), ARGV[4] cmds TTL
 -- (s), ARGV[5] word (exact string to store), ARGV[6] usedWords JSON
 -- (`[{"word":..,"ownerId":..}]`, as read from state at search time), ARGV[7]

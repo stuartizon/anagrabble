@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { LobbySnapshot } from "@anagrabble/protocol";
+import type { GameSnapshot } from "@anagrabble/protocol";
 import type {
   GameSocketError,
   TileTurnNarration,
@@ -12,7 +12,7 @@ import { errorText, narrateOwnPlay } from "./narration";
 const MESSAGE_DISMISS_MS = 2500;
 
 interface UseWordFeedbackArgs {
-  lobby: LobbySnapshot;
+  game: GameSnapshot;
   playerId: string;
   wordPlay: WordPlayNarration | null;
   tileTurn: TileTurnNarration | null;
@@ -28,7 +28,7 @@ interface UseWordFeedbackArgs {
 // given commandId tried to play, so an asynchronous rejection can still name
 // the right word even after the input's been cleared.
 export function useWordFeedback({
-  lobby,
+  game,
   playerId,
   wordPlay,
   tileTurn,
@@ -38,12 +38,12 @@ export function useWordFeedback({
 }: UseWordFeedbackArgs) {
   const [message, setMessage] = useState<string | null>(null);
   // Read inside the wordPlay effect via ref rather than as a dependency —
-  // lobby gets a new object on every TileTurned/etc. too, and the toast must
+  // game gets a new object on every TileTurned/etc. too, and the toast must
   // only (re)trigger when wordPlay itself changes, not on unrelated snapshot
   // updates (that previously reopened a just-dismissed toast on the next
   // tile turn).
-  const lobbyRef = useRef(lobby);
-  lobbyRef.current = lobby;
+  const gameRef = useRef(game);
+  gameRef.current = game;
   // The input is cleared optimistically on submit, so by the time an Error
   // event comes back asynchronously, the submitted word itself no longer
   // has what was attempted. Keyed by commandId (round-tripped on
@@ -77,7 +77,7 @@ export function useWordFeedback({
     // same slot as this player's own errors. See docs/decisions.md "Toasts
     // are personal, not broadcast narration".
     if (!wordPlay || wordPlay.playerId !== playerId) return;
-    setMessage(narrateOwnPlay(lobbyRef.current, wordPlay));
+    setMessage(narrateOwnPlay(gameRef.current, wordPlay));
     const timer = setTimeout(() => setMessage(null), MESSAGE_DISMISS_MS);
     return () => clearTimeout(timer);
   }, [wordPlay, playerId]);
@@ -88,14 +88,14 @@ export function useWordFeedback({
       ? (pendingWordsRef.current.get(error.commandId) ?? "")
       : "";
     if (error.commandId) pendingWordsRef.current.delete(error.commandId);
-    const text = errorText(error.code, lobby.config.minWordLength, attemptedWord, error.message);
+    const text = errorText(error.code, game.config.minWordLength, attemptedWord, error.message);
     if (text === null) return;
     playSound("wordRejected");
     vibrate("wordRejected");
     setMessage(text);
     const timer = setTimeout(() => setMessage(null), MESSAGE_DISMISS_MS);
     return () => clearTimeout(timer);
-  }, [error, lobby.config.minWordLength, playSound, vibrate]);
+  }, [error, game.config.minWordLength, playSound, vibrate]);
 
   const registerAttempt = (commandId: string, word: string) => {
     pendingWordsRef.current.set(commandId, word);

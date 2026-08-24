@@ -9,7 +9,7 @@
 import { WebSocket } from "ws";
 import { applyPresence, type Redis } from "@anagrabble/redis";
 import type { Event } from "@anagrabble/protocol";
-import { stateKey, toLobbySnapshot } from "./lobby.js";
+import { stateKey, toGameSnapshot } from "./gameSession.js";
 
 const GAME_CHANNEL = "game:events";
 
@@ -68,11 +68,13 @@ export async function createBroadcaster(redis: Redis): Promise<Broadcaster> {
     applyPresence(redis, { stateKey: stateKey(gameId), playerId, lastSeenAt: 0 })
       .then((result) => {
         if ("error" in result) return;
+        const snapshot = toGameSnapshot(gameId, result.state);
         return publish({
           type: "LobbyState",
           seq: result.state.seq,
           gameId,
-          lobby: toLobbySnapshot(gameId, result.state),
+          lobby: snapshot,
+          game: snapshot,
         });
       })
       .catch((err) => console.error("[ws] error marking presence stale on close", err));

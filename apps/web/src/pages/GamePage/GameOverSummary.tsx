@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import type { LobbySnapshot } from "@anagrabble/protocol";
+import type { GameSnapshot } from "@anagrabble/protocol";
 import { Header } from "../../components/Header";
 import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
@@ -8,7 +8,7 @@ import { assignPlayerColors } from "../../utils/playerColors";
 import styles from "./GameOverSummary.module.css";
 
 // Matches design-system/Game Over.dc.html: a final-scores card replacing
-// GameBoard entirely once lobby.status === "ended" (see LobbyPage), rather
+// GameBoard entirely once game.status === "ended" (see GamePage), rather
 // than an overlay on top of the board — the tile pool/turn timer have
 // nothing left to say once the idle countdown has expired (CLAUDE.md
 // "Game-end condition"). PlayerState.words/score are already exactly what's
@@ -25,8 +25,8 @@ interface RankedPlayer {
 
 /** Standard competition ranking (1, 1, 3 — not 1, 2, 3) so a tie is never
  * drawn as if one player edged out the other. */
-function rankPlayers(lobby: LobbySnapshot, colors: Map<string, string>): RankedPlayer[] {
-  const sorted = [...lobby.players].sort((a, b) => b.score - a.score);
+function rankPlayers(game: GameSnapshot, colors: Map<string, string>): RankedPlayer[] {
+  const sorted = [...game.players].sort((a, b) => b.score - a.score);
   const ranked: RankedPlayer[] = [];
   sorted.forEach((p, i) => {
     const rank = i > 0 && sorted[i - 1].score === p.score ? ranked[i - 1].rank : i + 1;
@@ -56,14 +56,14 @@ function winnerLine(ranked: RankedPlayer[]): string {
 }
 
 interface GameOverSummaryProps {
-  lobby: LobbySnapshot;
+  game: GameSnapshot;
   playerId: string;
 }
 
-export function GameOverSummary({ lobby, playerId }: GameOverSummaryProps) {
+export function GameOverSummary({ game, playerId }: GameOverSummaryProps) {
   const navigate = useNavigate();
-  const colors = assignPlayerColors(lobby.players, playerId);
-  const ranked = rankPlayers(lobby, colors);
+  const colors = assignPlayerColors(game.players, playerId);
+  const ranked = rankPlayers(game, colors);
 
   return (
     <PageShell>

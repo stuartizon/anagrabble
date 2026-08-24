@@ -1,8 +1,8 @@
-import type { LobbySnapshot, UsedWord } from "@anagrabble/protocol";
+import type { GameSnapshot, UsedWord } from "@anagrabble/protocol";
 import type { WordPlayNarration } from "../../../hooks/useGameSocket";
 
-export function playerName(lobby: LobbySnapshot, playerId: string): string {
-  return lobby.players.find((p) => p.id === playerId)?.name ?? "Someone";
+export function playerName(game: GameSnapshot, playerId: string): string {
+  return game.players.find((p) => p.id === playerId)?.name ?? "Someone";
 }
 
 /** "You stole CAT from Sam -> CAST" (or, for a history row, "Ash stole CAT
@@ -20,13 +20,13 @@ export function playerName(lobby: LobbySnapshot, playerId: string): string {
  * with no prior word just says "played". */
 export function describePlay(
   actorLabel: string,
-  lobby: LobbySnapshot,
+  game: GameSnapshot,
   play: { playerId: string; word: string; usedWords: UsedWord[] },
 ): string {
   const isSteal = play.usedWords.some((w) => w.ownerId !== play.playerId);
   if (isSteal) {
     const parts = play.usedWords.map((w) =>
-      w.ownerId === play.playerId ? w.word : `${w.word} from ${playerName(lobby, w.ownerId)}`,
+      w.ownerId === play.playerId ? w.word : `${w.word} from ${playerName(game, w.ownerId)}`,
     );
     return `${actorLabel} stole ${parts.join(" + ")} → ${play.word}`;
   }
@@ -37,8 +37,8 @@ export function describePlay(
   return `${actorLabel} played ${play.word}`;
 }
 
-export function narrateOwnPlay(lobby: LobbySnapshot, play: WordPlayNarration): string {
-  return describePlay("You", lobby, play);
+export function narrateOwnPlay(game: GameSnapshot, play: WordPlayNarration): string {
+  return describePlay("You", game, play);
 }
 
 export function describeJoined(name: string): string {

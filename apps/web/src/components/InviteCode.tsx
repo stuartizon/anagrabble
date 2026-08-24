@@ -3,7 +3,7 @@ import { useCopyLink } from "../hooks/useCopyLink";
 import styles from "./InviteCode.module.css";
 
 // Matches design-system/InviteCode.dc.html — replaces the earlier
-// link-text-only treatment (InviteLinkRow, and LobbyPage's own inline
+// link-text-only treatment (InviteLinkRow, and GamePage's own inline
 // variant) with the short human-shareable code (games.ts's makeGameId())
 // plus a "Copy link"/"Link copied" text button, workshopped in Claude
 // Design. The "Invite code" label is fixed, not parameterized — every

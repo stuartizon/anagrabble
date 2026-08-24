@@ -21,7 +21,7 @@ export interface ApplyTurnTileArgs extends ApplyTurnTileKeys {
   /** See TurnTileCommand in @anagrabble/protocol — omitted (undefined/null)
    * for a manual current-player click, which should always succeed. */
   observedTurnDeadline?: number | null;
-  /** apps/server/src/lobby.ts's PRESENCE_STALE_MS — passed in rather than
+  /** apps/server/src/gameSession.ts's PRESENCE_STALE_MS — passed in rather than
    * duplicated as a Lua literal, since Redis's sandboxed Lua can't read a
    * config file or env var itself. */
   presenceStaleMs: number;

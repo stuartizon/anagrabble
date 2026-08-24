@@ -1,6 +1,6 @@
 import type { PlayerState } from "@anagrabble/protocol";
 
-/** Copy for a not-currently-connected player's badge — LobbyPage.tsx and
+/** Copy for a not-currently-connected player's badge — GamePage.tsx and
  * GameBoard.tsx share this so the two player-list renderings can't drift.
  * "Disconnected", not "Reconnecting…": the latter implies an active,
  * likely-to-succeed-soon process, which isn't knowable — this could just

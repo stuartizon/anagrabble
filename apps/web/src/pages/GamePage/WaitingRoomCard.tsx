@@ -1,4 +1,4 @@
-import type { LobbySnapshot } from "@anagrabble/protocol";
+import type { GameSnapshot } from "@anagrabble/protocol";
 import { Header } from "../../components/Header";
 import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
@@ -13,7 +13,7 @@ import styles from "./WaitingRoomCard.module.css";
 import sharedStyles from "./shared.module.css";
 
 interface WaitingRoomCardProps {
-  lobby: LobbySnapshot;
+  game: GameSnapshot;
   playerId: string;
   status: SocketStatus;
   gameId: string;
@@ -30,10 +30,10 @@ interface WaitingRoomCardProps {
 // The pre-start waiting room: share link, game config, player roster, and
 // whichever of Start/Join/Leave applies to the viewer. Also doubles as the
 // invite-link destination for a guest who hasn't joined yet — see
-// LobbyPage/index.tsx's top-of-file comment for why there's no separate
+// GamePage/index.tsx's top-of-file comment for why there's no separate
 // preview screen.
 export function WaitingRoomCard({
-  lobby,
+  game,
   playerId,
   status,
   shareLink,
@@ -46,9 +46,9 @@ export function WaitingRoomCard({
   onJoin,
   onLeave,
 }: WaitingRoomCardProps) {
-  const colors = assignPlayerColors(lobby.players, playerId);
-  const isHost = playerId === lobby.hostId;
-  const isJoined = lobby.players.some((p) => p.id === playerId);
+  const colors = assignPlayerColors(game.players, playerId);
+  const isHost = playerId === game.hostId;
+  const isJoined = game.players.some((p) => p.id === playerId);
   const isUnjoinedGuest = !isHost && !isJoined;
   const canJoin = status === "open";
 
@@ -71,13 +71,13 @@ export function WaitingRoomCard({
               <InviteCode code={gameId} shareLink={shareLink} />
             </div>
 
-            <GameConfigList config={lobby.config} />
+            <GameConfigList config={game.config} />
 
             <div className={sharedStyles.rulesLinkRow}>
               <RulesLink />
             </div>
 
-            <PlayerList players={lobby.players} colors={colors} />
+            <PlayerList players={game.players} colors={colors} />
 
             {isHost && (
               <>

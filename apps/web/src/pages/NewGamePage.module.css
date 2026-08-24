@@ -21,7 +21,7 @@
 
 /* Positive margin, not the design mock's -8px (which pulled the link
    tight up against the field stack) — matches the breathing room
-   LobbyPage.module.css's own .rulesLinkRow gets from configList's
+   GamePage/shared.module.css's own .rulesLinkRow gets from configList's
    margin-bottom, so the link doesn't read as cramped here specifically. */
 .rulesLinkRow {
   margin-top: 16px;

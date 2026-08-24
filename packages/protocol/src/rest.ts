@@ -54,16 +54,16 @@ export interface PlayerSettingsResponse {
  * `gameId`: standard REST semantics, the
  * server assigns and returns the resource's identity (see
  * docs/decisions.md "CreateGame as a REST endpoint"). `commandId`:
- * `createGame()` (apps/server/src/lobby.ts) records one as part of its
- * per-game command-dedup set regardless of caller, but that dedup logic
+ * `createGame()` (apps/server/src/gameSession.ts) records one as part of
+ * its per-game command-dedup set regardless of caller, but that dedup logic
  * only ever matters when a caller might legitimately resubmit the exact
  * same `gameId`+`commandId` pair (WS's genuine fire-and-forget
  * retry/reconnect case) — REST's collision-retry loop never reuses a
  * `gameId` across attempts, so a fresh server-generated `commandId` (never
  * matching anything already recorded) produces identical, correct
  * behavior to a client-supplied one. Response is the created game's
- * LobbySnapshot (ws.ts) — no separate response type needed, it's the same
- * shape the WS path already produces via toLobbySnapshot(). */
+ * GameSnapshot (ws.ts) — no separate response type needed, it's the same
+ * shape the WS path already produces via toGameSnapshot(). */
 export interface CreateGameRequest {
   hostName: string;
   config: GameConfig;

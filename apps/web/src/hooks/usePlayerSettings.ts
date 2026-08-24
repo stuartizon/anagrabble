@@ -17,7 +17,7 @@ export type PlayerSettingsState =
   | { status: "error" }
   | { status: "loaded"; settings: PlayerSettingsResponse };
 
-// Shared by SettingsPage (its whole page) and LobbyPage (owns it for the
+// Shared by SettingsPage (its whole page) and GamePage (owns it for the
 // in-game mobile menu's "Your settings" section — anagrabble#40) — those two
 // call sites are never mounted simultaneously, so independent hook instances
 // are fine; there's nothing to keep in sync between them. See anagrabble#37

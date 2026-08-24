@@ -31,7 +31,7 @@ tile, `LPOP`ped one at a time by `TurnTile`) — see `packages/game/src/bag.ts`
 for the letter distribution and shuffle, and
 `packages/redis/src/scripts/apply_turn_tile.lua` for the script that pops it.
 It's a separate key rather than a `GameState` field specifically so it's
-never sent to clients: `GameState`/`LobbySnapshot` is the same shape sent
+never sent to clients: `GameState`/`GameSnapshot` is the same shape sent
 over the wire, and shipping the full remaining draw order would let a client
 see every future tile before it's revealed. `StartGame` seeds it (`RPUSH`,
 length = the full letter distribution) when the lobby transitions to
@@ -84,14 +84,14 @@ endGameDeadline`, the game auto-ends.
   alongside the rest of the player entry, but never sent to clients
   directly (clock-skew sensitive); what goes over the wire is a derived
   `presence: "connected" | "disconnected"` field, computed fresh into every
-  `LobbySnapshot`.
+  `GameSnapshot`.
 
 ## Presence
 
 Each `players[]` entry carries `lastSeenAt` (epoch ms, refreshed by a
 client heartbeat — see docs/decisions.md "Player presence:
 connected/disconnected tracking"). "Reachable" is derived at read time —
-`now - lastSeenAt < PRESENCE_STALE_MS` (`apps/server/src/lobby.ts`'s
+`now - lastSeenAt < PRESENCE_STALE_MS` (`apps/server/src/gameSession.ts`'s
 `isReachable`, mirrored in `apply_turn_tile.lua`'s deadline check) —
 rather than tracked via any scheduled timer, which is what makes it safe
 for any Node process to compute the same answer. There's no separate
@@ -119,7 +119,7 @@ There's no separate `hostId` field in the persisted state. The host is,
 by convention, the first **reachable** player in `players` (falling back to
 `players[0]` if nobody currently is) — whoever created the game, unless
 they've since gone quiet. This is derived, not stored, when building the
-wire-level `LobbySnapshot` (which does carry `hostId`, for client
+wire-level `GameSnapshot` (which does carry `hostId`, for client
 convenience, plus `gameId` since that's the Redis key rather than a field
 inside the blob).
 
@@ -131,7 +131,7 @@ game starts, host status migrates to the next reachable player automatically
 `players` just for going quiet; they reclaim host status themselves if they
 reconnect while nobody else has grabbed it. Removal from `players` pre-start
 only ever happens via an explicit `POST /games/:gameId/leave`
-(`lobby.ts`'s `leaveGame`, unchanged by the presence work — still a no-op
+(`gameSession.ts`'s `leaveGame`, unchanged by the presence work — still a no-op
 once `status !== "lobby"`) — never inferred from a disconnect.
 
 ## Player color

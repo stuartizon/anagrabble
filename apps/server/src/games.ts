@@ -1,15 +1,15 @@
 import type { Redis } from "@anagrabble/redis";
-import type { CreateGameRequest, LobbySnapshot } from "@anagrabble/protocol";
-import { createGame, leaveGame, loadGameState, toLobbySnapshot } from "./lobby.js";
+import type { CreateGameRequest, GameSnapshot } from "@anagrabble/protocol";
+import { createGame, leaveGame, loadGameState, toGameSnapshot } from "./gameSession.js";
 import { verifyMockSessionToken, verifySessionToken } from "./auth.js";
 
 export interface CreateGameRequestResult {
   status: 201 | 400 | 401 | 409 | 500;
-  body: LobbySnapshot | { error: string };
+  body: GameSnapshot | { error: string };
 }
 
 export type LeaveGameRequestResult =
-  | { status: 200; body: LobbySnapshot; playerId: string; removed: boolean }
+  | { status: 200; body: GameSnapshot; playerId: string; removed: boolean }
   | { status: 401 | 404; body: { error: string } };
 
 function parseBearerToken(authorizationHeader: string | undefined): string | null {
@@ -61,8 +61,8 @@ const MAX_GAME_ID_ATTEMPTS = 5;
 
 /** POST /games. Same framework-agnostic shape as stats.ts/settings.ts —
  * see settings.ts's comment for why. Delegates the actual mutation to
- * lobby.ts's createGame() (see docs/decisions.md "CreateGame as a REST
- * endpoint" — the WS `CreateGame` command this used to share the function
+ * gameSession.ts's createGame() (see docs/decisions.md "CreateGame as a
+ * REST endpoint" — the WS `CreateGame` command this used to share the function
  * with has since been removed). `body` is untyped (`unknown`)
  * since it comes straight from Fastify's JSON body parsing, validated here
  * before touching Redis (CLAUDE.md "never trusting client-shaped input"). */
@@ -113,8 +113,8 @@ export async function handleCreateGameRequest(
 /** POST /games/:gameId/leave — see docs/decisions.md "Player presence:
  * connected/disconnected tracking". A deliberate, explicit leave,
  * distinct from a connection dropping: no grace period, since nothing here
- * is inferred. Delegates to lobby.ts's leaveGame(). `LobbyPage.tsx` only
- * calls this endpoint pre-start now — mid-game it navigates away directly
+ * is inferred. Delegates to gameSession.ts's leaveGame(). `GamePage/index.tsx`
+ * only calls this endpoint pre-start now — mid-game it navigates away directly
  * without hitting this route, since a mid-game "leave" is just a socket
  * close (tracked via presence, not membership). `removed: false` on
  * success means leaveGame() no-opped — today that's only the rare race of
@@ -144,7 +144,7 @@ export async function handleLeaveGameRequest(
   if (!snapshot) {
     return {
       status: 200,
-      body: toLobbySnapshot(gameId, before),
+      body: toGameSnapshot(gameId, before),
       playerId: auth.userId,
       removed: false,
     };

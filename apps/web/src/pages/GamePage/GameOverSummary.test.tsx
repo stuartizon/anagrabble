@@ -3,7 +3,7 @@ import { MemoryRouter } from "react-router-dom";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import type { LobbySnapshot, PlayerState } from "@anagrabble/protocol";
+import type { GameSnapshot, PlayerState } from "@anagrabble/protocol";
 import { mockSignedOutClerk } from "../../testUtils/clerkTestMock";
 import { GameOverSummary } from "./GameOverSummary";
 
@@ -19,7 +19,7 @@ function player(overrides: Partial<PlayerState>): PlayerState {
   return { id: "p", name: "Player", words: [], score: 0, ...overrides };
 }
 
-function lobbySnapshot(players: PlayerState[]): LobbySnapshot {
+function gameSnapshot(players: PlayerState[]): GameSnapshot {
   return {
     gameId: "ABCDE",
     hostId: players[0]?.id ?? "p",
@@ -41,7 +41,7 @@ describe("GameOverSummary", () => {
     const me = player({ id: "me-1", name: "Me", score: 3, words: ["ARC"] });
     render(
       <MemoryRouter>
-        <GameOverSummary lobby={lobbySnapshot([me, sam])} playerId="me-1" />
+        <GameOverSummary game={gameSnapshot([me, sam])} playerId="me-1" />
       </MemoryRouter>,
     );
 
@@ -59,7 +59,7 @@ describe("GameOverSummary", () => {
     const lee = player({ id: "lee-1", name: "Lee", score: 2 });
     render(
       <MemoryRouter>
-        <GameOverSummary lobby={lobbySnapshot([sam, jo, lee])} playerId="sam-1" />
+        <GameOverSummary game={gameSnapshot([sam, jo, lee])} playerId="sam-1" />
       </MemoryRouter>,
     );
 
@@ -72,7 +72,7 @@ describe("GameOverSummary", () => {
     const me = player({ id: "me-1", name: "Me", score: 3 });
     render(
       <MemoryRouter>
-        <GameOverSummary lobby={lobbySnapshot([me])} playerId="me-1" />
+        <GameOverSummary game={gameSnapshot([me])} playerId="me-1" />
       </MemoryRouter>,
     );
 
@@ -84,7 +84,7 @@ describe("GameOverSummary", () => {
     const me = player({ id: "me-1", name: "Me", score: 3 });
     render(
       <MemoryRouter>
-        <GameOverSummary lobby={lobbySnapshot([me])} playerId="me-1" />
+        <GameOverSummary game={gameSnapshot([me])} playerId="me-1" />
       </MemoryRouter>,
     );
 

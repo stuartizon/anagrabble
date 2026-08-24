@@ -4,8 +4,8 @@
 // React, no mocked transport. See CLAUDE.md "Testing strategy" ("full WS
 // round-trip tests... once there's more than the lobby/gameplay slices to
 // exercise that way") and anagrabble#41 for why this exists alongside the
-// unit-level command tests in lobby.test.ts/game.test.ts and the Playwright
-// e2e suite: this is the only layer that exercises the actual `index.ts`
+// unit-level command tests in gameSession.test.ts/game.test.ts and the
+// Playwright e2e suite: this is the only layer that exercises the actual `index.ts`
 // wiring (Fastify + ws + Redis pub/sub fan-out) rather than the handler
 // functions in isolation.
 
@@ -22,7 +22,7 @@ import {
 } from "@anagrabble/postgres";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
-import type { Command, Event, HandshakeMessage, LobbySnapshot } from "@anagrabble/protocol";
+import type { Command, Event, GameSnapshot, HandshakeMessage } from "@anagrabble/protocol";
 import { createServer, type AnagrabbleServer } from "./server.js";
 
 const WEB_ORIGIN = "http://localhost:5173";
@@ -54,7 +54,7 @@ function trackSocket(socket: WebSocket): TrackedSocket {
   return tracked;
 }
 
-async function createGameViaRest(baseUrl: string, hostToken: string): Promise<LobbySnapshot> {
+async function createGameViaRest(baseUrl: string, hostToken: string): Promise<GameSnapshot> {
   const res = await fetch(`${baseUrl}/games`, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${hostToken}` },
@@ -63,7 +63,7 @@ async function createGameViaRest(baseUrl: string, hostToken: string): Promise<Lo
   if (res.status !== 201) {
     throw new Error(`create game failed: ${res.status} ${await res.text()}`);
   }
-  return (await res.json()) as LobbySnapshot;
+  return (await res.json()) as GameSnapshot;
 }
 
 function connect(baseUrl: string, gameId: string, token?: string): Promise<TrackedSocket> {
@@ -201,6 +201,11 @@ describe("server (WS round trip)", () => {
     const [hostStart, playerStart] = await Promise.all([hostSeesStart, playerSeesStart]);
     expect(hostStart.type === "GameStarted" && hostStart.lobby.status).toBe("playing");
     expect(playerStart.type === "GameStarted" && playerStart.lobby.status).toBe("playing");
+    // Expand-phase dual field (see docs/decisions.md "Lobby -> Game wire
+    // rename") — `game` must mirror `lobby` exactly while both are sent.
+    expect(hostStart.type === "GameStarted" && hostStart.game).toEqual(
+      hostStart.type === "GameStarted" && hostStart.lobby,
+    );
   });
 
   it("rejects a command with no verified session", async () => {

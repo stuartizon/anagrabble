@@ -37,7 +37,7 @@ import { WaitingRoomCard } from "./WaitingRoomCard";
 // navigation/remount to lean on) — see anagrabble#37's "`soundEnabled` and a
 // future in-game settings toggle" for why that matters.
 
-export function LobbyPage() {
+export function GamePage() {
   const { gameId = "" } = useParams();
   const navigate = useNavigate();
   const { userId, getToken } = useAuth();
@@ -66,7 +66,7 @@ export function LobbyPage() {
   const { vibrate } = useHaptics(hapticsEnabled);
   const playerSettings = settingsState.status === "loaded" ? settingsState.settings : null;
 
-  const { status, lobby, error, wordPlay, tileTurn, history, send } = useGameSocket(gameId);
+  const { status, game, error, wordPlay, tileTurn, history, send } = useGameSocket(gameId);
 
   const shareLink = `${window.location.origin}/${gameId}`;
 
@@ -93,17 +93,18 @@ export function LobbyPage() {
   // view below and, via GameBoard, from a live game (design-system/In
   // Game.dc.html's leave-game button/confirm dialog). Pre-start this hits
   // `POST /games/:gameId/leave` (-> `leaveGame` in
-  // apps/server/src/lobby.ts), which actually removes the player. Mid-game
-  // that endpoint is a no-op on the backend — nobody is ever removed once
-  // the game has started — so there's nothing worth a round trip for:
-  // navigating away closes the socket, which the server treats exactly like
-  // any other disconnect. (The backend no-op stays in place regardless, as
-  // a defensive no-op for the rare race where `lobby.status` here is still
-  // stale "open" from just before the host started the game.) See
+  // apps/server/src/gameSession.ts), which actually removes the player.
+  // Mid-game that endpoint is a no-op on the backend — nobody is ever
+  // removed once the game has started — so there's nothing worth a round
+  // trip for: navigating away closes the socket, which the server treats
+  // exactly like any other disconnect. (The backend no-op stays in place
+  // regardless, as a defensive no-op for the rare race where `game.status`
+  // here is still stale "open" from just before the host started the
+  // game.) See
   // docs/decisions.md "`left` presence state removed" for why there's
   // deliberately no distinct "left the game" state to set here.
   const leaveGame = async () => {
-    if (lobby?.status === "playing") {
+    if (game?.status === "playing") {
       navigate("/");
       return;
     }
@@ -128,7 +129,7 @@ export function LobbyPage() {
     return <GameNotFoundCard onBackHome={() => navigate("/")} />;
   }
 
-  if (!lobby) {
+  if (!game) {
     return (
       <PageShell>
         <Header />
@@ -143,22 +144,22 @@ export function LobbyPage() {
   // the pre-game waiting-room view below (share link, "Start game" button),
   // which makes no sense for a game that's already over — see
   // GameOverSummary, matching design-system/Game Over.dc.html.
-  if (lobby.status === "ended") {
-    return <GameOverSummary lobby={lobby} playerId={userId!} />;
+  if (game.status === "ended") {
+    return <GameOverSummary game={game} playerId={userId!} />;
   }
 
   // Recomputed independently by WaitingRoomCard/JoinInProgressCard from the
-  // same lobby/playerId/status they're given below — this copy exists only
+  // same game/playerId/status they're given below — this copy exists only
   // to decide which screen to render, not to be threaded through as props.
-  const isUnjoinedGuest = userId !== lobby.hostId && !lobby.players.some((p) => p.id === userId);
+  const isUnjoinedGuest = userId !== game.hostId && !game.players.some((p) => p.id === userId);
 
   // A guest who opens a mid-game invite link without ever calling JoinGame
   // is gated behind a join prompt rather than the live board — see
   // JoinInProgressCard's own comment for why.
-  if (lobby.status === "playing" && isUnjoinedGuest) {
+  if (game.status === "playing" && isUnjoinedGuest) {
     return (
       <JoinInProgressCard
-        lobby={lobby}
+        game={game}
         playerId={userId!}
         status={status}
         joining={joining}
@@ -167,10 +168,10 @@ export function LobbyPage() {
     );
   }
 
-  if (lobby.status === "playing") {
+  if (game.status === "playing") {
     return (
       <GameBoard
-        lobby={lobby}
+        game={game}
         playerId={userId!}
         send={send}
         error={error}
@@ -192,7 +193,7 @@ export function LobbyPage() {
 
   return (
     <WaitingRoomCard
-      lobby={lobby}
+      game={game}
       playerId={userId!}
       status={status}
       gameId={gameId}

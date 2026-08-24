@@ -1,9 +1,9 @@
 import type { Redis } from "@anagrabble/redis";
 import type {
   CreateGameRequest,
+  GameSnapshot,
   GameState,
   JoinGameCommand,
-  LobbySnapshot,
   PlayerState,
 } from "@anagrabble/protocol";
 
@@ -25,7 +25,8 @@ export const bagKey = (gameId: string) => `game:{${gameId}}:bag`;
 
 export const CMDS_TTL_SEC = 3600;
 
-export type LobbyError = "GameNotFound" | "GameIdTaken" | "GameAlreadyStarted" | "GameAlreadyEnded";
+export type GameSessionError =
+  "GameNotFound" | "GameIdTaken" | "GameAlreadyStarted" | "GameAlreadyEnded";
 
 /** How long without a heartbeat before a player is treated as unreachable.
  * Passed into apply_turn_tile.lua as an EVAL argument (see game.ts's
@@ -66,7 +67,12 @@ export function deriveHostId(state: GameState, now: number): string {
   return (state.players.find((p) => isReachable(p, now)) ?? state.players[0])?.id ?? "";
 }
 
-export function toLobbySnapshot(gameId: string, state: GameState, now = Date.now()): LobbySnapshot {
+/** Builds the wire-sent snapshot from the persisted `GameState` blob. Sets
+ * both `lobby` and `game` (same value) on the caller's behalf where those
+ * appear as event fields — see docs/decisions.md "Lobby -> Game wire
+ * rename" for why this dual-population is temporary, expand-phase-only
+ * scaffolding rather than a permanent shape. */
+export function toGameSnapshot(gameId: string, state: GameState, now = Date.now()): GameSnapshot {
   return {
     ...state,
     gameId,
@@ -80,12 +86,9 @@ export async function loadGameState(redis: Redis, gameId: string): Promise<GameS
   return raw ? (JSON.parse(raw) as GameState) : null;
 }
 
-export async function loadLobbySnapshot(
-  redis: Redis,
-  gameId: string,
-): Promise<LobbySnapshot | null> {
+export async function loadGameSnapshot(redis: Redis, gameId: string): Promise<GameSnapshot | null> {
   const state = await loadGameState(redis, gameId);
-  return state ? toLobbySnapshot(gameId, state) : null;
+  return state ? toGameSnapshot(gameId, state) : null;
 }
 
 /** Marks a commandId as processed for this game, so retries (reconnect,
@@ -123,12 +126,12 @@ export async function createGame(
   redis: Redis,
   cmd: CreateGameParams,
   hostId: string,
-): Promise<{ snapshot: LobbySnapshot } | { error: LobbyError }> {
+): Promise<{ snapshot: GameSnapshot } | { error: GameSessionError }> {
   const exists = await redis.exists(stateKey(cmd.gameId));
   if (exists) {
     const alreadyApplied = await markCommandSeen(redis, cmd.gameId, cmd.commandId);
     if (alreadyApplied) {
-      const snapshot = await loadLobbySnapshot(redis, cmd.gameId);
+      const snapshot = await loadGameSnapshot(redis, cmd.gameId);
       if (snapshot) return { snapshot };
     }
     return { error: "GameIdTaken" };
@@ -160,7 +163,7 @@ export async function createGame(
   multi.expire(cmdsKey(cmd.gameId), CMDS_TTL_SEC);
   await multi.exec();
 
-  return { snapshot: toLobbySnapshot(cmd.gameId, state) };
+  return { snapshot: toGameSnapshot(cmd.gameId, state) };
 }
 
 export async function joinGame(
@@ -168,7 +171,7 @@ export async function joinGame(
   cmd: JoinGameCommand,
   playerId: string,
 ): Promise<
-  { snapshot: LobbySnapshot; player: PlayerState; isNew: boolean } | { error: LobbyError }
+  { snapshot: GameSnapshot; player: PlayerState; isNew: boolean } | { error: GameSessionError }
 > {
   const state = await loadGameState(redis, cmd.gameId);
   if (!state) return { error: "GameNotFound" };
@@ -178,7 +181,7 @@ export async function joinGame(
 
   if (alreadySeen || existingPlayer) {
     return {
-      snapshot: toLobbySnapshot(cmd.gameId, state),
+      snapshot: toGameSnapshot(cmd.gameId, state),
       player: existingPlayer ?? state.players[0],
       isNew: false,
     };
@@ -198,7 +201,7 @@ export async function joinGame(
   const nextState: GameState = { ...state, seq, players: [...state.players, player] };
   await redis.set(stateKey(cmd.gameId), JSON.stringify(nextState));
 
-  return { snapshot: toLobbySnapshot(cmd.gameId, nextState), player, isNew: true };
+  return { snapshot: toGameSnapshot(cmd.gameId, nextState), player, isNew: true };
 }
 
 /** Removes a player from a not-yet-started lobby. The only caller today is
@@ -208,14 +211,14 @@ export async function joinGame(
  * mid-game, nobody is ever removed from `players[]`, connected or not —
  * that's the deliberate, permanent design (see docs/decisions.md "Player
  * presence: connected/disconnected tracking"), not a gap pending a future
- * mid-game leave. `LobbyPage.tsx` only calls this endpoint pre-start now;
- * this no-op branch mainly guards the rare race where a client's local game
- * status is still briefly stale right as the host starts the game. */
+ * mid-game leave. `GamePage/index.tsx` only calls this endpoint pre-start
+ * now; this no-op branch mainly guards the rare race where a client's local
+ * game status is still briefly stale right as the host starts the game. */
 export async function leaveGame(
   redis: Redis,
   gameId: string,
   playerId: string,
-): Promise<LobbySnapshot | null> {
+): Promise<GameSnapshot | null> {
   const state = await loadGameState(redis, gameId);
   if (!state || state.status !== "lobby") return null;
 
@@ -230,5 +233,5 @@ export async function leaveGame(
   };
   await redis.set(stateKey(gameId), JSON.stringify(nextState));
 
-  return toLobbySnapshot(gameId, nextState);
+  return toGameSnapshot(gameId, nextState);
 }

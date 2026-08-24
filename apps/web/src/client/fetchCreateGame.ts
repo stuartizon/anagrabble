@@ -1,4 +1,4 @@
-import type { CreateGameRequest, LobbySnapshot } from "@anagrabble/protocol";
+import type { CreateGameRequest, GameSnapshot } from "@anagrabble/protocol";
 import { API_URL } from "../env";
 
 /** Thrown with the server's error code (e.g. "Unauthorized") rather than a
@@ -12,10 +12,7 @@ export class CreateGameError extends Error {
   }
 }
 
-export async function createGame(
-  token: string,
-  request: CreateGameRequest,
-): Promise<LobbySnapshot> {
+export async function createGame(token: string, request: CreateGameRequest): Promise<GameSnapshot> {
   const res = await fetch(`${API_URL}/games`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },

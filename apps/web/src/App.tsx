@@ -2,7 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { HomePage } from "./pages/HomePage";
 import { RulesPage } from "./pages/RulesPage";
 import { NewGamePage } from "./pages/NewGamePage";
-import { LobbyPage } from "./pages/LobbyPage";
+import { GamePage } from "./pages/GamePage";
 import { StatsPage } from "./pages/StatsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -45,7 +45,7 @@ export function App() {
           path="/:gameId"
           element={
             <RequireAuth>
-              <LobbyPage />
+              <GamePage />
             </RequireAuth>
           }
         />

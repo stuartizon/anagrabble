@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import type { LobbySnapshot } from "@anagrabble/protocol";
+import type { GameSnapshot } from "@anagrabble/protocol";
 import { presenceLabel } from "../../../utils/presenceLabel";
 import { cx } from "../../../utils/cx";
 import styles from "./PlayersSection.module.css";
@@ -19,16 +19,16 @@ import sharedStyles from "./shared.module.css";
  * see anagrabble#40's follow-up) — so each call site renders `InviteCode`
  * itself, wherever it belongs for that surface. */
 export function PlayersSection({
-  lobby,
+  game,
   colors,
 }: {
-  lobby: LobbySnapshot;
+  game: GameSnapshot;
   colors: Map<string, string>;
 }) {
   return (
     <div className={styles.playersSection}>
       <div className={sharedStyles.poolLabel}>Players</div>
-      {lobby.players.map((p) => {
+      {game.players.map((p) => {
         const label = presenceLabel(p.presence);
         // Design (In Game.dc.html) hollows out the swatch to a colored
         // ring rather than fully greying it out, so the player's color

@@ -1,4 +1,4 @@
-import type { LobbySnapshot, PlayerState } from "@anagrabble/protocol";
+import type { GameSnapshot, PlayerState } from "@anagrabble/protocol";
 import { LetterTile } from "../../../components/LetterTile";
 import { TurnTileButton } from "../../../components/TurnTileButton";
 import { EndGameCountdown } from "../../../components/EndGameCountdown";
@@ -12,7 +12,7 @@ import sharedStyles from "./shared.module.css";
 const IDLE_TIMEOUT_SEC = 60;
 
 interface BoardSectionProps {
-  lobby: LobbySnapshot;
+  game: GameSnapshot;
   colors: Map<string, string>;
   playerId: string;
   currentPlayer: PlayerState | undefined;
@@ -27,7 +27,7 @@ interface BoardSectionProps {
 // viewer's own) — the part of the screen that actually changes as tiles
 // get turned and words get claimed.
 export function BoardSection({
-  lobby,
+  game,
   colors,
   playerId,
   currentPlayer,
@@ -37,15 +37,15 @@ export function BoardSection({
   endGameSecondsLeft,
   onTurnTile,
 }: BoardSectionProps) {
-  const me = lobby.players.find((p) => p.id === playerId);
-  const others = lobby.players.filter((p) => p.id !== playerId);
+  const me = game.players.find((p) => p.id === playerId);
+  const others = game.players.filter((p) => p.id !== playerId);
 
   return (
     <div className={styles.board}>
       <div>
         <div className={styles.poolHeader}>
           <div className={styles.poolHeaderLabel}>Upturned tiles</div>
-          {lobby.bankCount <= 0 ? (
+          {game.bankCount <= 0 ? (
             endGameDeadline !== null ? (
               <EndGameCountdown secondsLeft={endGameSecondsLeft} totalSeconds={IDLE_TIMEOUT_SEC} />
             ) : (
@@ -54,7 +54,7 @@ export function BoardSection({
           ) : isCurrentPlayer ? (
             <TurnTileButton
               secondsLeft={secondsLeft}
-              totalSeconds={lobby.config.turnTimerSec}
+              totalSeconds={game.config.turnTimerSec}
               onClick={onTurnTile}
             />
           ) : (
@@ -62,13 +62,13 @@ export function BoardSection({
           )}
         </div>
         <div className={styles.poolTiles}>
-          {lobby.pool.length === 0 &&
-            (lobby.players.some((p) => p.words.length > 0) ? (
+          {game.pool.length === 0 &&
+            (game.players.some((p) => p.words.length > 0) ? (
               <span className={styles.poolEmpty}>All tiles claimed.</span>
             ) : (
               <span className={styles.poolEmpty}>No tiles turned yet.</span>
             ))}
-          {lobby.pool.map((letter, i) => (
+          {game.pool.map((letter, i) => (
             <LetterTile key={i} letter={letter} />
           ))}
         </div>

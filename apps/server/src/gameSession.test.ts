@@ -1,20 +1,20 @@
 // Integration tests against a real Redis (not a mock) — see CLAUDE.md
-// "Testing strategy". lobby.ts is real, deployed logic (the lobby vertical
-// slice), so this exercises actual behavior: idempotency dedup, seq
-// increments, and the documented state-machine transitions, against the
+// "Testing strategy". gameSession.ts is real, deployed logic (the lobby
+// vertical slice), so this exercises actual behavior: idempotency dedup,
+// seq increments, and the documented state-machine transitions, against the
 // same redis:7-alpine image infrastructure/docker-compose.yml uses.
 
 import { RedisContainer, type StartedRedisContainer } from "@testcontainers/redis";
 import { createRedisClient, type Redis } from "@anagrabble/redis";
-import type { GameState, JoinGameCommand, LobbySnapshot } from "@anagrabble/protocol";
+import type { GameSnapshot, GameState, JoinGameCommand } from "@anagrabble/protocol";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   createGame,
   joinGame,
   leaveGame,
-  loadLobbySnapshot,
+  loadGameSnapshot,
   type CreateGameParams,
-} from "./lobby.js";
+} from "./gameSession.js";
 
 const CONFIG = { turnTimerSec: 30, minWordLength: 3, language: "en" };
 const HOST_ID = "host-1";
@@ -40,7 +40,7 @@ function joinGameCommand(overrides: Partial<JoinGameCommand> = {}): JoinGameComm
   };
 }
 
-describe("lobby", () => {
+describe("gameSession", () => {
   let container: StartedRedisContainer;
   let redis: Redis;
 
@@ -64,7 +64,7 @@ describe("lobby", () => {
       const result = await createGame(redis, createGameCommand(), HOST_ID);
 
       expect(result).not.toHaveProperty("error");
-      const { snapshot } = result as { snapshot: LobbySnapshot };
+      const { snapshot } = result as { snapshot: GameSnapshot };
       expect(snapshot.status).toBe("lobby");
       expect(snapshot.hostId).toBe("host-1");
       expect(snapshot.players).toEqual([expect.objectContaining({ id: "host-1", name: "Host" })]);
@@ -105,7 +105,7 @@ describe("lobby", () => {
         isNew: true,
         player: { id: "player-2", name: "Player Two" },
       });
-      const { snapshot } = result as { snapshot: LobbySnapshot };
+      const { snapshot } = result as { snapshot: GameSnapshot };
       expect(snapshot.players.map((p) => p.id)).toEqual(["host-1", "player-2"]);
       expect(snapshot.seq).toBe(1);
     });
@@ -117,7 +117,7 @@ describe("lobby", () => {
       const result = await joinGame(redis, cmd, PLAYER_ID);
 
       expect(result).toMatchObject({ isNew: false });
-      const { snapshot } = result as { snapshot: LobbySnapshot };
+      const { snapshot } = result as { snapshot: GameSnapshot };
       expect(snapshot.players).toHaveLength(2);
     });
 
@@ -131,7 +131,7 @@ describe("lobby", () => {
         isNew: true,
         player: { id: "player-2", name: "Player Two", score: 0, words: [] },
       });
-      const { snapshot } = result as { snapshot: LobbySnapshot };
+      const { snapshot } = result as { snapshot: GameSnapshot };
       expect(snapshot.players.map((p) => p.id)).toEqual(["host-1", "player-2"]);
     });
 
@@ -180,7 +180,7 @@ describe("lobby", () => {
       await createGame(redis, createGameCommand(), HOST_ID);
       await joinGame(redis, joinGameCommand(), PLAYER_ID);
 
-      const snapshot = await loadLobbySnapshot(redis, "game-1");
+      const snapshot = await loadGameSnapshot(redis, "game-1");
 
       expect(snapshot?.players).toEqual([
         expect.objectContaining({ id: "host-1", presence: "connected" }),
@@ -198,7 +198,7 @@ describe("lobby", () => {
         ),
       }));
 
-      const snapshot = await loadLobbySnapshot(redis, "game-1");
+      const snapshot = await loadGameSnapshot(redis, "game-1");
 
       expect(snapshot?.hostId).toBe(PLAYER_ID);
       expect(snapshot?.players.map((p) => p.id)).toEqual([HOST_ID, PLAYER_ID]);
@@ -213,7 +213,7 @@ describe("lobby", () => {
         players: state.players.map((p) => ({ ...p, lastSeenAt: Date.now() - 25_000 })),
       }));
 
-      const snapshot = await loadLobbySnapshot(redis, "game-1");
+      const snapshot = await loadGameSnapshot(redis, "game-1");
 
       expect(snapshot?.hostId).toBe(HOST_ID);
     });

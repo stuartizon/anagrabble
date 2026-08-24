@@ -1,4 +1,4 @@
-/* Typographic primitives shared by more than one LobbyPage screen
+/* Typographic primitives shared by more than one GamePage screen
    (GameNotFoundCard/JoinInProgressCard/WaitingRoomCard) — kept here rather
    than duplicated per-file so they can't silently drift apart. Anything
    used by exactly one screen lives in that screen's own .module.css

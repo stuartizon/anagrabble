@@ -1,6 +1,6 @@
 // Shared page-shell primitives — identical inline style blocks were
 // previously duplicated verbatim across NewGamePage and every branch of
-// LobbyPage (error / loading / main).
+// GamePage (error / loading / main).
 
 import type { ReactNode } from "react";
 import styles from "./Layout.module.css";

@@ -9,7 +9,7 @@ import { useGameSounds } from "../../hooks/useGameSounds";
 import { useHaptics } from "../../hooks/useHaptics";
 import { usePlayerSettings } from "../../hooks/usePlayerSettings";
 import { getDisplayName } from "../../utils/clerkDisplayName";
-import { makeCommandId } from "../../utils/gameId";
+import { makeCommandId } from "../../utils/commandId";
 import { leaveGame as leaveGameRequest } from "../../client/fetchLeaveGame";
 import { GameBoard } from "./GameBoard";
 import { GameOverSummary } from "./GameOverSummary";

@@ -5,7 +5,7 @@ import {
   type HandshakeMessage,
 } from "@anagrabble/protocol";
 import { WS_URL } from "../env";
-import { makeCommandId } from "../utils/gameId";
+import { makeCommandId } from "../utils/commandId";
 
 export type SocketStatus = "connecting" | "open" | "reconnecting" | "closed";
 

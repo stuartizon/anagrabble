@@ -16,7 +16,7 @@ vi.mock("../../hooks/useGameSocket", () => ({
 
 vi.mock("../../auth", () => mockSignedInClerk());
 
-vi.mock("../../utils/gameId", () => ({
+vi.mock("../../utils/commandId", () => ({
   makeCommandId: () => "cmd-1",
 }));
 

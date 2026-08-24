@@ -25,7 +25,7 @@ function playerSettings(overrides: Partial<PlayerSettingsResponse> = {}): Player
   return { language: "English", soundEnabled: true, hapticsEnabled: false, ...overrides };
 }
 
-vi.mock("../../../utils/gameId", () => ({
+vi.mock("../../../utils/commandId", () => ({
   makeCommandId: () => makeCommandIdMock(),
 }));
 

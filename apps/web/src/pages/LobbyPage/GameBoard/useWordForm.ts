@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import type { Command } from "@anagrabble/protocol";
-import { makeCommandId } from "../../../utils/gameId";
+import { makeCommandId } from "../../../utils/commandId";
 
 // Turning a tile and playing a word are both meant to be quick side-actions
 // mid-typing on desktop, not a context switch — a native <button> otherwise

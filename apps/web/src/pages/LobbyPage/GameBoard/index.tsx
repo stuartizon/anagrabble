@@ -3,7 +3,7 @@ import type { Command, LobbySnapshot, PlayerSettingsResponse } from "@anagrabble
 import { Header } from "../../../components/Header";
 import { InviteCode } from "../../../components/InviteCode";
 import { LeaveGameConfirm } from "../../../components/LeaveGameConfirm";
-import { makeCommandId } from "../../../utils/gameId";
+import { makeCommandId } from "../../../utils/commandId";
 import { assignPlayerColors } from "../../../utils/playerColors";
 import type {
   GameSocketError,

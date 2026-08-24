@@ -3,25 +3,25 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LobbySnapshot, PlayerState } from "@anagrabble/protocol";
-import type { SocketStatus } from "../../useGameSocket";
+import type { SocketStatus } from "../../hooks/useGameSocket";
 import { mockSignedInClerk, setMockClerkIdentity } from "../../testUtils/clerkTestMock";
 import { LobbyPage } from "./index";
 
 const send = vi.fn();
 const useGameSocketMock = vi.fn();
 
-vi.mock("../../useGameSocket", () => ({
+vi.mock("../../hooks/useGameSocket", () => ({
   useGameSocket: (...args: unknown[]) => useGameSocketMock(...args),
 }));
 
 vi.mock("../../auth", () => mockSignedInClerk());
 
-vi.mock("../../gameId", () => ({
+vi.mock("../../utils/gameId", () => ({
   makeCommandId: () => "cmd-1",
 }));
 
 const leaveGameRequest = vi.fn();
-vi.mock("../../fetchLeaveGame", () => ({
+vi.mock("../../client/fetchLeaveGame", () => ({
   leaveGame: (...args: unknown[]) => leaveGameRequest(...args),
 }));
 
@@ -32,7 +32,7 @@ vi.mock("../../fetchLeaveGame", () => ({
 // fetch() in tests.
 const fetchPlayerSettings = vi.fn();
 const savePlayerSettings = vi.fn();
-vi.mock("../../fetchPlayerSettings", () => ({
+vi.mock("../../client/fetchPlayerSettings", () => ({
   fetchPlayerSettings: (...args: unknown[]) => fetchPlayerSettings(...args),
   savePlayerSettings: (...args: unknown[]) => savePlayerSettings(...args),
 }));

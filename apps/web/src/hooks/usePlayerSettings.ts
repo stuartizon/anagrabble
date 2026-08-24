@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useAuth } from "./auth";
+import { useAuth } from "../auth";
 import {
   fetchPlayerSettings,
   savePlayerSettings,
   type PlayerSettingsResponse,
-} from "./fetchPlayerSettings";
+} from "../client/fetchPlayerSettings";
 
 // Single-option today — only "English" is supported (see
 // docs/user-stories.md "Settings", archived). The control still renders,

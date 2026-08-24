@@ -2,12 +2,12 @@ import { MemoryRouter } from "react-router-dom";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { mockSignedInClerk } from "../testUtils/clerkTestMock";
-import type { PlayerStatsResponse } from "../fetchPlayerStats";
+import type { PlayerStatsResponse } from "../client/fetchPlayerStats";
 
 vi.mock("../auth", () => mockSignedInClerk());
 
 const fetchPlayerStats = vi.fn();
-vi.mock("../fetchPlayerStats", () => ({
+vi.mock("../client/fetchPlayerStats", () => ({
   fetchPlayerStats: (...args: unknown[]) => fetchPlayerStats(...args),
 }));
 

@@ -17,7 +17,7 @@ const { CreateGameError } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("../fetchCreateGame", () => ({
+vi.mock("../client/fetchCreateGame", () => ({
   createGame: (...args: unknown[]) => createGame(...args),
   CreateGameError,
 }));

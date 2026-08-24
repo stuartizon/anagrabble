@@ -1,5 +1,5 @@
 import type { LobbySnapshot } from "@anagrabble/protocol";
-import type { HistoryEntry } from "../../../useGameSocket";
+import type { HistoryEntry } from "../../../hooks/useGameSocket";
 import { describeJoined, describePlay, playerName } from "./narration";
 import styles from "./HistorySection.module.css";
 import sharedStyles from "./shared.module.css";

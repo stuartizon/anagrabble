@@ -12,7 +12,7 @@ import { PING_INTERVAL_MS, RECONNECT_DELAYS_MS, useGameSocket } from "./useGameS
 
 const getTokenMock = vi.fn();
 
-vi.mock("./auth", () => ({
+vi.mock("../auth", () => ({
   useAuth: () => ({ isLoaded: true, isSignedIn: true, userId: "user_1", getToken: getTokenMock }),
 }));
 

@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { Show, useClerk, useUser } from "../auth";
 import styles from "./Header.module.css";
 import { Wordmark } from "./Wordmark";
-import { getDisplayName } from "../clerkDisplayName";
+import { getDisplayName } from "../utils/clerkDisplayName";
 
 // `children` renders on the right side, defaulting to AccountStatus (login
 // state) — this is the one place that shows up globally, rather than

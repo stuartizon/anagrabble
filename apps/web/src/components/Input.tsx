@@ -4,7 +4,7 @@
 
 import { forwardRef } from "react";
 import styles from "./Input.module.css";
-import { cx } from "../cx";
+import { cx } from "../utils/cx";
 
 interface InputProps {
   label?: string;

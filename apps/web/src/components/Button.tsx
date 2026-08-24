@@ -5,7 +5,7 @@
 
 import type { ReactNode } from "react";
 import styles from "./Button.module.css";
-import { cx } from "../cx";
+import { cx } from "../utils/cx";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 type Size = "sm" | "md" | "lg";

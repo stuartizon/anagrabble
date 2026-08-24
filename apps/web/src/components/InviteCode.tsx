@@ -1,5 +1,5 @@
 import { Check, Copy } from "lucide-react";
-import { useCopyLink } from "../useCopyLink";
+import { useCopyLink } from "../hooks/useCopyLink";
 import styles from "./InviteCode.module.css";
 
 // Matches design-system/InviteCode.dc.html — replaces the earlier

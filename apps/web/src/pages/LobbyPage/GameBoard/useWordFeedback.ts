@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { LobbySnapshot } from "@anagrabble/protocol";
-import type { GameSocketError, WordPlayNarration } from "../../../useGameSocket";
-import type { SoundName } from "../../../useGameSounds";
-import type { HapticName } from "../../../useHaptics";
+import type { GameSocketError, WordPlayNarration } from "../../../hooks/useGameSocket";
+import type { SoundName } from "../../../hooks/useGameSounds";
+import type { HapticName } from "../../../hooks/useHaptics";
 import { errorText, narrateOwnPlay } from "./narration";
 
 const MESSAGE_DISMISS_MS = 2500;

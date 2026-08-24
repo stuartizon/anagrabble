@@ -4,7 +4,7 @@ import { Header } from "../../components/Header";
 import { Card } from "../../components/Card";
 import { Button } from "../../components/Button";
 import { PageShell, PageContent, NarrowColumn } from "../../components/Layout";
-import { assignPlayerColors } from "../../playerColors";
+import { assignPlayerColors } from "../../utils/playerColors";
 import styles from "./GameOverSummary.module.css";
 
 // Matches design-system/Game Over.dc.html: a final-scores card replacing

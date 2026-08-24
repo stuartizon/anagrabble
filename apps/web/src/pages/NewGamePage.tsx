@@ -9,8 +9,8 @@ import { Input } from "../components/Input";
 import { Button } from "../components/Button";
 import { RulesLink } from "../components/RulesLink";
 import { PageShell, PageContent, NarrowColumn } from "../components/Layout";
-import { createGame as createGameRequest, CreateGameError } from "../fetchCreateGame";
-import { getDisplayName } from "../clerkDisplayName";
+import { createGame as createGameRequest, CreateGameError } from "../client/fetchCreateGame";
+import { getDisplayName } from "../utils/clerkDisplayName";
 import styles from "./NewGamePage.module.css";
 
 // Matches design-system/New Game.dc.html layout/copy. RequireAuth gates

@@ -8,7 +8,7 @@ import type {
   HistoryEntry,
   SocketStatus,
   WordPlayNarration,
-} from "../../../useGameSocket";
+} from "../../../hooks/useGameSocket";
 import { mockSignedOutClerk } from "../../../testUtils/clerkTestMock";
 import { GameBoard } from "./index";
 import styles from "./PlayersSection.module.css";
@@ -24,7 +24,7 @@ function playerSettings(overrides: Partial<PlayerSettingsResponse> = {}): Player
   return { language: "English", soundEnabled: true, hapticsEnabled: false, ...overrides };
 }
 
-vi.mock("../../../gameId", () => ({
+vi.mock("../../../utils/gameId", () => ({
   makeCommandId: () => makeCommandIdMock(),
 }));
 

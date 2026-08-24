@@ -2,7 +2,7 @@
 // CLAUDE.md "Design system" (typographic wordmark only, no logo asset).
 
 import styles from "./Wordmark.module.css";
-import { cx } from "../cx";
+import { cx } from "../utils/cx";
 
 interface WordmarkProps {
   size?: "sm" | "md" | "lg";

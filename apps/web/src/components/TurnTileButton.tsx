@@ -4,8 +4,8 @@
 // anywhere else.
 
 import styles from "./TurnTileButton.module.css";
-import { cx } from "../cx";
-import { countdownProgress } from "../countdownProgress";
+import { cx } from "../utils/cx";
+import { countdownProgress } from "../utils/countdownProgress";
 
 interface TurnTileButtonProps {
   secondsLeft: number;

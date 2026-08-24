@@ -3,7 +3,7 @@ import { Card } from "../components/Card";
 import { Loader } from "../components/Loader";
 import { PageShell, PageContent, NarrowColumn } from "../components/Layout";
 import { PlayerSettingsFields } from "../components/PlayerSettingsFields";
-import { usePlayerSettings } from "../usePlayerSettings";
+import { usePlayerSettings } from "../hooks/usePlayerSettings";
 import styles from "./SettingsPage.module.css";
 
 export function SettingsPage() {

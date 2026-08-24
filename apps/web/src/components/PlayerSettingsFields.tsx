@@ -1,7 +1,7 @@
 import type { PlayerSettingsResponse } from "@anagrabble/protocol";
 import { Select } from "./Select";
 import { Switch } from "./Switch";
-import { LANGUAGE_OPTIONS } from "../usePlayerSettings";
+import { LANGUAGE_OPTIONS } from "../hooks/usePlayerSettings";
 import styles from "./PlayerSettingsFields.module.css";
 
 // The "Your settings" fields (interface language, sound effects, haptic

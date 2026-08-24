@@ -1,4 +1,4 @@
-import type { AuthUser } from "./auth/types";
+import type { AuthUser } from "../auth/types";
 
 // firstName isn't required at the Clerk config level (see docs/decisions.md
 // "Player identity: Clerk id, no anonymous play") — our own sign-up form

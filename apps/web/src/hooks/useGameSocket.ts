@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useAuth } from "./auth";
-import { WS_URL } from "./env";
-import { makeCommandId } from "./gameId";
+import { useAuth } from "../auth";
+import { WS_URL } from "../env";
+import { makeCommandId } from "../utils/gameId";
 import {
   PROTOCOL_VERSION,
   type Command,

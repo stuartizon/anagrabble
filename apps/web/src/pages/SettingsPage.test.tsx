@@ -3,13 +3,13 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { mockSignedInClerk } from "../testUtils/clerkTestMock";
-import type { PlayerSettingsResponse } from "../fetchPlayerSettings";
+import type { PlayerSettingsResponse } from "../client/fetchPlayerSettings";
 
 vi.mock("../auth", () => mockSignedInClerk());
 
 const fetchPlayerSettings = vi.fn();
 const savePlayerSettings = vi.fn();
-vi.mock("../fetchPlayerSettings", () => ({
+vi.mock("../client/fetchPlayerSettings", () => ({
   fetchPlayerSettings: (...args: unknown[]) => fetchPlayerSettings(...args),
   savePlayerSettings: (...args: unknown[]) => savePlayerSettings(...args),
 }));

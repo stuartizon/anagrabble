@@ -1,5 +1,5 @@
 import type { LobbySnapshot } from "@anagrabble/protocol";
-import { API_URL } from "./env";
+import { API_URL } from "../env";
 
 /** Thrown with the server's error code (e.g. "GameNotFound") rather than a
  * generic message, so callers can distinguish a real rejection from an

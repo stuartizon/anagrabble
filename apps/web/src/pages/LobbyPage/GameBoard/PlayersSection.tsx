@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import type { LobbySnapshot } from "@anagrabble/protocol";
-import { presenceLabel } from "../../../presenceLabel";
-import { cx } from "../../../cx";
+import { presenceLabel } from "../../../utils/presenceLabel";
+import { cx } from "../../../utils/cx";
 import styles from "./PlayersSection.module.css";
 import sharedStyles from "./shared.module.css";
 

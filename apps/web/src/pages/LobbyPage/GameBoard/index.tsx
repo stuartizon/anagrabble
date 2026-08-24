@@ -3,16 +3,16 @@ import type { Command, LobbySnapshot, PlayerSettingsResponse } from "@anagrabble
 import { Header } from "../../../components/Header";
 import { InviteCode } from "../../../components/InviteCode";
 import { LeaveGameConfirm } from "../../../components/LeaveGameConfirm";
-import { makeCommandId } from "../../../gameId";
-import { assignPlayerColors } from "../../../playerColors";
+import { makeCommandId } from "../../../utils/gameId";
+import { assignPlayerColors } from "../../../utils/playerColors";
 import type {
   GameSocketError,
   HistoryEntry,
   SocketStatus,
   WordPlayNarration,
-} from "../../../useGameSocket";
-import type { SoundName } from "../../../useGameSounds";
-import type { HapticName } from "../../../useHaptics";
+} from "../../../hooks/useGameSocket";
+import type { SoundName } from "../../../hooks/useGameSounds";
+import type { HapticName } from "../../../hooks/useHaptics";
 import { PlayersSection } from "./PlayersSection";
 import { HistorySection } from "./HistorySection";
 import { BoardSection } from "./BoardSection";

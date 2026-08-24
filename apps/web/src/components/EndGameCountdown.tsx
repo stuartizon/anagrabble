@@ -1,6 +1,6 @@
 import styles from "./EndGameCountdown.module.css";
-import { cx } from "../cx";
-import { countdownProgress } from "../countdownProgress";
+import { cx } from "../utils/cx";
+import { countdownProgress } from "../utils/countdownProgress";
 
 interface EndGameCountdownProps {
   secondsLeft: number;

@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useSignIn, useSignUp, mockUsers, quickSignIn } from "../../auth";
 import { Input } from "../../components/Input";
 import { Button } from "../../components/Button";
-import { cx } from "../../cx";
+import { cx } from "../../utils/cx";
 import styles from "./LoginPage.module.css";
 import { FormError } from "./FormError";
 import { GoogleIcon } from "./GoogleIcon";

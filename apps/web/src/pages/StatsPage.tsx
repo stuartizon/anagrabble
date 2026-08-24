@@ -5,8 +5,8 @@ import { Card } from "../components/Card";
 import { LetterTile } from "../components/LetterTile";
 import { Loader } from "../components/Loader";
 import { PageShell, PageContent } from "../components/Layout";
-import { fetchPlayerStats, type PlayerStatsResponse } from "../fetchPlayerStats";
-import { cx } from "../cx";
+import { fetchPlayerStats, type PlayerStatsResponse } from "../client/fetchPlayerStats";
+import { cx } from "../utils/cx";
 import styles from "./StatsPage.module.css";
 
 function ordinal(n: number): string {

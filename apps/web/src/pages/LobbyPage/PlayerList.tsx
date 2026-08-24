@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import type { PlayerState } from "@anagrabble/protocol";
-import { presenceLabel } from "../../presenceLabel";
-import { cx } from "../../cx";
+import { presenceLabel } from "../../utils/presenceLabel";
+import { cx } from "../../utils/cx";
 import styles from "./PlayerList.module.css";
 
 // Shared by WaitingRoomCard and JoinInProgressCard — the pre-game player

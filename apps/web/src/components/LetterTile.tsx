@@ -6,7 +6,7 @@
 // left out until a caller actually needs it.
 
 import styles from "./LetterTile.module.css";
-import { cx } from "../cx";
+import { cx } from "../utils/cx";
 
 type Size = "sm" | "md" | "lg";
 type State = "up" | "down";

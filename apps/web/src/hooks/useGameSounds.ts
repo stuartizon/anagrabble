@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
-import tileTurnUrl from "./assets/sounds/tile-turn.mp3";
-import wordClaimUrl from "./assets/sounds/word-claim.mp3";
-import wordRejectedUrl from "./assets/sounds/word-rejected.mp3";
+import tileTurnUrl from "../assets/sounds/tile-turn.mp3";
+import wordClaimUrl from "../assets/sounds/word-claim.mp3";
+import wordRejectedUrl from "../assets/sounds/word-rejected.mp3";
 
 declare global {
   interface Window {

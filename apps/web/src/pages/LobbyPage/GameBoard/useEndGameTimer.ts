@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Command } from "@anagrabble/protocol";
-import { makeCommandId } from "../../../gameId";
+import { makeCommandId } from "../../../utils/gameId";
 import { remainingSeconds } from "./remainingSeconds";
 
 interface UseEndGameTimerArgs {

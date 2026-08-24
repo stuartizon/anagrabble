@@ -1,5 +1,5 @@
 import type { LobbySnapshot, UsedWord } from "@anagrabble/protocol";
-import type { WordPlayNarration } from "../../../useGameSocket";
+import type { WordPlayNarration } from "../../../hooks/useGameSocket";
 
 export function playerName(lobby: LobbySnapshot, playerId: string): string {
   return lobby.players.find((p) => p.id === playerId)?.name ?? "Someone";

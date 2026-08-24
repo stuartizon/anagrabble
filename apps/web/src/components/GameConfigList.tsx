@@ -1,5 +1,5 @@
 import type { GameConfig } from "@anagrabble/protocol";
-import { cx } from "../cx";
+import { cx } from "../utils/cx";
 import styles from "./GameConfigList.module.css";
 
 // Shared by WaitingRoomCard, JoinInProgressCard, and the in-game mobile

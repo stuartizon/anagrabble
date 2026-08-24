@@ -10,7 +10,6 @@ import { useHaptics } from "../../hooks/useHaptics";
 import { usePlayerSettings } from "../../hooks/usePlayerSettings";
 import { getDisplayName } from "../../utils/clerkDisplayName";
 import { makeCommandId } from "../../utils/gameId";
-import { assignPlayerColors } from "../../utils/playerColors";
 import { leaveGame as leaveGameRequest } from "../../client/fetchLeaveGame";
 import { GameBoard } from "./GameBoard";
 import { GameOverSummary } from "./GameOverSummary";
@@ -148,11 +147,10 @@ export function LobbyPage() {
     return <GameOverSummary lobby={lobby} playerId={userId!} />;
   }
 
-  const colors = assignPlayerColors(lobby.players, userId!);
-  const isHost = userId === lobby.hostId;
-  const isJoined = lobby.players.some((p) => p.id === userId);
-  const isUnjoinedGuest = !isHost && !isJoined;
-  const canJoin = status === "open";
+  // Recomputed independently by WaitingRoomCard/JoinInProgressCard from the
+  // same lobby/playerId/status they're given below — this copy exists only
+  // to decide which screen to render, not to be threaded through as props.
+  const isUnjoinedGuest = userId !== lobby.hostId && !lobby.players.some((p) => p.id === userId);
 
   // A guest who opens a mid-game invite link without ever calling JoinGame
   // is gated behind a join prompt rather than the live board — see
@@ -161,9 +159,9 @@ export function LobbyPage() {
     return (
       <JoinInProgressCard
         lobby={lobby}
-        colors={colors}
+        playerId={userId!}
+        status={status}
         joining={joining}
-        canJoin={canJoin}
         onJoin={joinGame}
       />
     );
@@ -195,13 +193,10 @@ export function LobbyPage() {
   return (
     <WaitingRoomCard
       lobby={lobby}
-      colors={colors}
+      playerId={userId!}
+      status={status}
       gameId={gameId}
       shareLink={shareLink}
-      isHost={isHost}
-      isJoined={isJoined}
-      isUnjoinedGuest={isUnjoinedGuest}
-      canJoin={canJoin}
       starting={starting}
       joining={joining}
       leaving={leaving}

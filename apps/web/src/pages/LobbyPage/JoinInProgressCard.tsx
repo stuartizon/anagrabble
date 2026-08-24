@@ -5,6 +5,8 @@ import { Button } from "../../components/Button";
 import { GameConfigList } from "../../components/GameConfigList";
 import { PageShell, PageContent, NarrowColumn } from "../../components/Layout";
 import { RulesLink } from "../../components/RulesLink";
+import type { SocketStatus } from "../../hooks/useGameSocket";
+import { assignPlayerColors } from "../../utils/playerColors";
 import { PlayerList } from "./PlayerList";
 import styles from "./shared.module.css";
 
@@ -18,17 +20,24 @@ import styles from "./shared.module.css";
 // join: scope decisions".
 export function JoinInProgressCard({
   lobby,
-  colors,
+  playerId,
+  status,
   joining,
-  canJoin,
   onJoin,
 }: {
   lobby: LobbySnapshot;
-  colors: Map<string, string>;
+  playerId: string;
+  status: SocketStatus;
   joining: boolean;
-  canJoin: boolean;
   onJoin: () => void;
 }) {
+  // Not actually in lobby.players (that's the whole reason this screen
+  // exists), so this never matches an entry — same as if computed with any
+  // other non-member id — but keeps this in line with every other screen's
+  // colors derivation rather than a one-off.
+  const colors = assignPlayerColors(lobby.players, playerId);
+  const canJoin = status === "open";
+
   return (
     <PageShell>
       <Header />

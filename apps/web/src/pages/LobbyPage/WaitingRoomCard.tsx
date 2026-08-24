@@ -6,19 +6,18 @@ import { GameConfigList } from "../../components/GameConfigList";
 import { InviteCode } from "../../components/InviteCode";
 import { PageShell, PageContent, NarrowColumn } from "../../components/Layout";
 import { RulesLink } from "../../components/RulesLink";
+import type { SocketStatus } from "../../hooks/useGameSocket";
+import { assignPlayerColors } from "../../utils/playerColors";
 import { PlayerList } from "./PlayerList";
 import styles from "./WaitingRoomCard.module.css";
 import sharedStyles from "./shared.module.css";
 
 interface WaitingRoomCardProps {
   lobby: LobbySnapshot;
-  colors: Map<string, string>;
+  playerId: string;
+  status: SocketStatus;
   gameId: string;
   shareLink: string;
-  isHost: boolean;
-  isJoined: boolean;
-  isUnjoinedGuest: boolean;
-  canJoin: boolean;
   starting: boolean;
   joining: boolean;
   leaving: boolean;
@@ -35,13 +34,10 @@ interface WaitingRoomCardProps {
 // preview screen.
 export function WaitingRoomCard({
   lobby,
-  colors,
+  playerId,
+  status,
   shareLink,
   gameId,
-  isHost,
-  isJoined,
-  isUnjoinedGuest,
-  canJoin,
   starting,
   joining,
   leaving,
@@ -50,6 +46,12 @@ export function WaitingRoomCard({
   onJoin,
   onLeave,
 }: WaitingRoomCardProps) {
+  const colors = assignPlayerColors(lobby.players, playerId);
+  const isHost = playerId === lobby.hostId;
+  const isJoined = lobby.players.some((p) => p.id === playerId);
+  const isUnjoinedGuest = !isHost && !isJoined;
+  const canJoin = status === "open";
+
   const subtitle = isHost
     ? "Send this link to whoever’s playing."
     : isUnjoinedGuest

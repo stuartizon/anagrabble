@@ -3387,3 +3387,41 @@ hunks in one PR.
   `playerId` were removed from the wire protocol) so a genuinely stale tab
   logs the mismatch instead of silently getting `undefined` where it
   expects a snapshot.
+
+## WS connect query param rename: game -> gameId
+
+**Decision** (2026-08-25, anagrabble#42): renamed the WS connection URL's
+query param from `game` to `gameId` (`apps/web/src/client/gameSocketClient.ts`,
+read back in `apps/server/src/wsConnection.ts`). Flagged while reviewing
+anagrabble#38's WS _event payload_ field rename (`lobby` -> `game`) — this is
+a different wire surface, the connect-time _query param_, sent once per
+connect rather than per event, but had the same underlying misnomer: the
+value is a gameId, not a game object, and both sides even named the local
+variable `gameId` right after reading it.
+
+Deliberately deferred until #38's contract commit landed (909a157), so only
+one wire rollout was in flight at a time.
+
+**Rollout — two commits**, same expand/contract discipline as #38 (see
+"Lobby -> Game wire rename" above for why this repo needs two real deploys,
+not one diff):
+
+- **Expand commit**: the client now sends the gameId under both
+  `?gameId=` (new) and `?game=` (old) on every connect; the server reads
+  `url.searchParams.get("gameId") ?? url.searchParams.get("game")`, so
+  either an old client talking to a new server, or a new client talking to
+  an old server, still resolves the game. Purely additive, safe to deploy
+  in either order.
+- **Contract commit**: once confirmed live, the client drops the `game`
+  param and the server drops the `?? url.searchParams.get("game")`
+  fallback, sending/reading `gameId` alone.
+
+Unlike #38, there's no `PROTOCOL_VERSION` bump here: that field versions the
+JSON message protocol negotiated over the `Handshake` message, not the
+connect-time query string used to establish the socket in the first place.
+A genuinely stale tab (never reloaded since before the contract commit,
+still sending only `?game=`) does fail to resolve its game once the
+contract commit lands — same risk any expand/contract window carries — but
+there's no message-shape mismatch for a version check to detect; it's
+covered by giving the expand phase real time to reach open tabs before
+contracting, not by protocol versioning.

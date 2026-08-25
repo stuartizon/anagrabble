@@ -79,6 +79,7 @@ describe("useGameSocket", () => {
     await waitFor(() => expect(MockWebSocket.instances).toHaveLength(1));
     const url = new URL(MockWebSocket.instances[0]!.url);
     expect(url.searchParams.get("token")).toBe("tok_abc123");
+    expect(url.searchParams.get("gameId")).toBe("game-1");
     expect(url.searchParams.get("game")).toBe("game-1");
   });
 
@@ -142,6 +143,7 @@ describe("useGameSocket reconnection", () => {
     expect(getTokenMock).toHaveBeenCalledTimes(2);
     const socket2 = MockWebSocket.instances[1]!;
     const url = new URL(socket2.url);
+    expect(url.searchParams.get("gameId")).toBe("game-1");
     expect(url.searchParams.get("game")).toBe("game-1");
 
     await act(async () => socket2.emitOpen());

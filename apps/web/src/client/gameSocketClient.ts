@@ -66,7 +66,15 @@ export function createGameSocketClient(options: GameSocketClientOptions): GameSo
     if (cancelled) return;
 
     const params = new URLSearchParams();
-    if (gameId) params.set("game", gameId);
+    // Sent under both names during this rollout's expand phase
+    // (anagrabble#42): `gameId` is the new name, `game` rides along so an
+    // already-deployed old server (still reading only `?game=`) keeps
+    // working. Drop `game` in the contract commit once confirmed live —
+    // see docs/decisions.md "WS connect query param rename: game -> gameId".
+    if (gameId) {
+      params.set("gameId", gameId);
+      params.set("game", gameId);
+    }
     if (token) params.set("token", token);
     const query = params.toString();
     const url = query ? `${WS_URL}/?${query}` : WS_URL;

@@ -22,8 +22,15 @@ import {
 } from "@anagrabble/postgres";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
-import type { Command, Event, GameSnapshot, HandshakeMessage } from "@anagrabble/protocol";
+import type {
+  Command,
+  Event,
+  GameSnapshot,
+  GameState,
+  HandshakeMessage,
+} from "@anagrabble/protocol";
 import { createServer, type AnagrabbleServer } from "./server.js";
+import { stateKey } from "./gameSession.js";
 
 const WEB_ORIGIN = "http://localhost:5173";
 const CONFIG = { turnTimerSec: 30, minWordLength: 3, language: "en" };
@@ -258,5 +265,157 @@ describe("server (WS round trip)", () => {
     const [, playerStart] = await Promise.all([hostSeesStart, playerSeesStart]);
     // nodeA handled StartGame; nodeB's socket must see it fan out too.
     expect(playerStart.type === "GameStarted" && playerStart.game.status).toBe("playing");
+  });
+
+  // Unlike the handler functions above (unit-tested with mocks in
+  // games.test.ts/settings.test.ts/stats.test.ts), nothing previously sent a
+  // real HTTP request through registerRestRoutes itself — so the route
+  // wiring (paths, param binding, status passthrough, and specifically the
+  // leave route's own conditional broadcast) had no coverage at any layer.
+  describe("REST routes", () => {
+    it("GET /health reports ok when redis is reachable", async () => {
+      const baseUrl = await startServer();
+
+      const res = await fetch(`${baseUrl}/health`);
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ status: "ok", redis: "ok" });
+    });
+
+    it("returns 404 from POST /games/:gameId/leave for an unknown game", async () => {
+      const baseUrl = await startServer();
+
+      const res = await fetch(`${baseUrl}/games/NOPE1/leave`, {
+        method: "POST",
+        headers: { authorization: "Bearer host-1" },
+      });
+
+      expect(res.status).toBe(404);
+    });
+
+    // The one behavior that lives in restRoutes.ts itself, not in
+    // games.ts's handleLeaveGameRequest: publishing PlayerLeft on a
+    // successful removal. Only provable by actually registering the route
+    // and watching another connected client receive the broadcast.
+    it("removes a lobby player via POST /games/:gameId/leave and broadcasts PlayerLeft to other connected clients", async () => {
+      const baseUrl = await startServer();
+      const game = await createGameViaRest(baseUrl, "host-1");
+
+      const hostSocket = await connectAndTrack(baseUrl, game.gameId, "host-1");
+      await waitForMessage(hostSocket, (m) => m.type === "Handshake");
+      await waitForMessage(hostSocket, (m) => m.type === "GameSnapshot");
+
+      const playerSocket = await connectAndTrack(baseUrl, game.gameId, "player-2");
+      await waitForMessage(playerSocket, (m) => m.type === "Handshake");
+      await waitForMessage(playerSocket, (m) => m.type === "GameSnapshot");
+
+      const hostSeesJoin = waitForMessage(hostSocket, (m) => m.type === "PlayerJoined");
+      send(playerSocket, {
+        type: "JoinGame",
+        commandId: crypto.randomUUID(),
+        gameId: game.gameId,
+        playerName: "Player Two",
+      });
+      await hostSeesJoin;
+
+      const hostSeesLeave = waitForMessage(hostSocket, (m) => m.type === "PlayerLeft");
+      const res = await fetch(`${baseUrl}/games/${game.gameId}/leave`, {
+        method: "POST",
+        headers: { authorization: "Bearer player-2" },
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as GameSnapshot;
+      expect(body.players.map((p) => p.id)).toEqual(["host-1"]);
+
+      const leftEvent = await hostSeesLeave;
+      expect(leftEvent.type === "PlayerLeft" && leftEvent.playerId).toBe("player-2");
+    });
+
+    it("no-ops (200, removed: false) leaving a game that's already started, without broadcasting", async () => {
+      const baseUrl = await startServer();
+      const game = await createGameViaRest(baseUrl, "host-1");
+
+      const hostSocket = await connectAndTrack(baseUrl, game.gameId, "host-1");
+      await waitForMessage(hostSocket, (m) => m.type === "Handshake");
+      await waitForMessage(hostSocket, (m) => m.type === "GameSnapshot");
+      send(hostSocket, { type: "StartGame", commandId: crypto.randomUUID(), gameId: game.gameId });
+      await waitForMessage(hostSocket, (m) => m.type === "GameStarted");
+
+      const res = await fetch(`${baseUrl}/games/${game.gameId}/leave`, {
+        method: "POST",
+        headers: { authorization: "Bearer host-1" },
+      });
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as GameSnapshot;
+      expect(body.players.map((p) => p.id)).toEqual(["host-1"]);
+    });
+  });
+
+  // wsConnection.ts fires these Postgres writes fire-and-forget
+  // (.catch(console.error), never awaited/gated on — see CLAUDE.md "Postgres
+  // holds durable history"). packages/postgres's own tests cover
+  // insertGame/insertWordPlay in isolation given correct args; nothing
+  // previously verified that a real accepted WS command actually assembles
+  // those args correctly and triggers the write at all.
+  describe("durable history writes (Postgres)", () => {
+    it("inserts a games row once StartGame is accepted", async () => {
+      const baseUrl = await startServer();
+      const game = await createGameViaRest(baseUrl, "host-1");
+      const hostSocket = await connectAndTrack(baseUrl, game.gameId, "host-1");
+      await waitForMessage(hostSocket, (m) => m.type === "Handshake");
+      await waitForMessage(hostSocket, (m) => m.type === "GameSnapshot");
+
+      send(hostSocket, { type: "StartGame", commandId: crypto.randomUUID(), gameId: game.gameId });
+      await waitForMessage(hostSocket, (m) => m.type === "GameStarted");
+
+      // The write is fire-and-forget from the WS handler's own perspective —
+      // poll rather than assume it's landed the instant GameStarted is sent.
+      await expect
+        .poll(() =>
+          db.selectFrom("games").selectAll().where("id", "=", game.gameId).executeTakeFirst(),
+        )
+        .toMatchObject({ id: game.gameId });
+    });
+
+    it("inserts a word_plays row with the resolved play's data once SubmitWord is accepted", async () => {
+      const baseUrl = await startServer();
+      const game = await createGameViaRest(baseUrl, "host-1");
+      const hostSocket = await connectAndTrack(baseUrl, game.gameId, "host-1");
+      await waitForMessage(hostSocket, (m) => m.type === "Handshake");
+      await waitForMessage(hostSocket, (m) => m.type === "GameSnapshot");
+
+      send(hostSocket, { type: "StartGame", commandId: crypto.randomUUID(), gameId: game.gameId });
+      await waitForMessage(hostSocket, (m) => m.type === "GameStarted");
+
+      // Real gameplay draws from a randomly shuffled bag — seed a known
+      // pool directly rather than clicking through a nondeterministic
+      // number of real TurnTile draws just to get a claimable word.
+      const raw = await redis.get(stateKey(game.gameId));
+      const state = JSON.parse(raw!) as GameState;
+      await redis.set(stateKey(game.gameId), JSON.stringify({ ...state, pool: ["C", "A", "T"] }));
+
+      const commandId = crypto.randomUUID();
+      const wordPlayed = waitForMessage(hostSocket, (m) => m.type === "WordPlayed");
+      send(hostSocket, { type: "SubmitWord", commandId, gameId: game.gameId, word: "cat" });
+      const event = await wordPlayed;
+      const seq = event.type === "WordPlayed" ? event.seq : -1;
+
+      await expect
+        .poll(() =>
+          db
+            .selectFrom("word_plays")
+            .selectAll()
+            .where("game_id", "=", game.gameId)
+            .where("seq", "=", seq)
+            .executeTakeFirst(),
+        )
+        .toMatchObject({
+          game_id: game.gameId,
+          clerk_user_id: "host-1",
+          word: "CAT",
+          used_pool_letters: expect.arrayContaining(["C", "A", "T"]),
+        });
+    });
   });
 });

@@ -91,13 +91,7 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
     socket.send(JSON.stringify(handshake));
 
     const url = new URL(req.url ?? "/", "http://internal");
-    // `gameId` is the new query param name (anagrabble#42); `game` is the
-    // old one, kept as a fallback during this rollout's expand phase so an
-    // already-deployed old client (still sending only `?game=`) keeps
-    // working against this server. Drop the fallback in the contract commit
-    // once confirmed live — see docs/decisions.md "WS connect query param
-    // rename: game -> gameId".
-    const gameId = url.searchParams.get("gameId") ?? url.searchParams.get("game");
+    const gameId = url.searchParams.get("gameId");
     const token = url.searchParams.get("token");
 
     // Every command handler awaits this before touching `meta.clerkUserId`,

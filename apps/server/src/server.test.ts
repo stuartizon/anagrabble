@@ -67,11 +67,7 @@ async function createGameViaRest(baseUrl: string, hostToken: string): Promise<Ga
 }
 
 function connect(baseUrl: string, gameId: string, token?: string): Promise<TrackedSocket> {
-  // Sent under both names, mirroring the real client (gameSocketClient.ts)
-  // during this rollout's expand phase — see docs/decisions.md "WS connect
-  // query param rename: game -> gameId".
-  const base = `?gameId=${gameId}&game=${gameId}`;
-  const query = token !== undefined ? `${base}&token=${token}` : base;
+  const query = token !== undefined ? `?gameId=${gameId}&token=${token}` : `?gameId=${gameId}`;
   const wsUrl = `${baseUrl.replace(/^http/, "ws")}/${query}`;
   const socket = new WebSocket(wsUrl);
   const tracked = trackSocket(socket);
@@ -205,27 +201,6 @@ describe("server (WS round trip)", () => {
     const [hostStart, playerStart] = await Promise.all([hostSeesStart, playerSeesStart]);
     expect(hostStart.type === "GameStarted" && hostStart.game.status).toBe("playing");
     expect(playerStart.type === "GameStarted" && playerStart.game.status).toBe("playing");
-  });
-
-  it("still resolves the game for a legacy ?game= connection with no ?gameId=", async () => {
-    // Proves the expand-phase fallback (anagrabble#42): an already-deployed
-    // old client that only ever sends `?game=` must keep working once the
-    // server has picked up `?gameId=`. See docs/decisions.md "WS connect
-    // query param rename: game -> gameId".
-    const baseUrl = await startServer();
-    const game = await createGameViaRest(baseUrl, "host-1");
-
-    const wsUrl = `${baseUrl.replace(/^http/, "ws")}/?game=${game.gameId}&token=host-1`;
-    const socket = trackSocket(new WebSocket(wsUrl));
-    sockets.push(socket);
-    await new Promise<void>((resolve, reject) => {
-      socket.socket.once("open", () => resolve());
-      socket.socket.once("error", reject);
-    });
-
-    await waitForMessage(socket, (m) => m.type === "Handshake");
-    const snapshot = await waitForMessage(socket, (m) => m.type === "GameSnapshot");
-    expect(snapshot.type === "GameSnapshot" && snapshot.game.gameId).toBe(game.gameId);
   });
 
   it("rejects a command with no verified session", async () => {

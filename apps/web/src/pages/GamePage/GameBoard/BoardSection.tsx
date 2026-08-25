@@ -61,7 +61,7 @@ export function BoardSection({
             <span className={styles.turnHint}>{currentPlayer?.name ?? "Someone"}&rsquo;s turn</span>
           )}
         </div>
-        <div className={styles.poolTiles}>
+        <div className={styles.poolTiles} data-testid="pool-tiles">
           {game.pool.length === 0 &&
             (game.players.some((p) => p.words.length > 0) ? (
               <span className={styles.poolEmpty}>All tiles claimed.</span>

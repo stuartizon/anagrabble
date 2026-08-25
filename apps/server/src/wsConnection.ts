@@ -63,13 +63,7 @@ function sendError(
 }
 
 function gameSnapshotEvent(snapshot: GameSnapshot): Event {
-  return {
-    type: "LobbyState",
-    seq: snapshot.seq,
-    gameId: snapshot.gameId,
-    lobby: snapshot,
-    game: snapshot,
-  };
+  return { type: "GameSnapshot", seq: snapshot.seq, gameId: snapshot.gameId, game: snapshot };
 }
 
 /** Builds the `wss.on("connection", ...)` callback — one closure per server
@@ -159,10 +153,9 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
               // instead of waiting on their own next heartbeat's Pong.
               const presenceSnapshot = toGameSnapshot(gameId, presenceResult.state);
               await publish({
-                type: "LobbyState",
+                type: "GameSnapshot",
                 seq: presenceResult.state.seq,
                 gameId,
-                lobby: presenceSnapshot,
                 game: presenceSnapshot,
               });
               return;
@@ -211,7 +204,6 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
                 seq: result.snapshot.seq,
                 gameId: command.gameId,
                 player: result.player,
-                lobby: result.snapshot,
                 game: result.snapshot,
               });
             } else {
@@ -250,7 +242,6 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
               type: "GameStarted",
               seq: result.snapshot.seq,
               gameId: command.gameId,
-              lobby: result.snapshot,
               game: result.snapshot,
             });
             break;
@@ -276,7 +267,6 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
               type: "TileTurned",
               seq: result.snapshot.seq,
               gameId: command.gameId,
-              lobby: result.snapshot,
               game: result.snapshot,
             });
             break;
@@ -313,7 +303,6 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
               type: "GameEnded",
               seq: result.snapshot.seq,
               gameId: command.gameId,
-              lobby: result.snapshot,
               game: result.snapshot,
             });
             break;
@@ -356,7 +345,6 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
               word: result.word,
               usedWords: result.usedWords,
               usedPoolLetters: result.usedPoolLetters,
-              lobby: result.snapshot,
               game: result.snapshot,
             });
             break;
@@ -376,13 +364,11 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
                 lastSeenAt: Date.now(),
               });
               if (!("error" in result)) {
-                const pongSnapshot = toGameSnapshot(meta.gameId, result.state);
                 send(socket, {
                   type: "Pong",
                   seq: 0,
                   gameId: command.gameId,
-                  lobby: pongSnapshot,
-                  game: pongSnapshot,
+                  game: toGameSnapshot(meta.gameId, result.state),
                 });
                 break;
               }

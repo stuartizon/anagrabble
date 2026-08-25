@@ -68,13 +68,11 @@ export async function createBroadcaster(redis: Redis): Promise<Broadcaster> {
     applyPresence(redis, { stateKey: stateKey(gameId), playerId, lastSeenAt: 0 })
       .then((result) => {
         if ("error" in result) return;
-        const snapshot = toGameSnapshot(gameId, result.state);
         return publish({
-          type: "LobbyState",
+          type: "GameSnapshot",
           seq: result.state.seq,
           gameId,
-          lobby: snapshot,
-          game: snapshot,
+          game: toGameSnapshot(gameId, result.state),
         });
       })
       .catch((err) => console.error("[ws] error marking presence stale on close", err));

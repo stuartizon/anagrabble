@@ -67,11 +67,7 @@ export function deriveHostId(state: GameState, now: number): string {
   return (state.players.find((p) => isReachable(p, now)) ?? state.players[0])?.id ?? "";
 }
 
-/** Builds the wire-sent snapshot from the persisted `GameState` blob. Sets
- * both `lobby` and `game` (same value) on the caller's behalf where those
- * appear as event fields — see docs/decisions.md "Lobby -> Game wire
- * rename" for why this dual-population is temporary, expand-phase-only
- * scaffolding rather than a permanent shape. */
+/** Builds the wire-sent snapshot from the persisted `GameState` blob. */
 export function toGameSnapshot(gameId: string, state: GameState, now = Date.now()): GameSnapshot {
   return {
     ...state,

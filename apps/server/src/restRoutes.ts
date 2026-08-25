@@ -106,7 +106,6 @@ export async function registerRestRoutes(
         seq: result.body.seq,
         gameId: request.params.gameId,
         playerId: result.playerId,
-        lobby: result.body,
         game: result.body,
       });
     }

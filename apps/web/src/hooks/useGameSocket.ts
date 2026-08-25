@@ -90,23 +90,15 @@ function initialGameSocketState(): GameSocketState {
 /** Pure reducer over one incoming game event — testable with fixture events
  * alone, no real/mock WebSocket needed. Never sees `Handshake` — that's a
  * connection-level concern the socket client handles and swallows itself
- * (see gameSocketClient.ts), not a game event.
- *
- * `message.game ?? message.lobby` throughout: mid-rollout scaffolding (see
- * docs/decisions.md "Lobby -> Game wire rename") — tolerates a server that
- * hasn't redeployed yet and so still only sends the old `lobby` field.
- * Drops once the contract half of that rollout lands and every server
- * always sends `game`. */
+ * (see gameSocketClient.ts), not a game event. */
 function applyGameSocketMessage(state: GameSocketState, message: Event): GameSocketState {
   switch (message.type) {
     // Pong is the heartbeat reply — see PING_INTERVAL_MS and PongEvent's doc
     // comment (packages/protocol/src/ws.ts). The snapshot is only present
     // when this connection is seated as a player; treat it the same as any
     // other snapshot-bearing event below when it is.
-    case "Pong": {
-      const snapshot = message.game ?? message.lobby;
-      return snapshot ? { ...state, game: snapshot } : state;
-    }
+    case "Pong":
+      return message.game ? { ...state, game: message.game } : state;
 
     case "Error":
       return {
@@ -123,7 +115,7 @@ function applyGameSocketMessage(state: GameSocketState, message: Event): GameSoc
       };
       return {
         ...state,
-        game: message.game ?? message.lobby,
+        game: message.game,
         error: null,
         wordPlay: narration,
         history: [...state.history, { kind: "wordPlay", ...narration }],
@@ -136,38 +128,22 @@ function applyGameSocketMessage(state: GameSocketState, message: Event): GameSoc
         seq: message.seq,
         playerId: message.player.id,
       };
-      return {
-        ...state,
-        game: message.game ?? message.lobby,
-        error: null,
-        history: [...state.history, joined],
-      };
+      return { ...state, game: message.game, error: null, history: [...state.history, joined] };
     }
 
     case "TileTurned":
-      return {
-        ...state,
-        game: message.game ?? message.lobby,
-        error: null,
-        tileTurn: { seq: message.seq },
-      };
+      return { ...state, game: message.game, error: null, tileTurn: { seq: message.seq } };
 
-    case "LobbyState":
+    case "GameSnapshot":
     case "PlayerLeft":
     case "GameStarted":
     case "GameEnded":
-      return { ...state, game: message.game ?? message.lobby, error: null };
-
-    // Not yet sent by any server (see GameSnapshotEvent's own doc comment)
-    // — added ahead of time so this dispatcher already understands it once
-    // the contract phase flips LobbyState's wire name over.
-    case "GameSnapshot":
       return { ...state, game: message.game, error: null };
   }
 }
 
 /** Opens (and re-opens, on gameId change) a WebSocket scoped to one game
- * page. See CLAUDE.md "Sequencing" — LobbyState/PlayerJoined/PlayerLeft all
+ * page. See CLAUDE.md "Sequencing" — GameSnapshot/PlayerJoined/PlayerLeft all
  * carry a full snapshot, so the component never has to hand-merge deltas.
  *
  * A same-page reconnect (a game page reload, or the socket client's own

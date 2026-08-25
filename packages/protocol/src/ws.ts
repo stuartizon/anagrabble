@@ -4,7 +4,7 @@
 
 /** Bumped whenever the wire shape changes; sent in the WS handshake so the
  * server can detect a stale client instead of silently misbehaving. */
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 
 export interface BaseCommand {
   commandId: string;
@@ -30,10 +30,6 @@ export interface PongEvent extends BaseEvent {
    * client's own heartbeat double as a lightweight resync of everyone
    * else's presence, without a separate server-initiated broadcast on every
    * heartbeat tick. Absent for a viewer who hasn't joined/isn't seated. */
-  lobby?: LobbySnapshot;
-  /** Same value as `lobby` — additive field, mid-rollout (see
-   * docs/decisions.md "Lobby -> Game wire rename"). `lobby` drops once the
-   * contract half of that rollout lands; `game` is the field to read. */
   game?: GameSnapshot;
 }
 
@@ -99,16 +95,10 @@ export interface GameState {
  * (gameId is the Redis key; hostId is derived — see docs/redis-schema.md
  * "host convention"). Sent on connect/join so a freshly-opened tab (or a
  * reconnecting client) doesn't need any state beyond what the server has. */
-export interface LobbySnapshot extends GameState {
+export interface GameSnapshot extends GameState {
   gameId: string;
   hostId: string;
 }
-
-/** Alias for `LobbySnapshot`, mid-rollout (see docs/decisions.md "Lobby ->
- * Game wire rename"). `LobbySnapshot` is a temporary re-export during the
- * expand phase; `GameSnapshot` is the name that survives the contract
- * phase, so prefer it in new code. */
-export type GameSnapshot = LobbySnapshot;
 
 export interface JoinGameCommand extends BaseCommand {
   type: "JoinGame";
@@ -170,34 +160,18 @@ export interface EndGameCommand extends BaseCommand {
 export interface PlayerJoinedEvent extends BaseEvent {
   type: "PlayerJoined";
   player: PlayerState;
-  lobby: LobbySnapshot;
-  /** Same value as `lobby` — see `PongEvent.game`'s doc comment. */
   game: GameSnapshot;
 }
 
 export interface PlayerLeftEvent extends BaseEvent {
   type: "PlayerLeft";
   playerId: string;
-  lobby: LobbySnapshot;
-  /** Same value as `lobby` — see `PongEvent.game`'s doc comment. */
   game: GameSnapshot;
 }
 
 /** Full-state sync — sent on WS connect (when the URL names a game), right
  * after CreateGame is accepted, and any time a client needs to resync rather
  * than trust incremental events (see CLAUDE.md "Sequencing"). */
-export interface LobbyStateEvent extends BaseEvent {
-  type: "LobbyState";
-  lobby: LobbySnapshot;
-  /** Same value as `lobby` — see `PongEvent.game`'s doc comment. */
-  game: GameSnapshot;
-}
-
-/** Same full-state sync as `LobbyStateEvent`, under the wire name this
- * rollout is moving to (see docs/decisions.md "Lobby -> Game wire rename").
- * Not yet emitted by the server — added ahead of time in the expand phase
- * so the contract phase can flip `LobbyStateEvent`'s `type` value over
- * without a third rollout. */
 export interface GameSnapshotEvent extends BaseEvent {
   type: "GameSnapshot";
   game: GameSnapshot;
@@ -205,15 +179,11 @@ export interface GameSnapshotEvent extends BaseEvent {
 
 export interface GameStartedEvent extends BaseEvent {
   type: "GameStarted";
-  lobby: LobbySnapshot;
-  /** Same value as `lobby` — see `PongEvent.game`'s doc comment. */
   game: GameSnapshot;
 }
 
 export interface TileTurnedEvent extends BaseEvent {
   type: "TileTurned";
-  lobby: LobbySnapshot;
-  /** Same value as `lobby` — see `PongEvent.game`'s doc comment. */
   game: GameSnapshot;
 }
 
@@ -222,8 +192,6 @@ export interface TileTurnedEvent extends BaseEvent {
  * apply_end_game.lua. */
 export interface GameEndedEvent extends BaseEvent {
   type: "GameEnded";
-  lobby: LobbySnapshot;
-  /** Same value as `lobby` — see `PongEvent.game`'s doc comment. */
   game: GameSnapshot;
 }
 
@@ -231,7 +199,7 @@ export interface GameEndedEvent extends BaseEvent {
  * (if `ownerId` is the same as `WordPlayedEvent.playerId`) the submitter's
  * own word being extended. Enough for a client to narrate e.g. "Sam stole
  * CAT from You -> CAST" (CLAUDE.md "Core gameplay") from any viewer's
- * perspective without needing to diff successive `lobby` snapshots itself —
+ * perspective without needing to diff successive `game` snapshots itself —
  * `apps/web` currently only narrates the actor's own play as a toast (see
  * docs/decisions.md "Toasts are personal, not broadcast narration"), but
  * the event carries enough for any player's perspective, for whenever the
@@ -247,8 +215,6 @@ export interface WordPlayedEvent extends BaseEvent {
   word: string;
   usedWords: UsedWord[];
   usedPoolLetters: string[];
-  lobby: LobbySnapshot;
-  /** Same value as `lobby` — see `PongEvent.game`'s doc comment. */
   game: GameSnapshot;
 }
 
@@ -287,7 +253,6 @@ export type Event =
   | PongEvent
   | PlayerJoinedEvent
   | PlayerLeftEvent
-  | LobbyStateEvent
   | GameSnapshotEvent
   | GameStartedEvent
   | TileTurnedEvent

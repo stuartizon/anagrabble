@@ -224,10 +224,7 @@ describe("useGameSocket reconnection", () => {
       word: "CAT",
       usedWords: [],
       usedPoolLetters: ["C", "A", "T"],
-      // Deliberately only `lobby`, no `game` — proves the fallback (see
-      // docs/decisions.md "Lobby -> Game wire rename") still populates
-      // state from a server that hasn't redeployed the expand phase yet.
-      lobby: game,
+      game,
     };
     await act(async () => {
       for (const cb of socket1.listeners.message ?? []) {
@@ -380,36 +377,6 @@ describe("useGameSocket heartbeat", () => {
       players: [{ id: "host-1", name: "Host", words: [], score: 0, presence: "connected" }],
     };
     const pong = { type: "Pong", seq: 0, gameId: "game-1", game };
-
-    await act(async () => {
-      for (const cb of socket.listeners.message ?? []) {
-        cb({ data: JSON.stringify(pong) });
-      }
-    });
-
-    expect(result.current.game).toEqual(game);
-  });
-
-  it("adopts a Pong reply carrying only the old `lobby` field (server mid-rollout)", async () => {
-    const { result } = renderHook(() => useGameSocket("game-1"));
-    await flush();
-    const socket = MockWebSocket.instances[0]!;
-    await act(async () => socket.emitOpen());
-
-    const game = {
-      gameId: "game-1",
-      hostId: "host-1",
-      status: "lobby",
-      seq: 2,
-      config: { turnTimerSec: 30, minWordLength: 3, language: "en" },
-      turnPlayerId: "host-1",
-      turnDeadline: null,
-      endGameDeadline: null,
-      bankCount: 0,
-      pool: [],
-      players: [{ id: "host-1", name: "Host", words: [], score: 0, presence: "connected" }],
-    };
-    const pong = { type: "Pong", seq: 0, gameId: "game-1", lobby: game };
 
     await act(async () => {
       for (const cb of socket.listeners.message ?? []) {

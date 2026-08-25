@@ -174,16 +174,16 @@ describe("server (WS round trip)", () => {
 
     const hostSocket = await connectAndTrack(baseUrl, game.gameId, "host-1");
     const handshake = await waitForMessage(hostSocket, (m) => m.type === "Handshake");
-    expect((handshake as HandshakeMessage).protocolVersion).toBe(2);
+    expect((handshake as HandshakeMessage).protocolVersion).toBe(3);
     // Reconnect path: the host is already seated (createGame seats them),
-    // so connecting broadcasts a presence-refreshed LobbyState rather than
+    // so connecting broadcasts a presence-refreshed GameSnapshot rather than
     // sending a direct one.
-    await waitForMessage(hostSocket, (m) => m.type === "LobbyState");
+    await waitForMessage(hostSocket, (m) => m.type === "GameSnapshot");
 
     const playerSocket = await connectAndTrack(baseUrl, game.gameId, "player-2");
     await waitForMessage(playerSocket, (m) => m.type === "Handshake");
     // Fresh viewer, not yet seated: sent directly, not broadcast.
-    await waitForMessage(playerSocket, (m) => m.type === "LobbyState");
+    await waitForMessage(playerSocket, (m) => m.type === "GameSnapshot");
 
     const hostSeesJoin = waitForMessage(hostSocket, (m) => m.type === "PlayerJoined");
     send(playerSocket, {
@@ -199,13 +199,8 @@ describe("server (WS round trip)", () => {
     const playerSeesStart = waitForMessage(playerSocket, (m) => m.type === "GameStarted");
     send(hostSocket, { type: "StartGame", commandId: crypto.randomUUID(), gameId: game.gameId });
     const [hostStart, playerStart] = await Promise.all([hostSeesStart, playerSeesStart]);
-    expect(hostStart.type === "GameStarted" && hostStart.lobby.status).toBe("playing");
-    expect(playerStart.type === "GameStarted" && playerStart.lobby.status).toBe("playing");
-    // Expand-phase dual field (see docs/decisions.md "Lobby -> Game wire
-    // rename") — `game` must mirror `lobby` exactly while both are sent.
-    expect(hostStart.type === "GameStarted" && hostStart.game).toEqual(
-      hostStart.type === "GameStarted" && hostStart.lobby,
-    );
+    expect(hostStart.type === "GameStarted" && hostStart.game.status).toBe("playing");
+    expect(playerStart.type === "GameStarted" && playerStart.game.status).toBe("playing");
   });
 
   it("rejects a command with no verified session", async () => {
@@ -241,11 +236,11 @@ describe("server (WS round trip)", () => {
 
     const hostSocket = await connectAndTrack(baseUrlA, game.gameId, "host-1");
     await waitForMessage(hostSocket, (m) => m.type === "Handshake");
-    await waitForMessage(hostSocket, (m) => m.type === "LobbyState");
+    await waitForMessage(hostSocket, (m) => m.type === "GameSnapshot");
 
     const playerSocket = await connectAndTrack(baseUrlB, game.gameId, "player-2");
     await waitForMessage(playerSocket, (m) => m.type === "Handshake");
-    await waitForMessage(playerSocket, (m) => m.type === "LobbyState");
+    await waitForMessage(playerSocket, (m) => m.type === "GameSnapshot");
 
     send(playerSocket, {
       type: "JoinGame",
@@ -262,6 +257,6 @@ describe("server (WS round trip)", () => {
     send(hostSocket, { type: "StartGame", commandId: crypto.randomUUID(), gameId: game.gameId });
     const [, playerStart] = await Promise.all([hostSeesStart, playerSeesStart]);
     // nodeA handled StartGame; nodeB's socket must see it fan out too.
-    expect(playerStart.type === "GameStarted" && playerStart.lobby.status).toBe("playing");
+    expect(playerStart.type === "GameStarted" && playerStart.game.status).toBe("playing");
   });
 });

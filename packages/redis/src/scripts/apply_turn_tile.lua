@@ -6,7 +6,8 @@
 -- KEYS[1] state, KEYS[2] seq, KEYS[3] cmds, KEYS[4] bag (see gameSession.ts key
 -- builders — bagKey is the one addition, a Redis list of the shuffled draw
 -- order, never sent to clients).
--- ARGV[1] commandId, ARGV[2] playerId, ARGV[3] now (ms), ARGV[4] cmds TTL (s)
+-- ARGV[1] commandId, ARGV[2] playerId, ARGV[3] now (ms), ARGV[4] cmds TTL (s),
+-- ARGV[5] presenceStaleMs
 --
 -- Returns either the resulting GameState JSON, or {"error": "<code>"}.
 
@@ -42,7 +43,7 @@ end
 -- before this field existed) defaults to "just seen" rather than "long
 -- gone", failing open during a rollout window instead of mass-skipping
 -- every in-flight game's current turn the instant this deploys.
-local PRESENCE_STALE_MS = tonumber(ARGV[6])
+local PRESENCE_STALE_MS = tonumber(ARGV[5])
 local now = tonumber(ARGV[3])
 
 local function isReachable(player)
@@ -73,19 +74,6 @@ local currentPlayerUnreachable = currentPlayer == nil or not isReachable(current
 local deadlinePassed = (type(state.turnDeadline) == 'number' and now >= state.turnDeadline)
   or currentPlayerUnreachable
 if not isCurrentPlayer and not deadlinePassed then
-  return cjson.encode({ error = 'NotYourTurn' })
-end
-
--- ARGV[5], observedTurnDeadline: set only by a client's background auto-fire
--- (see TurnTileCommand in @anagrabble/protocol), never a manual click. Every
--- connected client races the same deadline, so in a two-player game the
--- *only* other player is always exactly who turnPlayerId advances to —
--- meaning the loser's stale call can arrive just after the winner's call
--- has already made the loser isCurrentPlayer, for the wrong reason. Reject
--- if the deadline this call was reacting to no longer matches current
--- state: something else already handled it.
-local observedTurnDeadline = (ARGV[5] ~= nil and ARGV[5] ~= '') and tonumber(ARGV[5]) or nil
-if observedTurnDeadline ~= nil and observedTurnDeadline ~= state.turnDeadline then
   return cjson.encode({ error = 'NotYourTurn' })
 end
 

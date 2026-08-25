@@ -23,6 +23,75 @@ export const cmdsKey = (gameId: string) => `game:{${gameId}}:cmds`;
  * packages/game/src/bag.ts and docs/redis-schema.md "Tile bag key"). */
 export const bagKey = (gameId: string) => `game:{${gameId}}:bag`;
 
+/** A single cross-game sorted set (not hash-tagged — it's an index over
+ * every game, not one game's own keys), member = gameId, score = the
+ * earliest ms-epoch timestamp at which that game next needs the sweep's
+ * attention. What `turnTimerSweep.ts` polls (`ZRANGEBYSCORE ... -inf now`)
+ * to force-advance a turn even with nobody connected to trigger it — see
+ * docs/decisions.md "Turn-timer polling sweep". Deliberately maintained
+ * from Node (syncTurnDeadlineTracking below), not from inside
+ * apply_turn_tile.lua/apply_submit_word.lua: those scripts stay scoped to
+ * one game's hash-tagged keys (CLAUDE.md "Testing strategy" / the cluster
+ * hash-tag convention above), and this is just a work queue, not
+ * authoritative state — a stale or missing entry is harmless because the
+ * sweep's actual mutation still goes through the same atomic
+ * re-verification every other TurnTile call does.
+ *
+ * The score folds together *both* reasons a turn can need force-advancing
+ * (see syncTurnDeadlineTracking) rather than tracking them as two separate
+ * sorted sets — one `ZRANGEBYSCORE` per sweep tick covers either case, and
+ * `apply_turn_tile.lua`'s existing `deadlinePassed OR
+ * currentPlayerUnreachable` check (unchanged) is what actually decides
+ * which applies. */
+export const TURN_DEADLINES_KEY = "games:turnDeadlines";
+
+/** Keeps `TURN_DEADLINES_KEY` in sync with the earliest time a game will
+ * next need the sweep's attention — call after every mutation that can
+ * change `turnDeadline` or `turnPlayerId` (StartGame/TurnTile/SubmitWord),
+ * and after every presence update that touches the *current* player
+ * specifically (see wsConnection.ts's Ping handler/reconnect stamp and
+ * broadcast.ts's markDisconnected — a non-current player's presence can't
+ * change when this game next needs sweeping, so those skip this call).
+ *
+ * The tracked score is `min(turnDeadline, currentPlayer's presence
+ * deadline)`, not just `turnDeadline`: a current player can go unreachable
+ * (CLAUDE.md "Disconnected-player fast-skip") well before their nominal
+ * turnDeadline, and `apply_turn_tile.lua` already accepts a force-advance
+ * early in that case (`currentPlayerUnreachable`) — the tracked score has
+ * to account for that too, or the sweep would only ever notice once the
+ * full turnTimerSec had elapsed regardless of presence. "Presence
+ * deadline" is exactly `lastSeenAt + PRESENCE_STALE_MS` — the same
+ * `isReachable` boundary the Lua script and the frontend's greyed-out
+ * display already use (see docs/redis-schema.md "Presence"), just
+ * expressed as a future timestamp instead of a live now-vs-lastSeenAt
+ * check, so it can sit in the same deadline-indexed sorted set as
+ * `turnDeadline` — no scanning, no separate presence-polling loop: once
+ * real time crosses a stale player's already-known presence deadline, the
+ * ordinary `ZRANGEBYSCORE` poll picks the game up on its own, exactly like
+ * an ordinary expired turn. The tracked score is only ever a "when to
+ * bother checking" hint, never the authority — `apply_turn_tile.lua`
+ * re-derives both conditions fresh from live state at call time.
+ *
+ * Untracks once there's nothing left for the sweep to do: the game isn't
+ * playing, or the bank is empty (TurnTile is a permanent no-op past that
+ * point — see apply_turn_tile.lua's bankCount<=0 branch — so there's no
+ * expired-turn work to sweep for, even though SubmitWord keeps resetting
+ * turnDeadline for scoring/steal purposes). */
+export async function syncTurnDeadlineTracking(
+  redis: Redis,
+  gameId: string,
+  state: GameState,
+): Promise<void> {
+  if (state.status === "playing" && state.bankCount > 0 && typeof state.turnDeadline === "number") {
+    const currentPlayer = state.players.find((p) => p.id === state.turnPlayerId);
+    const presenceDeadline = (currentPlayer?.lastSeenAt ?? Date.now()) + PRESENCE_STALE_MS;
+    const dueAt = Math.min(state.turnDeadline, presenceDeadline);
+    await redis.zAdd(TURN_DEADLINES_KEY, { score: dueAt, value: gameId });
+  } else {
+    await redis.zRem(TURN_DEADLINES_KEY, gameId);
+  }
+}
+
 export const CMDS_TTL_SEC = 3600;
 
 export type GameSessionError =

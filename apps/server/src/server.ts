@@ -15,6 +15,7 @@ import type { Kysely, Database } from "@anagrabble/postgres";
 import { createBroadcaster } from "./broadcast.js";
 import { registerRestRoutes } from "./restRoutes.js";
 import { createConnectionHandler } from "./wsConnection.js";
+import { startTurnTimerSweep } from "./turnTimerSweep.js";
 
 export interface ServerDeps {
   /** Already connected — createServer duplicates it for the pub/sub
@@ -32,8 +33,9 @@ export interface ServerDeps {
 
 export interface AnagrabbleServer {
   fastify: FastifyInstance;
-  /** Closes the WS server, the fastify HTTP server, and the internal pub/sub
-   * subscriber connection this instance created. Does not touch deps.redis
+  /** Stops the turn-timer sweep, then closes the WS server, the fastify
+   * HTTP server, and the internal pub/sub subscriber connection this
+   * instance created. Does not touch deps.redis
    * or deps.db — those are the caller's to close. */
   close: () => Promise<void>;
 }
@@ -63,9 +65,12 @@ export async function createServer(deps: ServerDeps): Promise<AnagrabbleServer> 
     createConnectionHandler({ redis, db, clerkSecretKey, authMode, broadcaster }),
   );
 
+  const turnTimerSweep = startTurnTimerSweep(redis, broadcaster);
+
   return {
     fastify,
     close: async () => {
+      turnTimerSweep.stop();
       await new Promise<void>((resolve, reject) => {
         wss.close((err) => (err ? reject(err) : resolve()));
       });

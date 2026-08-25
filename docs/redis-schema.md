@@ -24,6 +24,34 @@ name is just for readability.
 it's a dedup window, not permanent storage; `commandId`s don't need to be
 remembered forever, just long enough to catch retries/reconnects.
 
+There's also one cross-game key, deliberately not hash-tagged since it's an
+index over every game rather than one game's own state:
+
+| Key                   | Type       | Purpose                                              |
+| --------------------- | ---------- | ---------------------------------------------------- |
+| `games:turnDeadlines` | sorted set | Games with an active turn timer, for the sweep below |
+
+`games:turnDeadlines` (`gameSession.ts`'s `TURN_DEADLINES_KEY`) scores each
+tracked game by `min(turnDeadline, currentPlayer's presence deadline)` — not
+just `turnDeadline` — where "presence deadline" is
+`currentPlayer.lastSeenAt + PRESENCE_STALE_MS`, the same boundary
+`isReachable`/`apply_turn_tile.lua`'s `currentPlayerUnreachable` check
+already use, just expressed as a future timestamp so it fits the same
+sorted set. `apps/server/src/turnTimerSweep.ts` polls it
+(`ZRANGEBYSCORE ... -inf now`) to force-advance a turn even with nobody
+connected to trigger it — either because the nominal deadline passed, or
+because the current player went stale well before it (CLAUDE.md
+"Disconnected-player fast-skip") — see docs/decisions.md "Turn-timer
+polling sweep" for why both cases need to be in the score (a deadline-only
+sweep would never notice the second one). Kept in sync from Node after
+every mutation that can change `turnDeadline`/`turnPlayerId`, and after
+every presence update for the _current_ player specifically, not from
+inside the Lua scripts — see that decision entry for why. A game is
+untracked (not just left stale) once there's nothing left to sweep for:
+not `playing`, or `bankCount` has hit 0 (`TurnTile` becomes a permanent
+no-op past that point, even though `SubmitWord` keeps resetting
+`turnDeadline` for scoring/steal purposes).
+
 ### Tile bag key
 
 `game:{<gameId>}:bag` holds the game's shuffled draw order (one entry per
@@ -66,9 +94,11 @@ moving from there:
 - **`seq`**: mirrors the dedicated `:seq` key — see "Two seq values" below.
 - **`turnPlayerIndex`** / **`turnDeadline`**: the turn timer (CLAUDE.md "Tile
   turning is turn-based"). `turnDeadline` is a timestamp, checked lazily —
-  any client can fire `TurnTile` once its local countdown says the deadline
-  has passed; the server just verifies `now >= turnDeadline`, no polling
-  sweep (CLAUDE.md "Turn timer enforcement").
+  the current player can fire `TurnTile` early, or the server's own
+  turn-timer sweep (CLAUDE.md "Turn timer enforcement",
+  `apps/server/src/turnTimerSweep.ts`) force-advances it once
+  `now >= turnDeadline`, even with nobody connected; either way the Lua
+  script is what actually verifies the deadline server-side.
 - **`endGameDeadline`**: same lazy/client-triggered pattern as
   `turnDeadline`, but for the post-bank-empty idle countdown (CLAUDE.md
   "Game-end condition"). Null while `bankCount > 0`. Set to `now + 60000` the

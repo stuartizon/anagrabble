@@ -32,6 +32,8 @@ import {
   nextSeq,
   seqKey,
   stateKey,
+  syncTurnDeadlineTracking,
+  TURN_DEADLINES_KEY,
   toGameSnapshot,
   type GameSessionError,
 } from "./gameSession.js";
@@ -78,6 +80,7 @@ export async function startGame(
   multi.set(stateKey(cmd.gameId), JSON.stringify(nextState));
   if (bag.length > 0) multi.rPush(bagKey(cmd.gameId), bag);
   await multi.exec();
+  await syncTurnDeadlineTracking(redis, cmd.gameId, nextState);
 
   return { snapshot: toGameSnapshot(cmd.gameId, nextState) };
 }
@@ -100,11 +103,21 @@ export async function turnTile(
     playerId,
     now: Date.now(),
     cmdsTtlSec: CMDS_TTL_SEC,
-    observedTurnDeadline: cmd.observedTurnDeadline,
     presenceStaleMs: PRESENCE_STALE_MS,
   });
 
-  if ("error" in result) return { error: result.error };
+  if ("error" in result) {
+    // GameNotFound/GameNotStarted: nothing left for the sweep to do for
+    // this game — clean up a stale tracked deadline (e.g. a game the sweep
+    // still had queued right as it ended). NotYourTurn is left untouched:
+    // it means the deadline genuinely hasn't passed (or another caller
+    // already advanced it), not that tracking is stale.
+    if (result.error === "GameNotFound" || result.error === "GameNotStarted") {
+      await redis.zRem(TURN_DEADLINES_KEY, cmd.gameId);
+    }
+    return { error: result.error };
+  }
+  await syncTurnDeadlineTracking(redis, cmd.gameId, result.state);
   return { snapshot: toGameSnapshot(cmd.gameId, result.state) };
 }
 
@@ -128,6 +141,7 @@ export async function endGame(
   });
 
   if ("error" in result) return { error: result.error };
+  await redis.zRem(TURN_DEADLINES_KEY, cmd.gameId);
   return { snapshot: toGameSnapshot(cmd.gameId, result.state) };
 }
 
@@ -192,6 +206,7 @@ export async function submitWord(
   });
 
   if ("error" in result) return { error: result.error };
+  await syncTurnDeadlineTracking(redis, cmd.gameId, result.state);
   return {
     snapshot: toGameSnapshot(cmd.gameId, result.state),
     word,

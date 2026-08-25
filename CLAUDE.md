@@ -148,17 +148,28 @@ build, test]`, `main`-push only — those five run as separate parallel jobs,
 - **Scoring**: 1 point at `minWordLength`, +1 per letter beyond it — see
   docs/decisions.md "Scoring" for the formula, why (not raw word length),
   and a flagged-but-unsolved tension with future cross-game stats.
-- **Turn timer enforcement (MVP decision)**: client-triggered only. Any connected
-  client fires `TurnTile` when its local countdown hits zero; the Lua script
-  verifies `now >= turnDeadline` server-side regardless of who called it. No
-  polling sweep / sorted-set reliability layer for MVP — deliberately deferred
-  until real evidence (stalled games) justifies it. Adding it later requires no
-  redesign: both paths converge on the same idempotent `apply_turn_tile` call.
+- **Turn timer enforcement**: the current player can fire `TurnTile` early;
+  the server's own turn-timer sweep (`apps/server/src/turnTimerSweep.ts`)
+  force-advances it even with nobody connected — polling a Redis sorted set
+  (`games:turnDeadlines`, scored by `min(turnDeadline, currentPlayer's
+presence deadline)` — see "Disconnected-player fast-skip" below) every
+  second on every Node instance, independently, with no coordination
+  between instances. Either path ends at the same `apply_turn_tile.lua` Lua
+  script, which is what actually verifies `now >= turnDeadline` (or
+  unreachability) server-side — see docs/decisions.md "Turn-timer polling
+  sweep" for the implementation and why running uncoordinated on every
+  instance is safe (the sweep never claims a specific player identity, so
+  it can't reproduce the double-tile-draw race a real client once could).
 - **Disconnected-player fast-skip**: the deadline check above also passes
   once the current player is unreachable (stale heartbeat, including
   immediately after their socket closes — whether from a dropped
   connection or clicking "Leave game" mid-game), so an away current player
-  doesn't make everyone wait out the full `turnTimerSec`. See "Player
+  doesn't make everyone wait out the full `turnTimerSec` — the turn-timer
+  sweep participates in this too, not just a connected client: it tracks
+  each game's current-player presence deadline alongside its nominal
+  `turnDeadline` (docs/decisions.md "Turn-timer polling sweep" →
+  "Presence-aware scoring"), so an away current player gets swept
+  regardless of who else is or isn't connected. See "Player
   presence: connected/disconnected tracking" below for the full presence
   model this and host migration both derive from — a `lastSeenAt`
   timestamp per player, refreshed by a client heartbeat, with reachability
@@ -455,9 +466,8 @@ format:check && pnpm typecheck && pnpm test` before every push** — the
 
 Tracked as GitHub issues, not maintained as prose here (see "Working
 conventions" above) — check the repo's open issues rather than assuming
-this list is current. As of 2026-08-18:
+this list is current. As of 2026-08-25:
 
-- Turn-timer server-side polling sweep — anagrabble#2
 - Redis HA approach and timing — anagrabble#3
 - Dictionary prefix-derivation gap (UNHAPPY vs. HAPPY) — anagrabble#4
 - Reconnect/mid-game-join history panel backfill — anagrabble#5

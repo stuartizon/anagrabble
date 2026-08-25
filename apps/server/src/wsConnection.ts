@@ -24,7 +24,13 @@ import {
   type HandshakeMessage,
   type GameSnapshot,
 } from "@anagrabble/protocol";
-import { joinGame, loadGameSnapshot, stateKey, toGameSnapshot } from "./gameSession.js";
+import {
+  joinGame,
+  loadGameSnapshot,
+  stateKey,
+  syncTurnDeadlineTracking,
+  toGameSnapshot,
+} from "./gameSession.js";
 import { endGame, startGame, submitWord, turnTile } from "./game.js";
 import { resolveActingPlayerId, verifyMockSessionToken, verifySessionToken } from "./auth.js";
 import type { Broadcaster } from "./broadcast.js";
@@ -146,6 +152,12 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
               lastSeenAt: Date.now(),
             });
             if (!("error" in presenceResult)) {
+              // Only matters for the turn-timer sweep if this reconnect just
+              // refreshed the *current* player's presence — see
+              // gameSession.ts's syncTurnDeadlineTracking doc comment.
+              if (presenceResult.state.turnPlayerId === reconnectingPlayerId) {
+                await syncTurnDeadlineTracking(redis, gameId, presenceResult.state);
+              }
               // Broadcast, not a direct send — this socket already joined
               // the room above, so the publish fans back out to it too (same
               // pattern as JoinGame's PlayerJoined broadcast), and every
@@ -364,6 +376,12 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
                 lastSeenAt: Date.now(),
               });
               if (!("error" in result)) {
+                // Only matters for the turn-timer sweep if this heartbeat
+                // just refreshed the *current* player's presence — see
+                // gameSession.ts's syncTurnDeadlineTracking doc comment.
+                if (result.state.turnPlayerId === meta.playerId) {
+                  await syncTurnDeadlineTracking(redis, meta.gameId, result.state);
+                }
                 send(socket, {
                   type: "Pong",
                   seq: 0,

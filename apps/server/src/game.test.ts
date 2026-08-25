@@ -17,7 +17,14 @@ import type {
   TurnTileCommand,
 } from "@anagrabble/protocol";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { createGame, joinGame, stateKey, type CreateGameParams } from "./gameSession.js";
+import {
+  createGame,
+  joinGame,
+  PRESENCE_STALE_MS,
+  stateKey,
+  TURN_DEADLINES_KEY,
+  type CreateGameParams,
+} from "./gameSession.js";
 import { endGame, startGame, submitWord, turnTile } from "./game.js";
 
 const CONFIG = { turnTimerSec: 30, minWordLength: 3, language: "en" };
@@ -253,6 +260,108 @@ describe("game", () => {
       expect(result).not.toHaveProperty("error");
       const { snapshot } = result as { snapshot: GameSnapshot };
       expect(snapshot.turnPlayerId).toBe(PLAYER_ID);
+    });
+  });
+
+  // TURN_DEADLINES_KEY is what turnTimerSweep.ts polls to force-advance an
+  // expired turn with nobody connected (anagrabble#2) — see
+  // docs/decisions.md "Turn-timer polling sweep". These tests cover the
+  // apps/server-side bookkeeping that keeps it in sync; the sweep's own
+  // polling/advancing logic is covered in turnTimerSweep.test.ts.
+  describe("turn deadline tracking (TURN_DEADLINES_KEY)", () => {
+    // The tracked score is min(turnDeadline, currentPlayer's presence
+    // deadline) — see gameSession.ts's syncTurnDeadlineTracking doc
+    // comment. In these tests the current player was just created/joined
+    // (lastSeenAt ~= now), so their presence deadline (now + 10s) is
+    // *sooner* than CONFIG's 30s turnDeadline — the tracked score is
+    // expected to be the presence deadline, not the turnDeadline, which is
+    // itself confirmation the presence-aware formula is actually in effect.
+    async function expectedDueAt(): Promise<number> {
+      const raw = await redis.get(stateKey("game-1"));
+      const state = JSON.parse(raw!) as GameState;
+      const currentPlayer = state.players.find((p) => p.id === state.turnPlayerId);
+      const presenceDeadline = (currentPlayer?.lastSeenAt ?? Date.now()) + PRESENCE_STALE_MS;
+      return Math.min(state.turnDeadline!, presenceDeadline);
+    }
+
+    it("tracks the current player's presence deadline, sooner than turnDeadline, once a game starts", async () => {
+      await seedTwoPlayerLobby();
+      const result = await startGame(redis, startGameCommand(), HOST_ID);
+      const { snapshot } = result as { snapshot: GameSnapshot };
+
+      const score = await redis.zScore(TURN_DEADLINES_KEY, "game-1");
+      expect(score).toBe(await expectedDueAt());
+      expect(score).toBeLessThan(snapshot.turnDeadline!);
+    });
+
+    it("recomputes the tracked due time for the new current player after a tile turn", async () => {
+      await seedTwoPlayerLobby();
+      await startGame(redis, startGameCommand(), HOST_ID);
+
+      await turnTile(redis, turnTileCommand(), HOST_ID);
+
+      // Not necessarily later than before the turn — HOST_ID and PLAYER_ID
+      // were seeded within the same millisecond here, so their presence
+      // deadlines can tie. What matters is that it's recomputed for
+      // whoever the turn actually landed on (PLAYER_ID), not left stale
+      // from the host's turn.
+      const after = await redis.zScore(TURN_DEADLINES_KEY, "game-1");
+      expect(after).toBe(await expectedDueAt());
+    });
+
+    it("stops tracking once a tile turn empties the bank", async () => {
+      await seedTwoPlayerLobby();
+      await startGame(redis, startGameCommand(), HOST_ID);
+      await seedPlayingState({ bankCount: 1, turnPlayerId: HOST_ID });
+
+      const result = await turnTile(redis, turnTileCommand(), HOST_ID);
+      expect(result).toMatchObject({ snapshot: { bankCount: 0 } });
+
+      const score = await redis.zScore(TURN_DEADLINES_KEY, "game-1");
+      expect(score).toBeNull();
+    });
+
+    it("leaves tracking alone when a tile turn is rejected", async () => {
+      await seedTwoPlayerLobby();
+      await startGame(redis, startGameCommand(), HOST_ID);
+      const before = await redis.zScore(TURN_DEADLINES_KEY, "game-1");
+
+      const result = await turnTile(redis, turnTileCommand(), PLAYER_ID);
+      expect(result).toEqual({ error: "NotYourTurn" });
+
+      const after = await redis.zScore(TURN_DEADLINES_KEY, "game-1");
+      expect(after).toBe(before);
+    });
+
+    it("clears tracking once the game is confirmed gone", async () => {
+      const result = await turnTile(redis, turnTileCommand(), HOST_ID);
+      expect(result).toEqual({ error: "GameNotFound" });
+
+      const score = await redis.zScore(TURN_DEADLINES_KEY, "game-1");
+      expect(score).toBeNull();
+    });
+
+    it("keeps tracking the deadline SubmitWord resets, even after the bank is already empty at the time of play", async () => {
+      // bankCount already 0 — submitWord doesn't touch it, but still resets
+      // turnDeadline (CLAUDE.md "Word play transfers the tile-turn"). Since
+      // TurnTile is a permanent no-op once bankCount is 0 either way, there's
+      // nothing left for the sweep to do here — tracking should stay cleared.
+      await seedPlayingState({ bankCount: 0, pool: ["C", "A", "T"] });
+
+      await submitWord(redis, submitWordCommand({ word: "cat" }), "host-1");
+
+      const score = await redis.zScore(TURN_DEADLINES_KEY, "game-1");
+      expect(score).toBeNull();
+    });
+
+    it("untracks the game once it ends", async () => {
+      await seedPlayingState({ bankCount: 0, endGameDeadline: Date.now() - 1 });
+      await redis.zAdd(TURN_DEADLINES_KEY, { score: Date.now() + 30_000, value: "game-1" });
+
+      await endGame(redis, endGameCommand());
+
+      const score = await redis.zScore(TURN_DEADLINES_KEY, "game-1");
+      expect(score).toBeNull();
     });
   });
 

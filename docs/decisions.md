@@ -442,9 +442,10 @@ Redis/Lua atomicity design exists to resolve.
 
 ### Turn timer enforcement: client-triggered only for MVP
 
-**Decision**: any connected client fires `TurnTile` when its local countdown
-hits zero; the Lua script verifies the deadline server-side regardless of who
-called it. No server-side polling sweep for MVP.
+**Decision (superseded — see "Turn-timer polling sweep" below)**: any
+connected client fires `TurnTile` when its local countdown hits zero; the
+Lua script verifies the deadline server-side regardless of who called it.
+No server-side polling sweep for MVP.
 
 **Alternative considered**: a Redis sorted-set sweep, independently polled by
 every Node instance (`ZRANGEBYSCORE` against a deadlines set) — rejected for now
@@ -456,7 +457,134 @@ just deferred until real evidence (actually-stalled games) justifies it.
 fire-and-forget; a notification with no subscriber connected at that instant is
 lost permanently, which is a worse reliability property than either alternative.
 
-### Two-player double-tile-draw bug: `observedTurnDeadline` staleness guard
+### Turn-timer polling sweep
+
+**Decision (2026-08-25, anagrabble#2)**: built the sorted-set sweep the
+alternative above anticipated, replacing client-triggered-only. Picked up
+directly rather than left deferred further — Stuart's call when the issue
+came up, not driven by a specific stalled-game incident; the "wait for real
+evidence" bar from the original decision was explicitly reconsidered and
+judged not worth waiting on longer, since the sweep was always understood to
+be a clean, no-redesign addition once built.
+
+**Implementation**:
+
+- `apps/server/src/gameSession.ts`'s `TURN_DEADLINES_KEY`
+  (`games:turnDeadlines`) — a single cross-game sorted set, member = gameId,
+  score = the earliest ms-epoch timestamp that game next needs the sweep's
+  attention (see "Presence-aware scoring" below for what that score
+  actually is). Deliberately _not_ hash-tagged like a game's own keys
+  (docs/redis-schema.md "Keys") — it's an index over every game, not one
+  game's state.
+- Kept in sync from Node (`syncTurnDeadlineTracking`), called after every
+  mutation that can change `turnDeadline`/`turnPlayerId`
+  (StartGame/TurnTile/SubmitWord/EndGame) and after every presence update
+  that touches the current player specifically — deliberately _not_
+  maintained from inside `apply_turn_tile.lua`/`apply_submit_word.lua`
+  themselves, to keep those scripts scoped to one game's own hash-tagged
+  keys (see "Word resolution implementation split"'s "keeps the Lua script
+  small/auditable" reasoning — same principle applied here). This means
+  tracking updates aren't atomic with the state mutation, but that's fine:
+  the set is a work queue, not authoritative — a stale or missing entry is
+  harmless, since the sweep's actual mutation still goes through
+  `apply_turn_tile.lua`'s ordinary atomic re-verification, same as any
+  other `TurnTile` caller.
+- `apps/server/src/turnTimerSweep.ts` — `setInterval` (1s) on every Node
+  instance, `ZRANGEBYSCORE games:turnDeadlines -inf now` for due games,
+  replaying `TurnTile` for each via a non-overlapping-tick guard (skips a
+  tick if the previous one is still catching up, rather than piling up
+  concurrent runs).
+- Runs independently per Node instance rather than a single elected leader —
+  deliberately not worth the added coordination machinery (leader election,
+  a lock) at current scale. Safe because the sweep never claims a specific
+  player identity (a fixed non-player sentinel actor id): concurrent sweep
+  calls across instances can only ever succeed via
+  `apply_turn_tile.lua`'s `deadlinePassed` branch, never `isCurrentPlayer`,
+  which is exactly what makes the double-tile-draw bug below structurally
+  impossible for the sweep to reproduce (verified by
+  `applyTurnTile.test.ts`'s "draws exactly once in a two-player game when
+  two sweep instances race the same missed deadline" and
+  `turnTimerSweep.test.ts`'s equivalent end-to-end case) — no leader
+  election needed to keep sweeps from double-drawing.
+- Client-side: `useTurnTimer.ts` is now a pure countdown display with
+  nothing to send — considered, and rejected, restoring a narrow
+  current-player-only auto-fire purely to shave the sweep's up-to-~1s
+  latency off the common "current player is actively connected but doesn't
+  click" case. Would have been safe (a real client can only ever satisfy
+  `isCurrentPlayer` as itself, so it can't reproduce the old
+  identity-collision bug below), but Stuart judged the added code path not
+  worth it against the sweep's uniform, simpler one-mechanism design at
+  current scale. Revisit if ~1s of added latency on a missed deadline ever
+  becomes a real complaint.
+
+**Presence-aware scoring (disconnected-player fast-skip)**: caught in review
+before this shipped — a sweep indexed purely by `turnDeadline` never
+notices a current player going unreachable mid-turn. CLAUDE.md's
+"Disconnected-player fast-skip" is a separate, already-existing feature
+(`apply_turn_tile.lua`'s `currentPlayerUnreachable` branch accepts a
+force-advance before the nominal deadline once the current player is
+stale) that the old client-triggered design served via literally any
+connected client's local timer effect checking presence directly. A
+deadline-only sweep would have silently made that feature unreachable in
+practice: it wouldn't even look at a game until the full `turnTimerSec`
+had elapsed, regardless of how long the current player had actually been
+gone.
+
+**Fix**: the tracked score is `min(turnDeadline, currentPlayer's presence
+deadline)`, where "presence deadline" is `lastSeenAt + PRESENCE_STALE_MS` —
+the same `now - lastSeenAt < PRESENCE_STALE_MS` boundary
+(`gameSession.ts`'s `isReachable`) that `apply_turn_tile.lua`'s
+`currentPlayerUnreachable` check and the frontend's greyed-out/
+"Disconnected" display already use, just expressed as a future timestamp
+instead of a live now-vs-lastSeenAt comparison. That's what lets it sit in
+the same deadline-indexed sorted set as `turnDeadline`, so the sweep itself
+needs zero changes — still one `ZRANGEBYSCORE` per tick, no scanning, no
+second poll loop. `syncTurnDeadlineTracking` gets called (in addition to
+the mutation sites above) from every place presence actually changes for
+the _current_ player specifically — `wsConnection.ts`'s `Ping` handler and
+reconnect-handshake stamp, and `broadcast.ts`'s `markDisconnected` — each
+already has the resulting `state` from `applyPresence` in hand, and skips
+the extra `ZADD` entirely when the affected player isn't the current one.
+Cost is proportional to real activity (current-player heartbeats and
+moves), not to concurrent game count — deliberately rejected: scanning
+every tracked game every tick to re-check presence, which would have been
+O(games) per tick regardless of how many actually needed attention, not
+worth it "for lots of concurrent games" per Stuart.
+
+Because the tracked score is only ever a "when to bother checking" hint —
+`apply_turn_tile.lua` still re-derives both `deadlinePassed` and
+`currentPlayerUnreachable` fresh from live state at call time, same as
+before — there's no way for the sweep to skip someone the UI still shows
+connected: both derive from the same `lastSeenAt`/`PRESENCE_STALE_MS`
+inputs, so crossing the threshold is what makes a player read as
+disconnected everywhere at once. The only asymmetry is display cadence
+(each viewer's own next Ping/Pong refreshes their view of others'
+presence, vs. the sweep's fixed 1s tick), so the greyed-out UI can appear
+up to ~1s before the sweep actually force-skips, never the reverse. Ping
+failure tolerance is unaffected and pre-existing: `PING_INTERVAL_MS`
+(3000ms) vs. `PRESENCE_STALE_MS` (10000ms) means roughly 3 heartbeat
+attempts fit inside the staleness window before anything treats a player
+as gone — a single dropped ping is a non-event, by the same time-window
+mechanism (not a retry counter) that already governed `isReachable`.
+Regression test: `turnTimerSweep.test.ts`'s "fast-skips a turn once the
+current player goes stale, well before the nominal turnDeadline"; the
+wiring at each presence call site is covered by `server.test.ts`'s "turn-
+timer sweep tracking follows presence" (verifies both that the current
+player's Ping/close updates tracking, and that a non-current player's
+doesn't).
+
+**Removed alongside this**, since the race they existed to guard against
+(multiple _client-identity-claiming_ callers racing the same expired
+deadline) can't happen once the sweep is the sole non-manual caller — see
+"Two-player double-tile-draw bug" below for why this is safe even with every
+Node instance running its own independent sweep: `TurnTileCommand.observedTurnDeadline`
+(`packages/protocol`), the matching guard block in `apply_turn_tile.lua`,
+its `ApplyTurnTileArgs`/Lua `ARGV` plumbing (`packages/redis`), and the
+background auto-fire `useEffect` that lived in `useTurnTimer.ts`
+(`apps/web`) — that hook is now a pure countdown display, with nothing left
+to send.
+
+### Two-player double-tile-draw bug: `observedTurnDeadline` staleness guard (removed)
 
 **Bug**: in a two-player game, every timer expiry drew two tiles instead of
 one. Root cause: the client-triggered pattern above has _every_ connected
@@ -481,19 +609,22 @@ already handled the deadline I was reacting to." Regression test:
 two-player game when both the current player's own auto-fire and the other
 client's redundant fast-skip fire for the same missed deadline."
 
-**This is scaffolding for the client-triggered era only, not a permanent
-feature.** The race it guards against — multiple clients independently
-racing the same shared deadline — cannot happen once the turn-timer polling
-sweep above lands, because there's exactly one authoritative caller (the
-sweep) instead of every connected client. At that point
-`observedTurnDeadline` becomes dead: the field on `TurnTileCommand`, the
-guard block in `apply_turn_tile.lua`, the corresponding `ApplyTurnTileArgs`
-plumbing in `packages/redis`/`apps/server`, and the background auto-fire
-`useEffect` in `GameBoard.tsx` it's threaded from should all be deleted in
-the same PR that lands the sweep — see CLAUDE.md "Still open" for the
-tracking bullet. Left in place, it's harmless (a no-op once nothing sends
-the field), but it's cruft worth actually removing rather than a permanent
-fixture, since the sweep removes the very race it exists to prevent.
+**Removed 2026-08-25, alongside "Turn-timer polling sweep" above.** This was
+scaffolding for the client-triggered era only: the race it guarded
+against — multiple _client-identity-claiming_ callers independently racing
+the same shared deadline — can't happen once the sweep is the sole
+non-manual caller, even running independently on every Node instance with
+no coordination between them. The mechanism that made the two-player case
+specifically dangerous was a real client's stale call landing just after
+`turnPlayerId` flipped onto _that exact browser's own player_, satisfying
+`isCurrentPlayer` for the wrong reason. The sweep never claims a specific
+player identity, so it can only ever succeed via the `deadlinePassed`
+branch — a second, third, concurrent sweep call (from this or another Node
+instance) always re-reads state past the first one's atomic mutation, sees
+a fresh future `turnDeadline`, and safely fails both `isCurrentPlayer` and
+`deadlinePassed`. Verified directly: `applyTurnTile.test.ts`'s "draws
+exactly once in a two-player game when two sweep instances race the same
+missed deadline" replaces the old client-identity version of this test.
 
 ### Word formability and steal resolution
 

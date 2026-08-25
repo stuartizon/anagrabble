@@ -90,15 +90,7 @@ export function GameBoard({
   const isCurrentPlayer = currentPlayer?.id === playerId;
   const gameId = game.gameId;
 
-  const currentPlayerUnreachable =
-    currentPlayer?.presence != null && currentPlayer.presence !== "connected";
-  const secondsLeft = useTurnTimer({
-    turnDeadline: game.turnDeadline,
-    gameId,
-    bankCount: game.bankCount,
-    currentPlayerUnreachable,
-    send,
-  });
+  const secondsLeft = useTurnTimer({ turnDeadline: game.turnDeadline });
 
   // Gated on status === "playing" so the idle countdown stops firing once
   // the game has actually ended.

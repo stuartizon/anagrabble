@@ -30,7 +30,7 @@ import type {
   HandshakeMessage,
 } from "@anagrabble/protocol";
 import { createServer, type AnagrabbleServer } from "./server.js";
-import { stateKey } from "./gameSession.js";
+import { stateKey, TURN_DEADLINES_KEY } from "./gameSession.js";
 
 const WEB_ORIGIN = "http://localhost:5173";
 const CONFIG = { turnTimerSec: 30, minWordLength: 3, language: "en" };
@@ -265,6 +265,107 @@ describe("server (WS round trip)", () => {
     const [, playerStart] = await Promise.all([hostSeesStart, playerSeesStart]);
     // nodeA handled StartGame; nodeB's socket must see it fan out too.
     expect(playerStart.type === "GameStarted" && playerStart.game.status).toBe("playing");
+  });
+
+  // Covers the actual WS wiring behind syncTurnDeadlineTracking's doc
+  // comment (gameSession.ts): a presence update only matters to the
+  // turn-timer sweep when it's the *current* player's — game.test.ts/
+  // turnTimerSweep.test.ts cover the tracking formula and the sweep's own
+  // polling in isolation, but only a real Ping/close round trip here
+  // exercises the `meta.playerId`/`turnPlayerId` comparisons in
+  // wsConnection.ts and broadcast.ts themselves.
+  describe("turn-timer sweep tracking follows presence", () => {
+    it("updates the tracked due time when the current player pings, not when someone else does", async () => {
+      const baseUrl = await startServer();
+      const game = await createGameViaRest(baseUrl, "host-1");
+
+      const hostSocket = await connectAndTrack(baseUrl, game.gameId, "host-1");
+      await waitForMessage(hostSocket, (m) => m.type === "Handshake");
+      await waitForMessage(hostSocket, (m) => m.type === "GameSnapshot");
+
+      const playerSocket = await connectAndTrack(baseUrl, game.gameId, "player-2");
+      await waitForMessage(playerSocket, (m) => m.type === "Handshake");
+      await waitForMessage(playerSocket, (m) => m.type === "GameSnapshot");
+      send(playerSocket, {
+        type: "JoinGame",
+        commandId: crypto.randomUUID(),
+        gameId: game.gameId,
+        playerName: "Player Two",
+      });
+      await waitForMessage(hostSocket, (m) => m.type === "PlayerJoined");
+
+      const hostSeesStart = waitForMessage(hostSocket, (m) => m.type === "GameStarted");
+      send(hostSocket, { type: "StartGame", commandId: crypto.randomUUID(), gameId: game.gameId });
+      const started = await hostSeesStart;
+      // host-1 is the current player: StartGame opens the first turn with
+      // the host as turnPlayerId.
+      expect(started.type === "GameStarted" && started.game.turnPlayerId).toBe("host-1");
+
+      const before = await redis.zScore(TURN_DEADLINES_KEY, game.gameId);
+
+      const playerSeesPong = waitForMessage(playerSocket, (m) => m.type === "Pong");
+      send(playerSocket, { type: "Ping", commandId: crypto.randomUUID(), gameId: game.gameId });
+      await playerSeesPong;
+
+      const afterNonCurrentPing = await redis.zScore(TURN_DEADLINES_KEY, game.gameId);
+      expect(afterNonCurrentPing).toBe(before);
+
+      // A real clock tick, so a refreshed lastSeenAt is measurably later —
+      // otherwise a same-millisecond ZADD could coincidentally match.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const hostSeesPong = waitForMessage(hostSocket, (m) => m.type === "Pong");
+      send(hostSocket, { type: "Ping", commandId: crypto.randomUUID(), gameId: game.gameId });
+      await hostSeesPong;
+
+      const afterCurrentPing = await redis.zScore(TURN_DEADLINES_KEY, game.gameId);
+      expect(afterCurrentPing).toBeGreaterThan(before!);
+    });
+
+    it("updates the tracked due time to 'now' when the current player's socket closes, not when someone else's does", async () => {
+      const baseUrl = await startServer();
+      const game = await createGameViaRest(baseUrl, "host-1");
+
+      const hostSocket = await connectAndTrack(baseUrl, game.gameId, "host-1");
+      await waitForMessage(hostSocket, (m) => m.type === "Handshake");
+      await waitForMessage(hostSocket, (m) => m.type === "GameSnapshot");
+
+      const playerSocket = await connectAndTrack(baseUrl, game.gameId, "player-2");
+      await waitForMessage(playerSocket, (m) => m.type === "Handshake");
+      await waitForMessage(playerSocket, (m) => m.type === "GameSnapshot");
+      send(playerSocket, {
+        type: "JoinGame",
+        commandId: crypto.randomUUID(),
+        gameId: game.gameId,
+        playerName: "Player Two",
+      });
+      await waitForMessage(hostSocket, (m) => m.type === "PlayerJoined");
+
+      const hostSeesStart = waitForMessage(hostSocket, (m) => m.type === "GameStarted");
+      send(hostSocket, { type: "StartGame", commandId: crypto.randomUUID(), gameId: game.gameId });
+      const started = await hostSeesStart;
+      expect(started.type === "GameStarted" && started.game.turnPlayerId).toBe("host-1");
+
+      const before = await redis.zScore(TURN_DEADLINES_KEY, game.gameId);
+
+      // player-2 (not current) disconnecting shouldn't touch tracking.
+      playerSocket.socket.close();
+      sockets.splice(sockets.indexOf(playerSocket), 1);
+      await new Promise((resolve) => setTimeout(resolve, 100)); // let the fire-and-forget markDisconnected settle
+      const afterNonCurrentClose = await redis.zScore(TURN_DEADLINES_KEY, game.gameId);
+      expect(afterNonCurrentClose).toBe(before);
+
+      // host-1 (current) disconnecting should pull the due time down to
+      // effectively "now" — this is the actual fast-skip fix: the sweep
+      // will pick this game up on its very next tick instead of waiting out
+      // the rest of turnTimerSec.
+      hostSocket.socket.close();
+      sockets.splice(sockets.indexOf(hostSocket), 1);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const afterCurrentClose = await redis.zScore(TURN_DEADLINES_KEY, game.gameId);
+      expect(afterCurrentClose).toBeLessThan(before!);
+      expect(afterCurrentClose).toBeLessThanOrEqual(Date.now());
+    });
   });
 
   // Unlike the handler functions above (unit-tested with mocks in

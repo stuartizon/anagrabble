@@ -393,40 +393,37 @@ describe("applyTurnTile", () => {
     expect(finalState.turnPlayerId).toBe("p2");
   });
 
-  it("draws exactly once in a two-player game when both the current player's own auto-fire and the other client's redundant fast-skip fire for the same missed deadline", async () => {
-    // Regression test for the double-tile bug: in a two-player game, the
-    // *other* player is always exactly who turnPlayerId advances to. So
-    // when both clients race the same expired deadline (every connected
-    // client fires, not just the current player's — see CLAUDE.md "Turn
-    // timer enforcement"), the loser's stale call arrives just after the
-    // winner's call has already made the loser the current player — which
-    // satisfies isCurrentPlayer for the wrong reason and would draw a
-    // second tile. observedTurnDeadline is what lets the script tell "I'm
-    // current because it's genuinely my turn" apart from "I'm current only
-    // because a stale call of mine landed after someone else's already
-    // advanced onto me."
+  it("draws exactly once in a two-player game when two sweep instances race the same missed deadline", async () => {
+    // Regression test underpinning removing the old observedTurnDeadline
+    // staleness guard (docs/decisions.md "Two-player double-tile-draw
+    // bug"): that guard existed because a real *client's* stale call could
+    // land just after turnPlayerId flipped onto that exact browser's own
+    // player, satisfying isCurrentPlayer for the wrong reason. The server
+    // sweep (apps/server/src/turnTimerSweep.ts) replaced client-triggered
+    // firing and never claims a specific player identity, so this same
+    // playerId-here can't ever coincidentally match whoever the turn
+    // advances to — two concurrent sweep calls (same as two Node instances
+    // independently sweeping the same overdue game) must still only draw
+    // once, without needing an observed-deadline guard to tell them apart.
     const now = Date.now();
-    const originalDeadline = now - 1;
-    await seed(makeState({ turnPlayerId: "p1", turnDeadline: originalDeadline, bankCount: 5 }));
+    await seed(makeState({ turnPlayerId: "p1", turnDeadline: now - 1, bankCount: 5 }));
 
     const [a, b] = await Promise.all([
       applyTurnTile(redis, {
         ...KEYS,
         commandId: crypto.randomUUID(),
-        playerId: "p1",
+        playerId: "turn-timer-sweep",
         now,
         cmdsTtlSec: 3600,
         presenceStaleMs: 10_000,
-        observedTurnDeadline: originalDeadline,
       }),
       applyTurnTile(redis, {
         ...KEYS,
         commandId: crypto.randomUUID(),
-        playerId: "p2",
+        playerId: "turn-timer-sweep",
         now,
         cmdsTtlSec: 3600,
         presenceStaleMs: 10_000,
-        observedTurnDeadline: originalDeadline,
       }),
     ]);
 

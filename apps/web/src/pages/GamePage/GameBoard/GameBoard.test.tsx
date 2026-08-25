@@ -706,39 +706,6 @@ describe("GameBoard", () => {
     }
   });
 
-  it("fires TurnTile immediately once the current player is disconnected, without waiting for turnDeadline", () => {
-    // Regression test: the background auto-fire effect only ever checked
-    // Date.now() >= turnDeadline, so the server's fast-skip-on-disconnect
-    // accept branch (apply_turn_tile.lua) had no client path that could
-    // ever reach it before the full turnTimerSec elapsed.
-    renderBoard({
-      game: gameSnapshot({
-        turnPlayerId: "opp-1",
-        turnDeadline: Date.now() + 30_000, // far away — not why this fires
-        players: [ME, { ...OPPONENT, presence: "disconnected" }],
-      }),
-    });
-
-    expect(send).toHaveBeenCalledWith({
-      type: "TurnTile",
-      commandId: "cmd-1",
-      gameId: "ABCDE",
-      observedTurnDeadline: expect.any(Number),
-    });
-  });
-
-  it("does not fire TurnTile early while the current player is still connected", () => {
-    renderBoard({
-      game: gameSnapshot({
-        turnPlayerId: "opp-1",
-        turnDeadline: Date.now() + 30_000,
-        players: [ME, { ...OPPONENT, presence: "connected" }],
-      }),
-    });
-
-    expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "TurnTile" }));
-  });
-
   it("shows a reconnecting indicator when the socket is reconnecting", () => {
     renderBoard({ status: "reconnecting" });
     expect(screen.getByText(/reconnecting/i)).toBeInTheDocument();

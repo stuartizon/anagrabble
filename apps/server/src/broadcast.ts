@@ -9,7 +9,7 @@
 import { WebSocket } from "ws";
 import { applyPresence, type Redis } from "@anagrabble/redis";
 import type { Event } from "@anagrabble/protocol";
-import { stateKey, toGameSnapshot } from "./gameSession.js";
+import { stateKey, syncTurnDeadlineTracking, toGameSnapshot } from "./gameSession.js";
 
 const GAME_CHANNEL = "game:events";
 
@@ -66,8 +66,16 @@ export async function createBroadcaster(redis: Redis): Promise<Broadcaster> {
 
   function markDisconnected(gameId: string, playerId: string) {
     applyPresence(redis, { stateKey: stateKey(gameId), playerId, lastSeenAt: 0 })
-      .then((result) => {
+      .then(async (result) => {
         if ("error" in result) return;
+        // Only matters for the turn-timer sweep if the player who just went
+        // stale is the *current* player — see gameSession.ts's
+        // syncTurnDeadlineTracking doc comment. This is what lets the sweep
+        // fast-skip an away current player well before their nominal
+        // turnDeadline, same as the frontend's greyed-out presence check.
+        if (result.state.turnPlayerId === playerId) {
+          await syncTurnDeadlineTracking(redis, gameId, result.state);
+        }
         return publish({
           type: "GameSnapshot",
           seq: result.state.seq,

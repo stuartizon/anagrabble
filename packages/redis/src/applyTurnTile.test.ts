@@ -199,6 +199,71 @@ describe("applyTurnTile", () => {
     expect(result).toEqual({ error: "NotYourTurn" });
   });
 
+  it("is a no-op in a solo game once the only player has gone stale, rather than nulling turnPlayerId and burning a tile", async () => {
+    // Regression test: apply_turn_tile.lua used to draw a tile and commit
+    // to a mutation *before* checking whether anyone was actually reachable
+    // to receive the turn. In a solo game, the sole player being unreachable
+    // (the very reason the sweep fired) meant the walk found no candidate,
+    // so turnPlayerId got set to null — a wasted tile draw and a broken
+    // "Someone's turn" UI with no button to click, until a second sweep
+    // pass reassigned it back to them once they reconnected. See
+    // docs/decisions.md "Turn-timer polling sweep" → "Solo-game turn
+    // nulling".
+    const now = Date.now();
+    await seed(
+      makeState({
+        turnPlayerId: "p1",
+        turnDeadline: now + 30_000, // far away — not why this fires
+        bankCount: 5,
+        players: [{ id: "p1", name: "One", words: [], score: 0, lastSeenAt: now - 25_000 }], // stale
+      }),
+    );
+
+    const result = await applyTurnTile(redis, {
+      ...KEYS,
+      commandId: crypto.randomUUID(),
+      playerId: "turn-timer-sweep",
+      now,
+      cmdsTtlSec: 3600,
+      presenceStaleMs: 10_000,
+    });
+
+    expect(result).toMatchObject({
+      state: { pool: [], bankCount: 5, turnPlayerId: "p1" },
+    });
+    const raw = await redis.get(KEYS.stateKey);
+    expect((JSON.parse(raw!) as GameState).pool).toEqual([]);
+  });
+
+  it("is a no-op when every player is unreachable, the fully pathological multiplayer case", async () => {
+    const now = Date.now();
+    await seed(
+      makeState({
+        turnPlayerId: "p1",
+        turnDeadline: now + 30_000,
+        bankCount: 5,
+        players: [
+          { id: "p1", name: "One", words: [], score: 0, lastSeenAt: now - 25_000 },
+          { id: "p2", name: "Two", words: [], score: 0, lastSeenAt: now - 25_000 },
+          { id: "p3", name: "Three", words: [], score: 0, lastSeenAt: now - 25_000 },
+        ],
+      }),
+    );
+
+    const result = await applyTurnTile(redis, {
+      ...KEYS,
+      commandId: crypto.randomUUID(),
+      playerId: "turn-timer-sweep",
+      now,
+      cmdsTtlSec: 3600,
+      presenceStaleMs: 10_000,
+    });
+
+    expect(result).toMatchObject({
+      state: { pool: [], bankCount: 5, turnPlayerId: "p1" },
+    });
+  });
+
   it("advancing off a reachable player skips a subsequently-unreachable one, instead of handing them the turn", async () => {
     // Regression test for the bug in docs/decisions.md "Turn ownership:
     // turnPlayerIndex -> identity-based, not array position": with a

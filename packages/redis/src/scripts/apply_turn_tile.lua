@@ -77,21 +77,20 @@ if not isCurrentPlayer and not deadlinePassed then
   return cjson.encode({ error = 'NotYourTurn' })
 end
 
-local letter = redis.call('LPOP', KEYS[4])
-if not letter then
-  return stateRaw
-end
-
-local seq = redis.call('INCR', KEYS[2])
-table.insert(state.pool, letter)
-state.bankCount = state.bankCount - 1
-
--- Advance turn ownership to the next reachable player, walking past any
--- run of unreachable ones without drawing a tile for them. Landing on an
--- unreachable player here is exactly what let a client's own fast-skip
--- effect fire again immediately after this call returned, silently
--- drawing a second tile for one click — see docs/decisions.md "Turn
--- ownership: turnPlayerIndex -> identity-based, not array position".
+-- Who would actually receive the turn next, walking past any run of
+-- unreachable players — including possibly wrapping all the way back to
+-- the current player if nobody else is reachable (the common solo-game
+-- case: with one player, this always "wraps" straight back to them).
+-- Computed *before* consuming a tile, and bailing out as a no-op if
+-- nobody is reachable, rather than committing to a mutation with nowhere
+-- to hand the turn: drawing a tile and setting turnPlayerId to null here
+-- used to be exactly what broke a solo game — the sole player briefly
+-- disconnecting made them "unreachable" (correctly), the fast-skip fired,
+-- found no *other* reachable candidate to hand off to (they were still
+-- marked stale in this same read), and nulled turnPlayerId out — leaving
+-- "Someone's turn" with no button to click, and wasting a tile, until a
+-- second sweep pass reassigned it back to them once they reconnected. See
+-- docs/decisions.md "Turn-timer polling sweep" → "Solo-game turn nulling".
 local numPlayers = #state.players
 local startIndex = currentIndex or 0
 local nextPlayerId = nil
@@ -103,11 +102,19 @@ for step = 1, numPlayers do
     break
   end
 end
--- Lua semantics: assigning a table field to `nil` removes the key rather
--- than encoding JSON null, which would silently drop turnPlayerId from the
--- wire payload instead of sending the documented `null`. cjson.null is the
--- explicit JSON-null sentinel.
-state.turnPlayerId = nextPlayerId or cjson.null
+if nextPlayerId == nil then
+  return stateRaw
+end
+
+local letter = redis.call('LPOP', KEYS[4])
+if not letter then
+  return stateRaw
+end
+
+local seq = redis.call('INCR', KEYS[2])
+table.insert(state.pool, letter)
+state.bankCount = state.bankCount - 1
+state.turnPlayerId = nextPlayerId
 state.turnDeadline = now + (state.config.turnTimerSec * 1000)
 if state.bankCount == 0 then
   state.endGameDeadline = now + 60000

@@ -584,6 +584,52 @@ background auto-fire `useEffect` that lived in `useTurnTimer.ts`
 (`apps/web`) — that hook is now a pure countdown display, with nothing left
 to send.
 
+### Solo-game turn nulling
+
+**Bug**: caught by Stuart testing a one-player game — leave it, come back,
+and the board shows "Someone's turn" with no button to click, until a tile
+silently turns over on its own and it resolves.
+
+**Root cause**: `apply_turn_tile.lua` used to commit to a mutation (LPOP a
+tile, bump `seq`, reset `turnDeadline`) _before_ checking whether there was
+actually anyone reachable to hand the turn to — it computed the "next
+player" walk last, and fell back to `state.turnPlayerId = cjson.null` if
+the walk found nobody. In a solo game, `turnPlayerId` is always your own
+id, so leaving makes you — the only entry the walk ever considers —
+unreachable, and the fast-skip fires precisely because you're unreachable.
+The walk therefore always finds nobody, nulls `turnPlayerId`, and burns a
+tile for it. `GameBoard`'s `game.players.find(p => p.id ===
+game.turnPlayerId)` then finds nothing (no player has id `null`), so
+`currentPlayer` is `undefined` and the UI falls back to "Someone's turn"
+with `isCurrentPlayer` false too — no button at all. It "self-heals"
+because a null `turnPlayerId` makes `currentPlayerUnreachable`
+unconditionally true (see `apply_turn_tile.lua`), so the tracked score
+stays "due"; once you reconnect, the _next_ sweep pass (up to
+`PRESENCE_STALE_MS` later) finds you reachable and reassigns the turn —
+i.e. what looked like "a tile turns over" was actually two unrequested
+tiles drawn in the background, not one.
+
+This existed in the walk-forward logic before the turn-timer sweep landed,
+but was effectively unreachable in practice: the old client-triggered
+design needed _some other connected client_ to fire `TurnTile` while the
+current player was unreachable, which can't happen in a solo game (there's
+no one else to fire it) or, in a multiplayer game, only in the fully
+pathological case of every single player being disconnected at once — rare
+enough nobody hit it. The sweep changed that: it can fire with _zero_
+connected clients, which makes "the sole/all remaining player is
+unreachable" the normal case for anyone testing or playing solo, not an
+edge case.
+
+**Fix**: moved the "who's next" walk to run _before_ any mutation, and
+made "nobody reachable" a no-op — same pattern as the script's other no-op
+branches (empty bank, already-seen command) — instead of committing to a
+tile draw and a null `turnPlayerId`. `state.turnPlayerId` can no longer
+become `null` through this path at all now; the wire type stays nullable
+only for defensively rendering any already-persisted state from before
+this fix. Regression tests: `applyTurnTile.test.ts`'s "is a no-op in a solo
+game once the only player has gone stale" and "...when every player is
+unreachable, the fully pathological multiplayer case."
+
 ### Two-player double-tile-draw bug: `observedTurnDeadline` staleness guard (removed)
 
 **Bug**: in a two-player game, every timer expiry drew two tiles instead of

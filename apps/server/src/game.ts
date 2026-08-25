@@ -33,7 +33,7 @@ import {
   seqKey,
   stateKey,
   syncTurnDeadlineTracking,
-  TURN_DEADLINES_KEY,
+  untrackTurnDeadline,
   toGameSnapshot,
   type GameSessionError,
 } from "./gameSession.js";
@@ -80,7 +80,7 @@ export async function startGame(
   multi.set(stateKey(cmd.gameId), JSON.stringify(nextState));
   if (bag.length > 0) multi.rPush(bagKey(cmd.gameId), bag);
   await multi.exec();
-  await syncTurnDeadlineTracking(redis, cmd.gameId, nextState);
+  syncTurnDeadlineTracking(redis, cmd.gameId, nextState);
 
   return { snapshot: toGameSnapshot(cmd.gameId, nextState) };
 }
@@ -113,11 +113,11 @@ export async function turnTile(
     // it means the deadline genuinely hasn't passed (or another caller
     // already advanced it), not that tracking is stale.
     if (result.error === "GameNotFound" || result.error === "GameNotStarted") {
-      await redis.zRem(TURN_DEADLINES_KEY, cmd.gameId);
+      untrackTurnDeadline(redis, cmd.gameId);
     }
     return { error: result.error };
   }
-  await syncTurnDeadlineTracking(redis, cmd.gameId, result.state);
+  syncTurnDeadlineTracking(redis, cmd.gameId, result.state);
   return { snapshot: toGameSnapshot(cmd.gameId, result.state) };
 }
 
@@ -141,7 +141,7 @@ export async function endGame(
   });
 
   if ("error" in result) return { error: result.error };
-  await redis.zRem(TURN_DEADLINES_KEY, cmd.gameId);
+  untrackTurnDeadline(redis, cmd.gameId);
   return { snapshot: toGameSnapshot(cmd.gameId, result.state) };
 }
 
@@ -206,7 +206,7 @@ export async function submitWord(
   });
 
   if ("error" in result) return { error: result.error };
-  await syncTurnDeadlineTracking(redis, cmd.gameId, result.state);
+  syncTurnDeadlineTracking(redis, cmd.gameId, result.state);
   return {
     snapshot: toGameSnapshot(cmd.gameId, result.state),
     word,

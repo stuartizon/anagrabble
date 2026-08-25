@@ -630,6 +630,70 @@ this fix. Regression tests: `applyTurnTile.test.ts`'s "is a no-op in a solo
 game once the only player has gone stale" and "...when every player is
 unreachable, the fully pathological multiplayer case."
 
+### Sweep-tracking writes are fire-and-forget, not on the gameplay critical path
+
+**Bug**: caught by Stuart noticing normal gameplay (clicking "turn a tile",
+submitting a word) felt slower after the sweep landed. Confirmed by
+tracing the code, not just suspicion: `turnTile`/`submitWord`/`startGame`
+in `game.ts` each `await`ed `syncTurnDeadlineTracking` (a `ZADD`/`ZREM`
+against `games:turnDeadlines`) _after_ the actual gameplay mutation and
+_before_ returning a response — a second, real Redis round-trip on every
+one of these commands that didn't exist before the sweep. Measured against
+local dev Redis: ~0.2ms extra, imperceptible on localhost, but genuinely
+doubling the number of round-trips these commands make; against a real
+network hop to a hosted Redis this would compound meaningfully.
+
+**Why it was unnecessary**: the tracked score was already documented (see
+"Turn-timer polling sweep" above) as "a work queue, not authoritative
+state... a stale or missing entry is harmless." There is no correctness
+reason a client's response has to wait for that write to land — the same
+reasoning already applied to the Postgres durable-history writes in
+`wsConnection.ts` (`insertGame`/`insertWordPlay`, "never on the critical
+path of resolving a race").
+
+**Fix, first pass**: a generic `trackSweepAsync(promise, gameId)` helper —
+fire a given promise, log on failure. Rejected on review (Stuart): a call
+site couldn't tell what it was firing without reading the wrapped
+expression, and nothing stopped some future unrelated promise being routed
+through the same generic wrapper. Kept `syncTurnDeadlineTracking` itself
+`async`/awaitable underneath it, on the reasoning that _something_ should
+be able to wait for it deterministically.
+
+**Fix, actual**: pushed on "what actually needs to await this?" and the
+honest answer was nothing in production — every real call site
+(`game.ts`'s `turnTile`/`submitWord`/`startGame`/`endGame`,
+`wsConnection.ts`'s `Ping` handler and reconnect stamp, `broadcast.ts`'s
+`markDisconnected`) only ever fired it and moved on. The one place that
+looked like it needed to await it was `turnTimerSweep.test.ts`'s test
+setup — but what that test actually needed wasn't "wait for the write,"
+it was "the real score formula, not a re-derived one, so a regression in
+the formula fails this test." Those are different needs. Split
+`gameSession.ts`'s `syncTurnDeadlineTracking` into `computeSweepDueAt`, a
+pure function (`GameState` → the score, or `null`) with no Redis
+dependency and nothing to await, and made `syncTurnDeadlineTracking`
+itself unconditionally fire-and-forget — no awaitable variant exists at
+all now, so there's no "which one do I call" decision at any call site.
+It and the companion `untrackTurnDeadline` both return `void`, not
+`Promise<void>`, specifically so a call site can't accidentally end up
+awaiting (and thus blocking on) either by construction, not just by
+convention. `turnTimerSweep.test.ts` now calls `computeSweepDueAt`
+directly and does its own `zAdd` for deterministic setup — still exercises
+the real formula, still fails if it drifts, no dependency on the write
+function's timing at all.
+
+No test changes were needed beyond an `afterAll` grace period (same
+pattern already used in `server.test.ts`/`turnTimerSweep.test.ts`, to
+avoid a benign "Disconnects client" log if a fire-and-forget write is
+still in flight at teardown): the existing tracking-assertion tests in
+`game.test.ts`/`server.test.ts` already pass deterministically, because
+they share a single Redis connection with the code under test, and a
+command issued synchronously (even without awaiting its promise) is still
+written to that connection's socket, and therefore processed by Redis,
+before any later command issued on the same connection — this doesn't
+hold across different connections (e.g. the sweep on another Node
+instance), which is exactly the staleness the tracking design already
+tolerates.
+
 ### Two-player double-tile-draw bug: `observedTurnDeadline` staleness guard (removed)
 
 **Bug**: in a two-player game, every timer expiry drew two tiles instead of

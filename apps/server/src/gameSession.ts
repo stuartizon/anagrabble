@@ -45,15 +45,16 @@ export const bagKey = (gameId: string) => `game:{${gameId}}:bag`;
  * which applies. */
 export const TURN_DEADLINES_KEY = "games:turnDeadlines";
 
-/** Keeps `TURN_DEADLINES_KEY` in sync with the earliest time a game will
- * next need the sweep's attention — call after every mutation that can
- * change `turnDeadline` or `turnPlayerId` (StartGame/TurnTile/SubmitWord),
- * and after every presence update that touches the *current* player
- * specifically (see wsConnection.ts's Ping handler/reconnect stamp and
- * broadcast.ts's markDisconnected — a non-current player's presence can't
- * change when this game next needs sweeping, so those skip this call).
+/** Pure: the earliest ms-epoch timestamp at which `state`'s game next needs
+ * the sweep's attention, or `null` if it doesn't need tracking at all right
+ * now (not playing, or the bank is empty — see syncTurnDeadlineTracking
+ * below for why). Split out from that function specifically so it has no
+ * Redis dependency and nothing to await — `turnTimerSweep.test.ts` calls it
+ * directly to seed a deterministic tracked score for a test, which is the
+ * only place in this codebase that ever needed anything other than "fire
+ * this write and move on."
  *
- * The tracked score is `min(turnDeadline, currentPlayer's presence
+ * The returned value is `min(turnDeadline, currentPlayer's presence
  * deadline)`, not just `turnDeadline`: a current player can go unreachable
  * (CLAUDE.md "Disconnected-player fast-skip") well before their nominal
  * turnDeadline, and `apply_turn_tile.lua` already accepts a force-advance
@@ -68,28 +69,65 @@ export const TURN_DEADLINES_KEY = "games:turnDeadlines";
  * `turnDeadline` — no scanning, no separate presence-polling loop: once
  * real time crosses a stale player's already-known presence deadline, the
  * ordinary `ZRANGEBYSCORE` poll picks the game up on its own, exactly like
- * an ordinary expired turn. The tracked score is only ever a "when to
+ * an ordinary expired turn. The returned value is only ever a "when to
  * bother checking" hint, never the authority — `apply_turn_tile.lua`
- * re-derives both conditions fresh from live state at call time.
- *
- * Untracks once there's nothing left for the sweep to do: the game isn't
- * playing, or the bank is empty (TurnTile is a permanent no-op past that
- * point — see apply_turn_tile.lua's bankCount<=0 branch — so there's no
- * expired-turn work to sweep for, even though SubmitWord keeps resetting
- * turnDeadline for scoring/steal purposes). */
-export async function syncTurnDeadlineTracking(
-  redis: Redis,
-  gameId: string,
-  state: GameState,
-): Promise<void> {
-  if (state.status === "playing" && state.bankCount > 0 && typeof state.turnDeadline === "number") {
-    const currentPlayer = state.players.find((p) => p.id === state.turnPlayerId);
-    const presenceDeadline = (currentPlayer?.lastSeenAt ?? Date.now()) + PRESENCE_STALE_MS;
-    const dueAt = Math.min(state.turnDeadline, presenceDeadline);
-    await redis.zAdd(TURN_DEADLINES_KEY, { score: dueAt, value: gameId });
-  } else {
-    await redis.zRem(TURN_DEADLINES_KEY, gameId);
+ * re-derives both conditions fresh from live state at call time. */
+export function computeSweepDueAt(state: GameState): number | null {
+  if (
+    state.status !== "playing" ||
+    state.bankCount <= 0 ||
+    typeof state.turnDeadline !== "number"
+  ) {
+    return null;
   }
+  const currentPlayer = state.players.find((p) => p.id === state.turnPlayerId);
+  const presenceDeadline = (currentPlayer?.lastSeenAt ?? Date.now()) + PRESENCE_STALE_MS;
+  return Math.min(state.turnDeadline, presenceDeadline);
+}
+
+/** Keeps `TURN_DEADLINES_KEY` in sync with `computeSweepDueAt(state)` —
+ * call after every mutation that can change `turnDeadline` or
+ * `turnPlayerId` (StartGame/TurnTile/SubmitWord), and after every presence
+ * update that touches the *current* player specifically (see
+ * wsConnection.ts's Ping handler/reconnect stamp and broadcast.ts's
+ * markDisconnected — a non-current player's presence can't change when
+ * this game next needs sweeping, so those skip this call).
+ *
+ * Fire-and-forget, deliberately: nothing in this codebase ever needs to
+ * wait for this write to land before doing something else — the tracked
+ * score is a work queue for the sweep, not authoritative state (a stale or
+ * missing entry is harmless, since the sweep's actual mutation still goes
+ * through apply_turn_tile.lua's ordinary atomic re-verification), so
+ * there's no correctness reason a TurnTile/SubmitWord/Ping response should
+ * ever block on it — see docs/decisions.md "Sweep-tracking writes are
+ * fire-and-forget, not on the gameplay critical path". Returns `void`, not
+ * a `Promise`, so a call site can't accidentally end up awaiting (and thus
+ * blocking on) it by construction, not just by convention. Untracks once
+ * there's nothing left for the sweep to do (computeSweepDueAt returns
+ * `null`): the game isn't playing, or the bank is empty (TurnTile is a
+ * permanent no-op past that point — see apply_turn_tile.lua's
+ * bankCount<=0 branch — so there's no expired-turn work to sweep for, even
+ * though SubmitWord keeps resetting turnDeadline for scoring/steal
+ * purposes). */
+export function syncTurnDeadlineTracking(redis: Redis, gameId: string, state: GameState): void {
+  const dueAt = computeSweepDueAt(state);
+  const write =
+    dueAt === null
+      ? redis.zRem(TURN_DEADLINES_KEY, gameId)
+      : redis.zAdd(TURN_DEADLINES_KEY, { score: dueAt, value: gameId });
+  write.catch((err) =>
+    console.error(`[turn-timer] failed to update sweep tracking for game ${gameId}`, err),
+  );
+}
+
+/** Fire-and-forget removal from TURN_DEADLINES_KEY — same reasoning as
+ * syncTurnDeadlineTracking above, for the handful of call sites (a game
+ * confirmed gone, or ended) that just need it untracked and have no
+ * `state` to hand computeSweepDueAt. */
+export function untrackTurnDeadline(redis: Redis, gameId: string): void {
+  redis
+    .zRem(TURN_DEADLINES_KEY, gameId)
+    .catch((err) => console.error(`[turn-timer] failed to untrack game ${gameId}`, err));
 }
 
 export const CMDS_TTL_SEC = 3600;

@@ -154,9 +154,11 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
             if (!("error" in presenceResult)) {
               // Only matters for the turn-timer sweep if this reconnect just
               // refreshed the *current* player's presence — see
-              // gameSession.ts's syncTurnDeadlineTracking doc comment.
+              // gameSession.ts's syncTurnDeadlineTracking doc comment. Fire-
+              // and-forget: the reconnect broadcast below has nothing to
+              // gain from waiting on this.
               if (presenceResult.state.turnPlayerId === reconnectingPlayerId) {
-                await syncTurnDeadlineTracking(redis, gameId, presenceResult.state);
+                syncTurnDeadlineTracking(redis, gameId, presenceResult.state);
               }
               // Broadcast, not a direct send — this socket already joined
               // the room above, so the publish fans back out to it too (same
@@ -379,8 +381,10 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
                 // Only matters for the turn-timer sweep if this heartbeat
                 // just refreshed the *current* player's presence — see
                 // gameSession.ts's syncTurnDeadlineTracking doc comment.
+                // Fire-and-forget: the Pong below has nothing to gain from
+                // waiting on this.
                 if (result.state.turnPlayerId === meta.playerId) {
-                  await syncTurnDeadlineTracking(redis, meta.gameId, result.state);
+                  syncTurnDeadlineTracking(redis, meta.gameId, result.state);
                 }
                 send(socket, {
                   type: "Pong",

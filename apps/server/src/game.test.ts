@@ -99,6 +99,13 @@ describe("game", () => {
   }, 60_000);
 
   afterAll(async () => {
+    // A just-finished test's fire-and-forget sweep-tracking write
+    // (syncTurnDeadlineTracking/untrackTurnDeadline — turnTile/submitWord/
+    // startGame/endGame) can still be in flight against `redis` here. Same
+    // grace-period pattern as server.test.ts's/turnTimerSweep.test.ts's
+    // afterAll, for the same reason (avoid a spurious "Disconnects client"
+    // log).
+    await new Promise((resolve) => setTimeout(resolve, 100));
     redis.destroy();
     await container.stop();
   });

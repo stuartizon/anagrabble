@@ -9,9 +9,9 @@ import type { GameState } from "@anagrabble/protocol";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   bagKey,
+  computeSweepDueAt,
   PRESENCE_STALE_MS,
   stateKey,
-  syncTurnDeadlineTracking,
   TURN_DEADLINES_KEY,
 } from "./gameSession.js";
 import { startTurnTimerSweep, type TurnTimerSweep } from "./turnTimerSweep.js";
@@ -175,10 +175,10 @@ describe("turnTimerSweep", () => {
     // purely by turnDeadline never notices a current player going
     // unreachable mid-turn (CLAUDE.md "Disconnected-player fast-skip") —
     // it wouldn't even look at this game until the full turnTimerSec had
-    // elapsed. syncTurnDeadlineTracking's min(turnDeadline, presence
-    // deadline) formula is what fixes that; this proves it end to end
-    // through the real sweep, not just the tracked score in isolation
-    // (game.test.ts covers that half).
+    // elapsed. computeSweepDueAt's min(turnDeadline, presence deadline)
+    // formula is what fixes that; this proves it end to end through the
+    // real sweep, not just the tracked score in isolation (game.test.ts
+    // covers that half).
     const now = Date.now();
     const state = makeState({
       turnDeadline: now + 30_000, // far away — not why this fires
@@ -189,9 +189,14 @@ describe("turnTimerSweep", () => {
     });
     await seed(state);
     // Overrides seed()'s plain turnDeadline-only score with the real
-    // production formula, not a re-derived one — so this fails if that
-    // formula ever stops accounting for presence.
-    await syncTurnDeadlineTracking(redis, GAME_ID, state);
+    // production formula (computeSweepDueAt is pure, so this can call it
+    // directly and await the write deterministically), not a re-derived
+    // one — so this fails if that formula ever stops accounting for
+    // presence. syncTurnDeadlineTracking itself is fire-and-forget (see
+    // docs/decisions.md "Sweep-tracking writes are fire-and-forget"), so
+    // this test can't use it directly for deterministic setup.
+    const dueAt = computeSweepDueAt(state);
+    await redis.zAdd(TURN_DEADLINES_KEY, { score: dueAt!, value: GAME_ID });
 
     const broadcaster = fakeBroadcaster();
     sweep = startTurnTimerSweep(redis, broadcaster);

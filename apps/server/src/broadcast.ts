@@ -66,15 +66,17 @@ export async function createBroadcaster(redis: Redis): Promise<Broadcaster> {
 
   function markDisconnected(gameId: string, playerId: string) {
     applyPresence(redis, { stateKey: stateKey(gameId), playerId, lastSeenAt: 0 })
-      .then(async (result) => {
+      .then((result) => {
         if ("error" in result) return;
         // Only matters for the turn-timer sweep if the player who just went
         // stale is the *current* player — see gameSession.ts's
-        // syncTurnDeadlineTracking doc comment. This is what lets the sweep
-        // fast-skip an away current player well before their nominal
-        // turnDeadline, same as the frontend's greyed-out presence check.
+        // syncTurnDeadlineTracking doc comment. Fire-and-forget: the
+        // presence broadcast below has nothing to gain from waiting on
+        // this. This is what lets the sweep fast-skip an away current
+        // player well before their nominal turnDeadline, same as the
+        // frontend's greyed-out presence check.
         if (result.state.turnPlayerId === playerId) {
-          await syncTurnDeadlineTracking(redis, gameId, result.state);
+          syncTurnDeadlineTracking(redis, gameId, result.state);
         }
         return publish({
           type: "GameSnapshot",

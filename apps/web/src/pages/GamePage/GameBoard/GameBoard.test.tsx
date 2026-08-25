@@ -253,6 +253,10 @@ describe("GameBoard", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  // describePlay/errorText's own branches (steal vs. plain play vs. extend-
+  // own-word, multi-word combining, every rejection code) are unit-tested
+  // directly in narration.test.ts — this file only needs to prove the toast
+  // is actually wired up to call them, not re-enumerate every branch.
   it("narrates a steal when the word play used an opponent's word", () => {
     renderBoard({
       wordPlay: {
@@ -264,62 +268,6 @@ describe("GameBoard", () => {
     });
 
     expect(screen.getByText("You stole CAT from Sam → CAST")).toBeInTheDocument();
-  });
-
-  it("narrates the viewer's own plain play (no steal)", () => {
-    renderBoard({
-      wordPlay: { seq: 2, playerId: "me-1", word: "TAR", usedWords: [] },
-    });
-
-    expect(screen.getByText("You played TAR")).toBeInTheDocument();
-  });
-
-  it("narrates the viewer extending their own word, not just the result", () => {
-    renderBoard({
-      wordPlay: {
-        seq: 2,
-        playerId: "me-1",
-        word: "BADGE",
-        usedWords: [{ word: "BAD", ownerId: "me-1" }],
-      },
-    });
-
-    expect(screen.getByText("You played BAD → BADGE")).toBeInTheDocument();
-  });
-
-  it("narrates a steal that combines words from two different opponents", () => {
-    renderBoard({
-      game: gameSnapshot({
-        players: [ME, OPPONENT, { id: "third-1", name: "Ash", words: [], score: 0 }],
-      }),
-      wordPlay: {
-        seq: 2,
-        playerId: "me-1",
-        word: "CATDOG",
-        usedWords: [
-          { word: "CAT", ownerId: "opp-1" },
-          { word: "DOG", ownerId: "third-1" },
-        ],
-      },
-    });
-
-    expect(screen.getByText("You stole CAT from Sam + DOG from Ash → CATDOG")).toBeInTheDocument();
-  });
-
-  it("narrates a steal that combines an opponent's word with the viewer's own", () => {
-    renderBoard({
-      wordPlay: {
-        seq: 2,
-        playerId: "me-1",
-        word: "CATBAD",
-        usedWords: [
-          { word: "CAT", ownerId: "opp-1" },
-          { word: "BAD", ownerId: "me-1" },
-        ],
-      },
-    });
-
-    expect(screen.getByText("You stole CAT from Sam + BAD → CATBAD")).toBeInTheDocument();
   });
 
   it("does not resurrect a dismissed toast when the game snapshot updates afterward (e.g. a tile turn)", () => {
@@ -439,43 +387,6 @@ describe("GameBoard", () => {
 
     expect(screen.getByText("FIRST isn't in the dictionary")).toBeInTheDocument();
     expect(screen.queryByText("SECOND isn't in the dictionary")).not.toBeInTheDocument();
-  });
-
-  it("includes this game's minWordLength in the TooShort message", () => {
-    renderBoard({
-      game: gameSnapshot({ config: { turnTimerSec: 30, minWordLength: 5, language: "English" } }),
-      error: { code: "TooShort", message: "raw server message" },
-    });
-
-    expect(screen.getByText("Words need to be at least 5 letters")).toBeInTheDocument();
-  });
-
-  it("never shows a message for NotYourTurn (only reachable via the background auto-fire race, not a player action)", () => {
-    renderBoard({ error: { code: "NotYourTurn", message: "raw server message" } });
-
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
-  });
-
-  it("shows the same 'not a legal move' copy for StaleState as for NoDecomposition", () => {
-    // From the player's side these are the same outcome, just caught by
-    // different backend layers depending on timing — see errorText's
-    // doc comment.
-    renderBoard({ error: { code: "StaleState", message: "raw server message" } });
-
-    expect(screen.getByText("That's not a legal move")).toBeInTheDocument();
-  });
-
-  it("shows distinct copy for DerivationBlocked, not the generic 'not a legal move' text", () => {
-    renderBoard({ error: { code: "DerivationBlocked", message: "raw server message" } });
-
-    expect(screen.getByText("You have to change the root")).toBeInTheDocument();
-    expect(screen.queryByText("That's not a legal move")).not.toBeInTheDocument();
-  });
-
-  it("falls back to the server's message for an unmapped error code", () => {
-    renderBoard({ error: { code: "SomethingElse", message: "raw server message" } });
-
-    expect(screen.getByText("raw server message")).toBeInTheDocument();
   });
 
   it("shows empty-state copy for history when nothing has happened yet", () => {

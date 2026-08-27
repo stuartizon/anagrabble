@@ -224,7 +224,8 @@ export interface ErrorEvent {
     | "StaleState"
     | "GameNotIdle"
     | "InvalidCommand"
-    | "Unauthorized";
+    | "Unauthorized"
+    | "RateLimited";
   message: string;
   commandId?: string;
   gameId?: string;

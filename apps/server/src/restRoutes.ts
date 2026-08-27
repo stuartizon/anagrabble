@@ -9,6 +9,7 @@
 // is added deliberately for /games, not rediscovered the same way.
 
 import cors from "@fastify/cors";
+import rateLimit from "@fastify/rate-limit";
 import type { FastifyInstance } from "fastify";
 import type { Redis } from "@anagrabble/redis";
 import type { Kysely, Database } from "@anagrabble/postgres";
@@ -33,6 +34,25 @@ export async function registerRestRoutes(
   const { redis, db, clerkSecretKey, authMode, webOrigin, broadcaster } = deps;
 
   await fastify.register(cors, { origin: webOrigin, methods: ["GET", "HEAD", "PUT", "POST"] });
+
+  // Per-IP, generous global default — see anagrabble#45. Individual routes
+  // (POST /games below) tighten this further via their own `config.rateLimit`.
+  // errorResponseBuilder matches this file's existing `{ error: string }`
+  // convention instead of the plugin's default `{statusCode, error, message}`
+  // shape.
+  await fastify.register(rateLimit, {
+    global: true,
+    max: 100,
+    timeWindow: "1 minute",
+    // The returned value is `throw`n by the plugin and Fastify reads
+    // `.statusCode` off it to set the actual HTTP status — omitting it
+    // falls through to a generic 500 despite the body correctly showing
+    // `RateLimited`.
+    errorResponseBuilder: (_request, context) => ({
+      statusCode: context.statusCode,
+      error: "RateLimited",
+    }),
+  });
 
   fastify.get("/health", async (request, reply) => {
     try {
@@ -77,16 +97,20 @@ export async function registerRestRoutes(
   // See docs/decisions.md "CreateGame as a REST endpoint" — moved off the WS
   // command/event pair since, unlike JoinGame/StartGame/etc., there's no
   // other connected client to broadcast a new game's creation to yet.
-  fastify.post("/games", async (request, reply) => {
-    const result = await handleCreateGameRequest(
-      redis,
-      clerkSecretKey,
-      request.headers.authorization,
-      request.body,
-      authMode,
-    );
-    return reply.code(result.status).send(result.body);
-  });
+  fastify.post(
+    "/games",
+    { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } },
+    async (request, reply) => {
+      const result = await handleCreateGameRequest(
+        redis,
+        clerkSecretKey,
+        request.headers.authorization,
+        request.body,
+        authMode,
+      );
+      return reply.code(result.status).send(result.body);
+    },
+  );
 
   // Explicit, deliberate pre-start leave — see docs/decisions.md "Player
   // presence: connected/disconnected tracking". Unlike CreateGame above,

@@ -45,7 +45,11 @@ export async function createServer(deps: ServerDeps): Promise<AnagrabbleServer> 
 
   const broadcaster = await createBroadcaster(redis);
 
-  const fastify = Fastify({ logger: false });
+  // trustProxy: Railway sits in front of this server as a reverse proxy, so
+  // without it request.ip resolves to Railway's proxy rather than the real
+  // client — which would make the REST rate limiter (restRoutes.ts) either
+  // useless or collapse every caller into one shared bucket.
+  const fastify = Fastify({ logger: false, trustProxy: true });
   await registerRestRoutes(fastify, {
     redis,
     db,
@@ -61,7 +65,15 @@ export async function createServer(deps: ServerDeps): Promise<AnagrabbleServer> 
   // after listen(). `path: "/connect"` rejects an upgrade on any other
   // path (e.g. bare `/`, the pre-anagrabble#50 URL) instead of silently
   // accepting it.
-  const wss = new WebSocketServer({ server: fastify.server, path: "/connect" });
+  // maxPayload: a per-message/per-frame cap enforced by `ws` itself (not
+  // cumulative across a connection's life) — see anagrabble#45. 16KB is
+  // generous headroom over the small JSON command objects this protocol
+  // actually sends.
+  const wss = new WebSocketServer({
+    server: fastify.server,
+    path: "/connect",
+    maxPayload: 16 * 1024,
+  });
   wss.on(
     "connection",
     createConnectionHandler({ redis, db, clerkSecretKey, authMode, broadcaster }),

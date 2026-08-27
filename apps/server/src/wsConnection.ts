@@ -33,6 +33,7 @@ import {
 } from "./gameSession.js";
 import { endGame, startGame, submitWord, turnTile } from "./game.js";
 import { resolveActingPlayerId, verifyMockSessionToken, verifySessionToken } from "./auth.js";
+import { GAMEPLAY_RATE_LIMIT, TokenBucket } from "./rateLimiter.js";
 import type { Broadcaster } from "./broadcast.js";
 
 export interface WsConnectionDeps {
@@ -92,6 +93,9 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
   return function handleConnection(socket: WebSocket, req: IncomingMessage) {
     console.log("[ws] client connected");
     const meta: SocketMeta = {};
+    // Per-connection, in-memory — see rateLimiter.ts's doc comment for why
+    // this doesn't need to be shared/coordinated across Node instances.
+    const gameplayRateLimiter = new TokenBucket(GAMEPLAY_RATE_LIMIT);
 
     const handshake: HandshakeMessage = { type: "Handshake", protocolVersion: PROTOCOL_VERSION };
     socket.send(JSON.stringify(handshake));
@@ -189,6 +193,20 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
       }
 
       await identityReady;
+
+      if (
+        (command.type === "SubmitWord" || command.type === "TurnTile") &&
+        !gameplayRateLimiter.tryConsume()
+      ) {
+        sendError(
+          socket,
+          "RateLimited",
+          "Too many commands, slow down",
+          command.gameId,
+          command.commandId,
+        );
+        return;
+      }
 
       try {
         switch (command.type) {

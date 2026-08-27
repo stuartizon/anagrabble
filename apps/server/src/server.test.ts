@@ -453,6 +453,56 @@ describe("server (WS round trip)", () => {
     });
   });
 
+  // anagrabble#45: a per-connection in-memory token bucket gates
+  // SubmitWord/TurnTile (wsConnection.ts), and @fastify/rate-limit gates
+  // POST /games (restRoutes.ts) — see rateLimiter.test.ts for the token
+  // bucket's own unit coverage. These two only exercise the actual wiring:
+  // that an excess command/request really does come back RateLimited end
+  // to end, not just that the underlying primitive works in isolation.
+  describe("rate limiting", () => {
+    it("rejects gameplay WS commands past the per-connection burst limit with a RateLimited error", async () => {
+      const baseUrl = await startServer();
+      const game = await createGameViaRest(baseUrl, "host-1");
+      const hostSocket = await connectAndTrack(baseUrl, game.gameId, "host-1");
+      await waitForMessage(hostSocket, (m) => m.type === "Handshake");
+      await waitForMessage(hostSocket, (m) => m.type === "GameSnapshot");
+
+      send(hostSocket, { type: "StartGame", commandId: crypto.randomUUID(), gameId: game.gameId });
+      await waitForMessage(hostSocket, (m) => m.type === "GameStarted");
+
+      const rateLimited = waitForMessage(
+        hostSocket,
+        (m) => m.type === "Error" && m.code === "RateLimited",
+      );
+      // Burst capacity is 5 — 8 rapid TurnTile commands guarantees at least
+      // one gets rejected regardless of whatever the underlying game-logic
+      // outcome of the first 5 would otherwise be.
+      for (let i = 0; i < 8; i++) {
+        send(hostSocket, { type: "TurnTile", commandId: crypto.randomUUID(), gameId: game.gameId });
+      }
+      await rateLimited;
+    });
+
+    it("returns 429 RateLimited from POST /games once the per-IP limit is exceeded", async () => {
+      const baseUrl = await startServer();
+
+      const responses = await Promise.all(
+        Array.from({ length: 6 }, (_, i) =>
+          fetch(`${baseUrl}/games`, {
+            method: "POST",
+            headers: { "content-type": "application/json", authorization: `Bearer host-${i}` },
+            body: JSON.stringify({ hostName: `Host ${i}`, config: CONFIG }),
+          }),
+        ),
+      );
+
+      const limited = responses.filter((res) => res.status === 429);
+      expect(limited.length).toBeGreaterThan(0);
+      const body = (await limited[0].json()) as { error: string };
+      expect(body.error).toBe("RateLimited");
+    });
+  });
+
   // wsConnection.ts fires these Postgres writes fire-and-forget
   // (.catch(console.error), never awaited/gated on — see CLAUDE.md "Postgres
   // holds durable history"). packages/postgres's own tests cover

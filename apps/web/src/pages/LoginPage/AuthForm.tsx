@@ -228,12 +228,10 @@ export function AuthForm({
           </Button>
         </div>
       </form>
-      {mode === "signup" && (
-        <p className={styles.consentText}>
-          By creating an account, you agree to our <Link to="/terms">Terms of service</Link> and{" "}
-          <Link to="/privacy">Privacy policy</Link>.
-        </p>
-      )}
+      <p className={styles.consentText}>
+        By continuing, you agree to our <Link to="/terms">Terms of service</Link> and{" "}
+        <Link to="/privacy">Privacy policy</Link>.
+      </p>
     </>
   );
 }

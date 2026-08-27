@@ -69,7 +69,7 @@ export function createGameSocketClient(options: GameSocketClientOptions): GameSo
     if (gameId) params.set("gameId", gameId);
     if (token) params.set("token", token);
     const query = params.toString();
-    const url = query ? `${WS_URL}/?${query}` : WS_URL;
+    const url = query ? `${WS_URL}/connect?${query}` : `${WS_URL}/connect`;
     const ws = new WebSocket(url);
     socket = ws;
 

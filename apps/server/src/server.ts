@@ -58,7 +58,12 @@ export async function createServer(deps: ServerDeps): Promise<AnagrabbleServer> 
   // Raw `ws` attaches directly to the underlying node http.Server's native
   // `upgrade` event, bypassing Fastify's own route table entirely.
   // `fastify.server` is available immediately at construction, not just
-  // after listen().
+  // after listen(). No `path` filter (yet, deliberately): the client now
+  // connects to `/connect` (see gameSocketClient.ts) but this accepts an
+  // upgrade on any path so a not-yet-redeployed client still connecting to
+  // the old bare `/` keeps working during the rollout — see anagrabble#50
+  // for the follow-up "contract" step that adds `path: "/connect"` once
+  // nothing connects to bare `/` anymore.
   const wss = new WebSocketServer({ server: fastify.server });
   wss.on(
     "connection",

@@ -75,7 +75,7 @@ async function createGameViaRest(baseUrl: string, hostToken: string): Promise<Ga
 
 function connect(baseUrl: string, gameId: string, token?: string): Promise<TrackedSocket> {
   const query = token !== undefined ? `?gameId=${gameId}&token=${token}` : `?gameId=${gameId}`;
-  const wsUrl = `${baseUrl.replace(/^http/, "ws")}/${query}`;
+  const wsUrl = `${baseUrl.replace(/^http/, "ws")}/connect${query}`;
   const socket = new WebSocket(wsUrl);
   const tracked = trackSocket(socket);
   return new Promise((resolve, reject) => {

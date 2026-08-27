@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Dispatch, FormEvent, SetStateAction } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useSignIn, useSignUp, mockUsers, quickSignIn } from "../../auth";
 import { Input } from "../../components/Input";
 import { Button } from "../../components/Button";
@@ -228,6 +228,12 @@ export function AuthForm({
           </Button>
         </div>
       </form>
+      {mode === "signup" && (
+        <p className={styles.consentText}>
+          By creating an account, you agree to our <Link to="/terms">Terms of service</Link> and{" "}
+          <Link to="/privacy">Privacy policy</Link>.
+        </p>
+      )}
     </>
   );
 }

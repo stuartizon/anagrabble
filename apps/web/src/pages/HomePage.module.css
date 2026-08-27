@@ -195,3 +195,13 @@
   color: var(--text-muted);
   background: var(--paper);
 }
+
+.footerLinks {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+}
+
+.footerLink {
+  color: var(--text-muted);
+}

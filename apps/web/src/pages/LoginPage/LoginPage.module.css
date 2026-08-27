@@ -120,3 +120,15 @@
   font-weight: 600;
   text-align: center;
 }
+
+.consentText {
+  margin: 14px 0 0;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.consentText a {
+  font-weight: 600;
+}

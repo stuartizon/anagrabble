@@ -1,6 +1,8 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { HomePage } from "./pages/HomePage";
 import { RulesPage } from "./pages/RulesPage";
+import { PrivacyPage } from "./pages/PrivacyPage";
+import { TermsPage } from "./pages/TermsPage";
 import { NewGamePage } from "./pages/NewGamePage";
 import { GamePage } from "./pages/GamePage";
 import { StatsPage } from "./pages/StatsPage";
@@ -15,6 +17,8 @@ export function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/rules" element={<RulesPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
         <Route
           path="/new"
           element={

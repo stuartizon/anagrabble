@@ -121,7 +121,15 @@ export function HomePage() {
 
       <footer className={styles.footer}>
         <Wordmark size="sm" />
-        <span>&copy; 2026 Anagrabble</span>
+        <div className={styles.footerLinks}>
+          <Link to="/privacy" className={styles.footerLink}>
+            Privacy policy
+          </Link>
+          <Link to="/terms" className={styles.footerLink}>
+            Terms of service
+          </Link>
+          <span>&copy; 2026 Anagrabble</span>
+        </div>
       </footer>
     </PageShell>
   );

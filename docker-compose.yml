@@ -107,6 +107,7 @@ services:
       # this container has no TTY to prompt on, so an unanswered prompt
       # would just hang forever rather than actually failing loudly.
       CI: "1"
+      SKIP_INSTALL_SIMPLE_GIT_HOOKS: "1"
       PORT: 8080
       REDIS_URL: redis://redis:6379
       DATABASE_URL: postgres://anagrabble:anagrabble@postgres:5432/anagrabble
@@ -163,6 +164,7 @@ services:
     environment:
       # See the same var on the server service above — no TTY here either.
       CI: "1"
+      SKIP_INSTALL_SIMPLE_GIT_HOOKS: "1"
       # Vite reads any VITE_-prefixed process env var same as a .env file
       # entry — set directly here rather than via apps/web/.env (gitignored,
       # never auto-created) so a fresh checkout gets mock auth with zero
@@ -199,6 +201,7 @@ services:
     environment:
       # See the same var on the server service above — no TTY here either.
       CI: "1"
+      SKIP_INSTALL_SIMPLE_GIT_HOOKS: "1"
       DATABASE_URL: postgres://anagrabble:anagrabble@postgres:5432/anagrabble
     depends_on:
       postgres:

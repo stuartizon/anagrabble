@@ -3666,3 +3666,61 @@ contract commit lands — same risk any expand/contract window carries — but
 there's no message-shape mismatch for a version check to detect; it's
 covered by giving the expand phase real time to reach open tabs before
 contracting, not by protocol versioning.
+
+## Rate limiting: app layer, not infra
+
+**Decision** (2026-08-28, anagrabble#45): closed the "no throttling or
+payload caps anywhere" gap entirely in application code, not infra config —
+a 16KB `maxPayload` on the `ws` server (`apps/server/src/server.ts`); a
+per-connection, in-memory token bucket (`apps/server/src/rateLimiter.ts`)
+gating `SubmitWord`/`TurnTile` at ~5/sec burst, 60/min sustained
+(`wsConnection.ts`, new `RateLimited` `ErrorEvent` code); and
+`@fastify/rate-limit` on the REST surface (`restRoutes.ts`) — 100/min per IP
+globally, tightened to 5/min on `POST /games` specifically, keyed by IP
+rather than Clerk user id since the rate-limit hook runs before that
+route's own `authenticate()` call.
+
+**Why app layer**: considered Railway config, a dedicated nginx/Envoy
+layer, and Cloudflare. Railway has no rate-limiting/WAF surface at all — no
+lever to configure. A standalone proxy layer would be a new deployable
+component this repo doesn't otherwise run, against its minimal-infra bias
+(single Redis container, stateless Node — see "Why not Akka/Pekko" and the
+Deployment section of CLAUDE.md). Cloudflare-proxying `api.anagrabble.com`
+is a genuinely good complementary move (cheap DNS toggle, free edge-level
+DDoS/bot/rate-limit protection, and the team already trusts Cloudflare for
+the frontend) but can't substitute for this work: it can throttle REST
+requests per IP, but can't inspect individual JSON messages inside an
+already-open WebSocket, so per-command gameplay throttling has to live in
+`apps/server` regardless. Split out as its own follow-up, anagrabble#51,
+since it's a production DNS change deserving its own deliberate rollout
+rather than riding along inside this code-focused issue.
+
+**Why per-connection/in-memory for the WS token bucket, not Redis-backed**:
+a WS connection is pinned to a single Node instance for its whole life, so
+there's nothing to coordinate across instances — unlike the Lua-script
+atomicity the rest of the state machine relies on, this is abuse
+protection, not correctness. The REST limiter's in-memory store does have a
+real caveat: if the Railway service is ever scaled to multiple replicas, it
+under-counts per client (each replica keeps its own counter). `@fastify/rate-limit`
+supports a Redis-backed store as a drop-in swap, and Redis is already in
+this stack, so that's cheap to add later — same "revisit once real usage
+justifies it" posture as Redis HA (anagrabble#3), not built preemptively.
+
+**A `@fastify/rate-limit` gotcha worth flagging**: `errorResponseBuilder`'s
+return value is `throw`n internally, and Fastify reads `.statusCode` off
+the thrown value to set the actual HTTP status — a plain `{ error: string }`
+object with no `statusCode` field silently comes back as a 500, not 429,
+even though the response body looks correct. Fixed by including
+`statusCode: context.statusCode` in the builder's return value (so the body
+now carries a `statusCode` field alongside `error`, a small deviation from
+this file's usual bare `{ error: string }` shape, forced by the library).
+
+**Frontend**: no changes. `SubmitWord`'s `RateLimited` error already
+surfaces through `narration.ts`'s `errorText()`, which has a
+`default: return fallback` branch for any unrecognized code; `POST /games`'s
+429 already surfaces through `NewGamePage.tsx`'s existing catch-all, which
+already collapsed every `CreateGameError` code (including `Unauthorized`)
+into one generic message before this. `TurnTile`'s limiter is effectively
+unreachable by a real user (turn-gated by a 15–60s timer, auto-fired at
+most once per turn), so it gets no UI treatment — same reasoning already
+used to suppress `NotYourTurn` in that file.

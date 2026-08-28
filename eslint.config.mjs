@@ -50,5 +50,18 @@ export default tseslint.config(
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
     },
   },
+  {
+    // clerkAuth.tsx/mockAuth.tsx deliberately export a mixed bag of
+    // components, hooks, and a plain `authModule` object — both files
+    // implement the same `AuthModule` interface (see docs/decisions.md
+    // "Local dev auth: mock provider, not a Clerk sandbox") so `apps/web`
+    // can swap providers at runtime. That shape will never satisfy
+    // react-refresh's components-only requirement, so the HMR cost is
+    // accepted rather than splitting the module.
+    files: ["apps/web/src/auth/*.tsx"],
+    rules: {
+      "react-refresh/only-export-components": "off",
+    },
+  },
   eslintConfigPrettier,
 );

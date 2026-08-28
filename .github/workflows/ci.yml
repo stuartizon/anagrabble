@@ -87,7 +87,7 @@ jobs:
 
       - name: Upload frontend build artifact
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: web-dist
           path: apps/web/dist
@@ -156,7 +156,7 @@ jobs:
           node-version: 22
 
       - name: Download frontend build artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: web-dist
           path: apps/web/dist

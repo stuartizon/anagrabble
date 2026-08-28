@@ -22,7 +22,7 @@ function sampleSettings(overrides: Partial<PlayerSettingsResponse> = {}): Player
 
 function renderSettingsPage() {
   render(
-    <MemoryRouter>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <SettingsPage />
     </MemoryRouter>,
   );

@@ -41,7 +41,7 @@ function sampleStats(overrides: Partial<PlayerStatsResponse> = {}): PlayerStatsR
 
 function renderStatsPage() {
   render(
-    <MemoryRouter>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <StatsPage />
     </MemoryRouter>,
   );

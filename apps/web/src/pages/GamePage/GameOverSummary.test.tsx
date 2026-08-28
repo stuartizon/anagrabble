@@ -40,7 +40,7 @@ describe("GameOverSummary", () => {
     const sam = player({ id: "sam-1", name: "Sam", score: 8, words: ["STARE", "CAST"] });
     const me = player({ id: "me-1", name: "Me", score: 3, words: ["ARC"] });
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <GameOverSummary game={gameSnapshot([me, sam])} playerId="me-1" />
       </MemoryRouter>,
     );
@@ -58,7 +58,7 @@ describe("GameOverSummary", () => {
     const jo = player({ id: "jo-1", name: "Jo", score: 6 });
     const lee = player({ id: "lee-1", name: "Lee", score: 2 });
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <GameOverSummary game={gameSnapshot([sam, jo, lee])} playerId="sam-1" />
       </MemoryRouter>,
     );
@@ -71,7 +71,7 @@ describe("GameOverSummary", () => {
   it("navigates to the new-game form when New game is clicked", async () => {
     const me = player({ id: "me-1", name: "Me", score: 3 });
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <GameOverSummary game={gameSnapshot([me])} playerId="me-1" />
       </MemoryRouter>,
     );
@@ -83,7 +83,7 @@ describe("GameOverSummary", () => {
   it("navigates to the stats page when View your stats is clicked", async () => {
     const me = player({ id: "me-1", name: "Me", score: 3 });
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <GameOverSummary game={gameSnapshot([me])} playerId="me-1" />
       </MemoryRouter>,
     );

@@ -7,6 +7,7 @@ import {
 } from "@anagrabble/postgres";
 import type { PlayerSettingsResponse } from "@anagrabble/protocol";
 import { verifyMockSessionToken, verifySessionToken } from "./auth.js";
+import { reportError } from "./observability.js";
 
 // The only language supported today — a literal tuple, not an
 // enum-with-one-member accident. Extending this later (adding a value) is
@@ -59,7 +60,7 @@ export async function handleGetSettingsRequest(
     const settings = await getPlayerSettings(db, auth.userId);
     return { status: 200, body: settings };
   } catch (err) {
-    console.error("[http] error loading player settings", err);
+    reportError(err, { tags: { op: "http.getSettings", playerId: auth.userId } });
     return { status: 500, body: { error: "Internal error" } };
   }
 }
@@ -99,7 +100,7 @@ export async function handleSaveSettingsRequest(
     await upsertPlayerSettings(db, auth.userId, settings);
     return { status: 200, body: settings };
   } catch (err) {
-    console.error("[http] error saving player settings", err);
+    reportError(err, { tags: { op: "http.saveSettings", playerId: auth.userId } });
     return { status: 500, body: { error: "Internal error" } };
   }
 }

@@ -6,6 +6,7 @@ import {
 } from "@anagrabble/protocol";
 import { WS_URL } from "../env";
 import { makeCommandId } from "../utils/commandId";
+import { reportWarning } from "../observability";
 
 export type SocketStatus = "connecting" | "open" | "reconnecting" | "closed";
 
@@ -110,8 +111,16 @@ export function createGameSocketClient(options: GameSocketClientOptions): GameSo
       const message = JSON.parse(evt.data as string) as HandshakeMessage | Event;
       if (message.type === "Handshake") {
         if (message.protocolVersion !== PROTOCOL_VERSION) {
-          console.warn(
-            `[ws] server protocol version ${message.protocolVersion} differs from client ${PROTOCOL_VERSION}`,
+          // Reported, unlike other client-side warnings: this is exactly
+          // the deploy-ordering gap the expand/contract discipline exists
+          // for (CLAUDE.md "Schema evolution"), and it's rare enough that
+          // knowing it happened at all is worth an event.
+          reportWarning(
+            `server protocol version ${message.protocolVersion} differs from client ${PROTOCOL_VERSION}`,
+            {
+              tags: { op: "ws.protocolMismatch" },
+              extra: { server: message.protocolVersion, client: PROTOCOL_VERSION },
+            },
           );
         }
         return;

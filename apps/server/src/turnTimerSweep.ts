@@ -21,6 +21,7 @@ import type { TurnTileCommand } from "@anagrabble/protocol";
 import { TURN_DEADLINES_KEY } from "./gameSession.js";
 import { turnTile } from "./game.js";
 import type { Broadcaster } from "./broadcast.js";
+import { reportError } from "./observability.js";
 
 const SWEEP_INTERVAL_MS = 1000;
 
@@ -61,18 +62,26 @@ export function startTurnTimerSweep(redis: Redis, broadcaster: Broadcaster): Tur
             game: result.snapshot,
           });
         } catch (err) {
-          console.error(`[turn-timer-sweep] error advancing game ${gameId}`, err);
+          // dedupeKey is per-game: one broken game shouldn't mute reports
+          // for every other game, but it also shouldn't emit an event a
+          // second for as long as it stays broken.
+          reportError(err, {
+            tags: { op: "turnTimerSweep.advance", gameId },
+            dedupeKey: `sweep-advance:${gameId}`,
+          });
         }
       }
     } catch (err) {
-      console.error("[turn-timer-sweep] error scanning due deadlines", err);
+      reportError(err, { tags: { op: "turnTimerSweep.scan" }, dedupeKey: "sweep-scan" });
     } finally {
       ticking = false;
     }
   }
 
   const interval = setInterval(() => {
-    tick().catch((err) => console.error("[turn-timer-sweep] tick failed", err));
+    tick().catch((err) =>
+      reportError(err, { tags: { op: "turnTimerSweep.tick" }, dedupeKey: "sweep-tick" }),
+    );
   }, SWEEP_INTERVAL_MS);
 
   return { stop: () => clearInterval(interval) };

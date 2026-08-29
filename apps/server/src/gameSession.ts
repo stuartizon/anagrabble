@@ -6,6 +6,7 @@ import type {
   JoinGameCommand,
   PlayerState,
 } from "@anagrabble/protocol";
+import { reportError } from "./observability.js";
 
 /** gameId/commandId aren't part of CreateGameRequest (the REST body) since
  * both are synthesized server-side (apps/server/src/games.ts) — see that
@@ -115,9 +116,7 @@ export function syncTurnDeadlineTracking(redis: Redis, gameId: string, state: Ga
     dueAt === null
       ? redis.zRem(TURN_DEADLINES_KEY, gameId)
       : redis.zAdd(TURN_DEADLINES_KEY, { score: dueAt, value: gameId });
-  write.catch((err) =>
-    console.error(`[turn-timer] failed to update sweep tracking for game ${gameId}`, err),
-  );
+  write.catch((err) => reportError(err, { tags: { op: "turnTimer.syncTracking", gameId } }));
 }
 
 /** Fire-and-forget removal from TURN_DEADLINES_KEY — same reasoning as
@@ -127,7 +126,7 @@ export function syncTurnDeadlineTracking(redis: Redis, gameId: string, state: Ga
 export function untrackTurnDeadline(redis: Redis, gameId: string): void {
   redis
     .zRem(TURN_DEADLINES_KEY, gameId)
-    .catch((err) => console.error(`[turn-timer] failed to untrack game ${gameId}`, err));
+    .catch((err) => reportError(err, { tags: { op: "turnTimer.untrack", gameId } }));
 }
 
 export const CMDS_TTL_SEC = 3600;

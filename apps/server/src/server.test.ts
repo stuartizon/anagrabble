@@ -20,7 +20,7 @@ import {
   type Database,
   type Pool,
 } from "@anagrabble/postgres";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { WebSocket } from "ws";
 import type {
   Command,
@@ -29,6 +29,17 @@ import type {
   GameState,
   HandshakeMessage,
 } from "@anagrabble/protocol";
+// The classification guard below ("error reporting") is the point of this
+// mock: what must never be reported is an ordinary rejected play, and the
+// only way to assert that is to watch the wrapper itself. See anagrabble#46
+// and docs/decisions.md "Error tracking: Sentry behind a reportError
+// wrapper".
+const observability = vi.hoisted(() => ({
+  reportError: vi.fn(),
+  reportWarning: vi.fn(),
+}));
+vi.mock("./observability.js", () => observability);
+
 import { createServer, type AnagrabbleServer } from "./server.js";
 import { stateKey, TURN_DEADLINES_KEY } from "./gameSession.js";
 
@@ -208,6 +219,73 @@ describe("server (WS round trip)", () => {
     const [hostStart, playerStart] = await Promise.all([hostSeesStart, playerSeesStart]);
     expect(hostStart.type === "GameStarted" && hostStart.game.status).toBe("playing");
     expect(playerStart.type === "GameStarted" && playerStart.game.status).toBe("playing");
+  });
+
+  describe("error reporting", () => {
+    beforeEach(() => {
+      observability.reportError.mockClear();
+      observability.reportWarning.mockClear();
+    });
+
+    it("does not report an ordinary rejected play", async () => {
+      const baseUrl = await startServer();
+      const game = await createGameViaRest(baseUrl, "host-1");
+      const hostSocket = await connectAndTrack(baseUrl, game.gameId, "host-1");
+      await waitForMessage(hostSocket, (m) => m.type === "Handshake");
+      await waitForMessage(hostSocket, (m) => m.type === "GameSnapshot");
+
+      send(hostSocket, { type: "StartGame", commandId: crypto.randomUUID(), gameId: game.gameId });
+      await waitForMessage(hostSocket, (m) => m.type === "GameStarted");
+
+      // A word whose letters simply aren't on the table. This is the state
+      // machine working — the player gets told no, and nobody should be
+      // paged about it.
+      const rejected = waitForMessage(hostSocket, (m) => m.type === "Error");
+      send(hostSocket, {
+        type: "SubmitWord",
+        commandId: crypto.randomUUID(),
+        gameId: game.gameId,
+        word: "zzzzzz",
+      });
+      const error = await rejected;
+      expect(error.type === "Error" && error.code).toBe("NoDecomposition");
+      expect(observability.reportError).not.toHaveBeenCalled();
+      expect(observability.reportWarning).not.toHaveBeenCalled();
+    });
+
+    it("reports an unexpected throw from the command path once, with game context", async () => {
+      const baseUrl = await startServer();
+      const game = await createGameViaRest(baseUrl, "host-1");
+      const hostSocket = await connectAndTrack(baseUrl, game.gameId, "host-1");
+      await waitForMessage(hostSocket, (m) => m.type === "Handshake");
+      await waitForMessage(hostSocket, (m) => m.type === "GameSnapshot");
+
+      send(hostSocket, { type: "StartGame", commandId: crypto.randomUUID(), gameId: game.gameId });
+      await waitForMessage(hostSocket, (m) => m.type === "GameStarted");
+
+      // Corrupt the state blob so loading it throws — a stand-in for the
+      // real unexpected failures on this path (a Lua EVAL erroring, a
+      // malformed script reply, Redis unreachable), all of which surface at
+      // the same catch-all in wsConnection.ts.
+      await redis.set(stateKey(game.gameId), "}{ not json");
+
+      const commandId = crypto.randomUUID();
+      const failed = waitForMessage(hostSocket, (m) => m.type === "Error");
+      send(hostSocket, { type: "SubmitWord", commandId, gameId: game.gameId, word: "cat" });
+      const error = await failed;
+      expect(error.type === "Error" && error.code).toBe("InvalidCommand");
+
+      expect(observability.reportError).toHaveBeenCalledTimes(1);
+      expect(observability.reportError.mock.calls[0][1]).toMatchObject({
+        tags: {
+          op: "ws.command",
+          command: "SubmitWord",
+          gameId: game.gameId,
+          commandId,
+          playerId: "host-1",
+        },
+      });
+    });
   });
 
   it("rejects a command with no verified session", async () => {

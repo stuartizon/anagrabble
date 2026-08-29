@@ -1,6 +1,7 @@
 import { getPlayerStats, type Database, type Kysely, type PlayerStats } from "@anagrabble/postgres";
 import type { PlayerStatsResponse } from "@anagrabble/protocol";
 import { verifyMockSessionToken, verifySessionToken } from "./auth.js";
+import { reportError } from "./observability.js";
 
 export interface StatsRequestResult {
   status: 200 | 401 | 500;
@@ -64,7 +65,7 @@ export async function handleStatsRequest(
     const stats = await getPlayerStats(db, auth.userId);
     return { status: 200, body: toResponse(stats) };
   } catch (err) {
-    console.error("[http] error computing player stats", err);
+    reportError(err, { tags: { op: "http.stats", playerId: auth.userId } });
     return { status: 500, body: { error: "Internal error" } };
   }
 }

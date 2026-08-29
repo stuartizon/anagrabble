@@ -34,6 +34,7 @@ import {
 import { endGame, startGame, submitWord, turnTile } from "./game.js";
 import { resolveActingPlayerId, verifyMockSessionToken, verifySessionToken } from "./auth.js";
 import { GAMEPLAY_RATE_LIMIT, TokenBucket } from "./rateLimiter.js";
+import { reportError } from "./observability.js";
 import type { Broadcaster } from "./broadcast.js";
 
 export interface WsConnectionDeps {
@@ -118,10 +119,17 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
               meta.clerkUserId = result.userId;
               console.log(`[ws] verified Clerk session for user ${result.userId}`);
             } else {
+              // Deliberately a plain log, not a report: an expired or
+              // revoked session is routine, and the client's own reconnect
+              // handles it. Only the catch below is a real fault.
               console.warn("[ws] Clerk session token present but failed to verify");
             }
           })
-          .catch((err) => console.error("[ws] error verifying session token", err))
+          // The *throw* only: an expired or forged token resolves to null and
+          // is handled above as the routine rejection it is. Reaching here
+          // means Clerk itself was unreachable or errored, which nobody can
+          // see from the UI (the player just silently can't act).
+          .catch((err) => reportError(err, { tags: { op: "ws.verifySession" } }))
       : Promise.resolve();
 
     if (gameId) {
@@ -181,7 +189,7 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
           }
           send(socket, gameSnapshotEvent(snapshot));
         })
-        .catch((err) => console.error("[ws] failed to load game on connect", err));
+        .catch((err) => reportError(err, { tags: { op: "ws.connect", gameId } }));
     }
 
     socket.on("message", async (data) => {
@@ -269,7 +277,11 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
               id: command.gameId,
               config: result.snapshot.config,
               startedAt: new Date(),
-            }).catch((err) => console.error("[postgres] failed to insert game", err));
+            }).catch((err) =>
+              reportError(err, {
+                tags: { op: "postgres.insertGame", gameId: command.gameId },
+              }),
+            );
             await publish({
               type: "GameStarted",
               seq: result.snapshot.seq,
@@ -330,7 +342,11 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
                 finalScore: player.score,
                 finalWords: player.words,
               })),
-            }).catch((err) => console.error("[postgres] failed to record game end", err));
+            }).catch((err) =>
+              reportError(err, {
+                tags: { op: "postgres.endGame", gameId: command.gameId },
+              }),
+            );
             await publish({
               type: "GameEnded",
               seq: result.snapshot.seq,
@@ -368,7 +384,12 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
               word: result.word,
               usedWords: result.usedWords,
               usedPoolLetters: result.usedPoolLetters,
-            }).catch((err) => console.error("[postgres] failed to insert word play", err));
+            }).catch((err) =>
+              reportError(err, {
+                tags: { op: "postgres.insertWordPlay", gameId: command.gameId, playerId },
+                extra: { word: result.word, seq: result.snapshot.seq },
+              }),
+            );
             await publish({
               type: "WordPlayed",
               seq: result.snapshot.seq,
@@ -420,7 +441,21 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
             console.log("[ws] unhandled command", (command as { type?: string }).type);
         }
       } catch (err) {
-        console.error("[ws] error handling command", command, err);
+        // Every *expected* rejection above returns early via sendError with a
+        // domain code and never lands here. Reaching this catch means
+        // something nobody wrote a branch for: a Lua EVAL throwing, a
+        // malformed script reply, an unreachable Redis. Always a bug or an
+        // infra fault, never ordinary play — see docs/decisions.md "Error
+        // tracking: Sentry behind a reportError wrapper".
+        reportError(err, {
+          tags: {
+            op: "ws.command",
+            command: command.type,
+            gameId: command.gameId,
+            commandId: command.commandId,
+            playerId: meta.playerId,
+          },
+        });
         sendError(
           socket,
           "InvalidCommand",

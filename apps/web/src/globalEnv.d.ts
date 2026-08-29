@@ -11,6 +11,13 @@ declare global {
       API_URL?: string;
       WS_URL?: string;
       CLERK_PUBLISHABLE_KEY?: string;
+      // Error reporting (anagrabble#46). All three are optional: with no
+      // DSN, src/observability degrades to console logging, which is what
+      // local dev and the test runner get.
+      SENTRY_DSN?: string;
+      SENTRY_ENVIRONMENT?: string;
+      /** Commit SHA of the deployed build, written by CI. */
+      RELEASE?: string;
     };
   }
 }

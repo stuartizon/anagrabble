@@ -5,8 +5,36 @@ import "dotenv/config";
 import { createRedisClient } from "@anagrabble/redis";
 import { createDb, createPostgresClient, runMigrations } from "@anagrabble/postgres";
 import { createServer } from "./server.js";
+import { flushReports, initObservability, reportError } from "./observability.js";
 
 const PORT = Number(process.env.PORT ?? 8080);
+
+// Error reporting is optional infrastructure, unlike the required values
+// below: with no DSN the wrapper degrades to plain console logging, which
+// is what local dev and every test run get. Initialised before anything
+// else here so a failure in the wiring underneath is still reported. See
+// anagrabble#46.
+initObservability({
+  dsn: process.env.SENTRY_DSN,
+  environment: process.env.SENTRY_ENVIRONMENT ?? "development",
+  // Injected by Railway; absent locally.
+  release: process.env.RAILWAY_GIT_COMMIT_SHA,
+});
+
+// Nothing caught these before — an unhandled rejection anywhere off the
+// await path (a fire-and-forget .catch() someone forgot to add) died
+// silently, and an uncaughtException took the process down with no record
+// beyond Railway's restart. uncaughtException is genuinely fatal: report,
+// flush, then exit non-zero and let railway.json's restartPolicy restart
+// us, rather than continuing in an unknown state.
+process.on("unhandledRejection", (reason) => {
+  reportError(reason, { tags: { op: "process.unhandledRejection" } });
+});
+
+process.on("uncaughtException", (err) => {
+  reportError(err, { tags: { op: "process.uncaughtException" } });
+  void flushReports().then(() => process.exit(1));
+});
 
 const REDIS_URL = process.env.REDIS_URL;
 if (!REDIS_URL) {
@@ -40,7 +68,12 @@ if (!WEB_ORIGIN) {
 const redis = createRedisClient({ url: REDIS_URL });
 
 redis.on("connect", () => console.log(`[redis] connected to ${REDIS_URL}`));
-redis.on("error", (err) => console.error("[redis] connection error", err));
+// dedupeKey: node-redis retries a broken connection on its own schedule,
+// so a Redis outage emits this repeatedly for as long as it lasts — one
+// event a minute is enough to know.
+redis.on("error", (err) =>
+  reportError(err, { tags: { op: "redis.connection" }, dedupeKey: "redis-connection" }),
+);
 
 // node-redis, unlike ioredis, doesn't connect on construction.
 await redis.connect();
@@ -63,7 +96,7 @@ runMigrations(db)
       console.log("[postgres] schema already up to date");
     }
   })
-  .catch((err) => console.error("[postgres] failed to run migrations", err));
+  .catch((err) => reportError(err, { tags: { op: "postgres.migrations" } }));
 
 const { fastify } = await createServer({
   redis,
@@ -76,7 +109,8 @@ const { fastify } = await createServer({
 fastify
   .listen({ port: PORT, host: "0.0.0.0" })
   .then((address) => console.log(`[server] listening on ${address}`))
-  .catch((err) => {
-    console.error(err);
+  .catch(async (err) => {
+    reportError(err, { tags: { op: "server.listen" } });
+    await flushReports();
     process.exit(1);
   });

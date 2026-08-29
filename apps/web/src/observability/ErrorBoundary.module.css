@@ -1,0 +1,20 @@
+.title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.body {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+/* Stands in for Header's own padding, which this fallback can't use — see
+   ErrorBoundary.tsx. */
+.wordmark {
+  padding: 20px 24px;
+}

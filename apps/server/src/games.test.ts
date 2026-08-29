@@ -22,6 +22,12 @@ vi.mock("./auth.js", () => ({
   verifyMockSessionToken: (...args: unknown[]) => verifyMockSessionToken(...args),
 }));
 
+const observability = vi.hoisted(() => ({
+  reportError: vi.fn(),
+  reportWarning: vi.fn(),
+}));
+vi.mock("./observability.js", () => observability);
+
 const createGame = vi.fn();
 const leaveGame = vi.fn();
 const loadGameState = vi.fn();
@@ -185,10 +191,9 @@ describe("handleCreateGameRequest", () => {
     expect(result).toEqual({ status: 201, body: sampleSnapshot(secondAttemptGameId) });
   });
 
-  it("gives up and returns 500 after repeated gameId collisions", async () => {
+  it("gives up, returns 500, and reports after repeated gameId collisions", async () => {
     verifySessionToken.mockResolvedValue({ userId: "user_1" });
     createGame.mockResolvedValue({ error: "GameIdTaken" });
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     const result = await handleCreateGameRequest(
       FAKE_REDIS,
@@ -199,15 +204,15 @@ describe("handleCreateGameRequest", () => {
 
     expect(createGame.mock.calls.length).toBeGreaterThan(1);
     expect(result).toEqual({ status: 500, body: { error: "Internal error" } });
-    expect(errorSpy).toHaveBeenCalled();
-
-    errorSpy.mockRestore();
+    // A warning rather than an exception: nothing threw, but exhausting the
+    // id space shouldn't be reachable in normal operation (anagrabble#46).
+    expect(observability.reportWarning).toHaveBeenCalled();
+    expect(observability.reportError).not.toHaveBeenCalled();
   });
 
-  it("returns 500 and logs when createGame rejects", async () => {
+  it("returns 500 and reports when createGame rejects", async () => {
     verifySessionToken.mockResolvedValue({ userId: "user_1" });
     createGame.mockRejectedValue(new Error("redis exploded"));
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     const result = await handleCreateGameRequest(
       FAKE_REDIS,
@@ -217,9 +222,7 @@ describe("handleCreateGameRequest", () => {
     );
 
     expect(result).toEqual({ status: 500, body: { error: "Internal error" } });
-    expect(errorSpy).toHaveBeenCalled();
-
-    errorSpy.mockRestore();
+    expect(observability.reportError).toHaveBeenCalled();
   });
 });
 

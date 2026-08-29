@@ -66,8 +66,14 @@ jobs:
             echo "::error::No successful CI run found on main to promote (or the specified ci_run_id was invalid)"
             exit 1
           fi
-          echo "Promoting frontend build from CI run $run_id"
+          # The commit the artifact was actually built from — not
+          # github.sha, which is whatever main points at when someone
+          # happens to click "Run workflow". Reported as the Sentry release
+          # so a production error names the deploy that introduced it.
+          head_sha=$(gh api "repos/${{ github.repository }}/actions/runs/$run_id" --jq '.head_sha')
+          echo "Promoting frontend build from CI run $run_id (commit $head_sha)"
           echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
 
       - name: Download frontend build artifact
         uses: actions/download-artifact@v7
@@ -86,11 +92,19 @@ jobs:
               API_URL: "https://api.anagrabble.com",
               WS_URL: "wss://api.anagrabble.com",
               CLERK_PUBLISHABLE_KEY: process.env.CLERK_PUBLISHABLE_KEY,
+              SENTRY_DSN: process.env.SENTRY_DSN,
+              SENTRY_ENVIRONMENT: "production",
+              RELEASE: process.env.RELEASE,
             };
             fs.writeFileSync("dist/env.js", `window.__ENV__ = ${JSON.stringify(env, null, 2)};\n`);
           '
         env:
           CLERK_PUBLISHABLE_KEY: ${{ vars.CLERK_PUBLISHABLE_KEY_PROD }}
+          # Same project as Dev, separated by the environment tag above
+          # rather than by a second project — see docs/decisions.md "Error
+          # tracking: Sentry behind a reportError wrapper".
+          SENTRY_DSN: ${{ vars.SENTRY_DSN_WEB_PROD }}
+          RELEASE: ${{ steps.resolve.outputs.head_sha }}
 
       - name: Install Wrangler
         run: npm install -g wrangler@latest

@@ -3724,3 +3724,127 @@ into one generic message before this. `TurnTile`'s limiter is effectively
 unreachable by a real user (turn-gated by a 15–60s timer, auto-fired at
 most once per turn), so it gets no UI treatment — same reasoning already
 used to suppress `NotYourTurn` in that file.
+
+## Error tracking: Sentry behind a `reportError` wrapper
+
+**Decision** (2026-08-29, anagrabble#46): wired Sentry into both apps behind
+a thin in-house wrapper — `apps/server/src/observability.ts` and
+`apps/web/src/observability/` — so no other module imports `@sentry/*`,
+mirroring the way `apps/web/src/auth/` is the only place that knows Clerk
+exists. Errors only: `tracesSampleRate: 0`, no session replay, no
+profiling. Added the two things that genuinely didn't exist before the SDK
+could be useful: `process.on("uncaughtException"/"unhandledRejection")`
+handlers plus a Fastify `onError` hook on the backend, and a React
+`ErrorBoundary` on the frontend (an uncaught render error previously just
+blanked the page).
+
+**Two projects, not four**: `anagrabble-server` and `anagrabble-web`, with
+Dev and Production separated by Sentry's own `environment` tag
+(`SENTRY_ENVIRONMENT` on Railway; `SENTRY_ENVIRONMENT` in `env.js` on
+Cloudflare Pages) rather than a project per environment. Considered
+mirroring the Railway/Cloudflare four-way split exactly, and rejected it:
+alert rules would have to be duplicated per project, and the same bug seen
+in Dev and then in Production would appear as two unrelated issues instead
+of one with two environments on it. Environment is a first-class filter in
+Sentry's UI and alert conditions, so nothing is lost by tagging rather than
+splitting.
+
+**The actual work is classification, not installation.** Most "error" paths
+in this codebase are not bugs: `NoDecomposition`, `DerivationBlocked`,
+`NotAWord`, `NotYourTurn`, `GameNotFound`, `RateLimited`, `Unauthorized`
+and friends are the state machine correctly refusing an ordinary play, and
+reporting them would put dozens of events per game into the tool and bury
+the real ones. The rule, encoded once at each call site and worth keeping
+to for anything added later:
+
+- **Report** an unexpected throw (`wsConnection.ts`'s command catch-all is
+  where a Lua `EVAL` failure, a malformed script reply, or an unreachable
+  Redis actually surfaces), an infra fault (Redis connection, Postgres
+  migration or durable-history write, Clerk verification _throwing_), or a
+  state that shouldn't be reachable.
+- **Don't report** anything that ends in `sendError` with a domain code, an
+  expired session failing to verify (as opposed to verification throwing),
+  unparseable JSON on the socket, or `/health`'s 503 (Railway's healthcheck
+  already surfaces that one).
+- **`reportWarning`** for the in-between: `SubmitWord` losing the
+  `apply_submit_word.lua` re-verification race (`StaleState`), exhausting
+  `MAX_GAME_ID_ATTEMPTS`, and a WS protocol-version mismatch. None is a
+  thrown error; all three should be rare, and knowing how rare is the input
+  for deciding whether to build the retry loop CLAUDE.md's "Word resolution
+  implementation split" describes but `game.ts` doesn't yet do.
+
+**Why a `dedupeKey` throttle**: the turn-timer sweep ticks once a second on
+every Node instance, and node-redis re-emits connection errors for as long
+as an outage lasts — either could turn a single fault into tens of
+thousands of events against a 5k/month free tier. `ReportThrottle`
+(`observability.ts`) collapses repeats of a key to one per minute. It gates
+only the _send_: every occurrence is still `console.error`'d, so Railway's
+log stream is exactly as complete as it was before this existed.
+
+**Why an `onError` hook rather than `setErrorHandler`** on Fastify: the hook
+observes without owning the response, so `@fastify/rate-limit`'s custom 429
+body and every route's existing `{ error: string }` shape are untouched.
+Only 5xx is reported — a 4xx is the API correctly saying no.
+
+**Source maps by debug ID, not by release**: `@sentry/vite-plugin` runs only
+when `SENTRY_AUTH_TOKEN` is present (CI's `build` job), and
+`build.sourcemap` is tied to the same condition so a build that can't
+upload-and-delete its maps never emits them for Cloudflare Pages to serve.
+Uploading from `build` rather than either deploy job is what keeps the
+single artifact promotable: `ci.yml` builds once, Dev deploys it, and
+`deploy-production.yml` later promotes that same artifact unchanged
+(CLAUDE.md "Deployment"). Debug IDs are what make that work — the bundle
+carries an id per chunk that matches the uploaded map, so one
+unparameterized build symbolicates correctly in both environments, which a
+release-name-matched upload could not do without parameterizing the build
+per environment and breaking build-once/deploy-twice. The `release` the app
+reports at runtime comes from `env.js` (the commit SHA, resolved in
+production from the promoted CI run's `head_sha` rather than
+`github.sha` — the workflow is `workflow_dispatch`ed, so `github.sha` is
+whatever `main` points at when someone clicks the button, not what the
+artifact was built from) and is used for grouping/regression tracking only.
+
+**Configuration follows the existing runtime-injection rule**, not a
+`VITE_SENTRY_DSN`: the DSN, environment, and release are written into
+`dist/env.js` by CI and read through `src/env.ts` like `API_URL` and
+`CLERK_PUBLISHABLE_KEY` — see "Runtime-injected frontend config, not
+build-time `VITE_*` vars". A new `optionalEnv()` sits alongside
+`requireEnv()`, since an unset DSN is a normal configuration (local dev,
+tests) rather than a broken deploy. `vite.config.ts` does read
+`process.env.SENTRY_AUTH_TOKEN`, but that's build-tooling config that never
+reaches the bundle, so it doesn't reopen that decision.
+
+**No PII**: `sendDefaultPii: false` on both sides. The only identifier sent
+is the opaque Clerk user id, attached as a tag (server) or via
+`Sentry.setUser({ id })` (frontend) — enough to distinguish one player
+hitting a bug ten times from ten players hitting it once, with no name or
+email. The frontend additionally redacts `?token=` out of any URL in an
+event or breadcrumb, since the WS URL carries a live Clerk session token.
+Considered `sendDefaultPii: true` (would allow contacting an affected
+player directly) and fully anonymous (no identifier at all); the middle
+option was chosen deliberately. This is a real privacy-surface change, so
+`PrivacyPage.tsx` was updated in the same pass — Sentry is now named as a
+second data processor alongside Clerk, with what's sent and the 90-day
+retention spelled out.
+
+**Why not OpenTelemetry**: error tracking (capture, grouping, alerting) is
+a subset of observability; OTel is the vendor-neutral standard for the rest
+(traces, metrics, logs) and converges with tools like Sentry rather than
+competing. Full tracing earns its keep once there's cross-service request
+flow to follow, and this backend is deliberately one stateless service type
+(see "Why not Akka/Pekko"), so it would instrument a single hop. Revisit
+if the architecture ever splits into multiple backend services.
+
+**Alternatives considered**: GlitchTip self-hosted (Sentry-SDK-compatible,
+no new sub-processor, but it means running and backing up another
+Postgres + Redis + worker stack — real ops cost against this repo's
+minimal-infra bias, and the backup story is already an open question,
+anagrabble#47); and structured logging only (pino + Railway log search,
+which is free but offers no grouping, no dedup, no alerting on a _new_
+issue, and nothing at all for the frontend).
+
+**Not done here, by design**: Sentry projects, DSN/token repo variables and
+secrets, Railway env vars, and alert rules are dashboard work, not code —
+without them the code is inert but harmless (no DSN, no reports, no source
+map upload, everything still logs to console). Fixing `StaleState` to
+actually retry is also out of scope; this only instruments it.

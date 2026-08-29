@@ -35,6 +35,7 @@ docker compose --profile tools up -d
 | Live game state | Redis — authoritative; see `docs/redis-schema.md` for the key/shape convention                                                                                              |
 | Durable history | Postgres; see `docs/postgres-schema.md` for the schema                                                                                                                      |
 | Authentication  | Clerk — see [Authentication](#authentication)                                                                                                                               |
+| Error tracking  | Sentry — optional, off without a DSN; see `docs/decisions.md` "Error tracking: Sentry behind a `reportError` wrapper"                                                       |
 | Monorepo        | pnpm workspaces                                                                                                                                                             |
 | Testing         | Vitest (per-package; see `CLAUDE.md` "Testing strategy")                                                                                                                    |
 
@@ -91,12 +92,16 @@ The backend server is configured with the following environment variables:
 - `AUTH_MODE` - if set to mock, then it supresses token signature checks. For local dev only; don't set in deployed environments
 - `CLERK_SECRET_KEY` - the secret key provided by Clerk for this environment. Not required if in mock auth mode
 - `WEB_ORIGIN` - location of the front end, needed for CORS support
+- `SENTRY_DSN` - optional; error reporting is disabled entirely when unset, which is the default locally and in tests
+- `SENTRY_ENVIRONMENT` - optional; `development` or `production`, the tag that separates the two environments inside one Sentry project
 
 The frontend is configured with the following variables:
 
 - `API_URL` - the backend server's HTTP origin for REST endpoints
 - `WS_URL` - the backend server's WS origin
 - `CLERK_PUBLISHABLE_KEY` - the safe to expose key provided by Clerk for this environment. Not required if in mock auth mode
+- `SENTRY_DSN` - optional; safe to expose (a DSN only permits writing events). Leave empty locally and the app never contacts Sentry
+- `SENTRY_ENVIRONMENT` / `RELEASE` - optional; set by CI per environment, the latter to the deployed commit SHA
 
 Unlike the backend, the frontend does not run on a server when deployed. It's just a bunch of assets in a bucket. So these environment variables are provided via an env.js file uploaded to the bucket alongside.
 

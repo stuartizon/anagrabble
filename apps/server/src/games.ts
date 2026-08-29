@@ -2,6 +2,7 @@ import type { Redis } from "@anagrabble/redis";
 import type { CreateGameRequest, GameSnapshot } from "@anagrabble/protocol";
 import { createGame, leaveGame, loadGameState, toGameSnapshot } from "./gameSession.js";
 import { verifyMockSessionToken, verifySessionToken } from "./auth.js";
+import { reportError, reportWarning } from "./observability.js";
 
 export interface CreateGameRequestResult {
   status: 201 | 400 | 401 | 409 | 500;
@@ -102,10 +103,17 @@ export async function handleCreateGameRequest(
       }
       // Collision on a freshly generated id — try again with a new one.
     }
-    console.error("[http] exhausted gameId attempts", { attempts: MAX_GAME_ID_ATTEMPTS });
+    // Not a throw, but not reachable in normal operation either: it means
+    // the id space is crowded enough that MAX_GAME_ID_ATTEMPTS distinct
+    // random ids all collided. Worth knowing about long before players
+    // start seeing 500s.
+    reportWarning("exhausted gameId generation attempts", {
+      tags: { op: "http.createGame" },
+      extra: { attempts: MAX_GAME_ID_ATTEMPTS },
+    });
     return { status: 500, body: { error: "Internal error" } };
   } catch (err) {
-    console.error("[http] error creating game", err);
+    reportError(err, { tags: { op: "http.createGame", playerId: auth.userId } });
     return { status: 500, body: { error: "Internal error" } };
   }
 }

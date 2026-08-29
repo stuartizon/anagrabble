@@ -18,4 +18,12 @@ window.__ENV__ = {
   // docs/decisions.md "Local dev auth: mock provider, not a Clerk
   // sandbox".
   CLERK_PUBLISHABLE_KEY: "",
+
+  // Sentry DSN for frontend error reporting (anagrabble#46). Safe to expose
+  // client-side — a DSN only permits writing events. Leave empty for local
+  // dev: with no DSN, src/observability just logs to the console and never
+  // touches the network. CI sets this per environment, along with
+  // SENTRY_ENVIRONMENT ("development"/"production") and RELEASE (the commit
+  // SHA), neither of which is worth setting locally.
+  SENTRY_DSN: "",
 };

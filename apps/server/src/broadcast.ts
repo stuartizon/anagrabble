@@ -10,6 +10,7 @@ import { WebSocket } from "ws";
 import { applyPresence, type Redis } from "@anagrabble/redis";
 import type { Event } from "@anagrabble/protocol";
 import { stateKey, syncTurnDeadlineTracking, toGameSnapshot } from "./gameSession.js";
+import { reportError } from "./observability.js";
 
 const GAME_CHANNEL = "game:events";
 
@@ -28,7 +29,11 @@ export interface Broadcaster {
 
 export async function createBroadcaster(redis: Redis): Promise<Broadcaster> {
   const subscriber = redis.duplicate();
-  subscriber.on("error", (err) => console.error("[redis] subscriber error", err));
+  // dedupeKey for the same reason as index.ts's connection handler: a Redis
+  // outage re-emits this for as long as it lasts.
+  subscriber.on("error", (err) =>
+    reportError(err, { tags: { op: "redis.subscriber" }, dedupeKey: "redis-subscriber" }),
+  );
   await subscriber.connect();
 
   const rooms = new Map<string, Set<WebSocket>>();
@@ -85,7 +90,7 @@ export async function createBroadcaster(redis: Redis): Promise<Broadcaster> {
           game: toGameSnapshot(gameId, result.state),
         });
       })
-      .catch((err) => console.error("[ws] error marking presence stale on close", err));
+      .catch((err) => reportError(err, { tags: { op: "ws.markDisconnected", gameId, playerId } }));
   }
 
   return {

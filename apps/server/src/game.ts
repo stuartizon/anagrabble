@@ -37,6 +37,7 @@ import {
   toGameSnapshot,
   type GameSessionError,
 } from "./gameSession.js";
+import { reportWarning } from "./observability.js";
 
 export type StartGameError = GameSessionError | "NotHost";
 export type TurnTileError = "GameNotFound" | "GameNotStarted" | "NotYourTurn";
@@ -205,7 +206,23 @@ export async function submitWord(
     usedPoolLetters: resolved.plan.usedPoolLetters,
   });
 
-  if ("error" in result) return { error: result.error };
+  if ("error" in result) {
+    // Not a player-visible bug (they just see the rejection and can retry),
+    // but StaleState means the plan resolved above lost a re-verification
+    // race inside apply_submit_word.lua, and CLAUDE.md's "Word resolution
+    // implementation split" says the caller should re-resolve and retry —
+    // which this doesn't do yet. Reported as a warning so how often it
+    // really happens becomes visible; that's the input for deciding whether
+    // the retry loop is worth building (see anagrabble#46). Every other
+    // error here is an ordinary rejection and stays unreported.
+    if (result.error === "StaleState") {
+      reportWarning("SubmitWord lost the apply_submit_word re-verification race", {
+        tags: { op: "game.submitWord", gameId: cmd.gameId, playerId },
+        extra: { word: cmd.word },
+      });
+    }
+    return { error: result.error };
+  }
   syncTurnDeadlineTracking(redis, cmd.gameId, result.state);
   return {
     snapshot: toGameSnapshot(cmd.gameId, result.state),

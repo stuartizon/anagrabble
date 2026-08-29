@@ -126,6 +126,19 @@ build, test]`, `main`-push only — those five run as separate parallel jobs,
   own auto-deploy) this doesn't do for you. This closes the "red build
   reaches prod" gap but not backend/frontend deploy ordering relative to each
   other — expand/contract protocol discipline (below) still covers that.
+- **Error tracking is Sentry, behind a `reportError` wrapper** —
+  `apps/server/src/observability.ts` and `apps/web/src/observability/` are
+  the only modules that import `@sentry/*` (same containment rule as
+  `apps/web/src/auth/` for Clerk). Errors only, no tracing/replay. Two
+  projects (`anagrabble-server`/`anagrabble-web`), with Dev and Production
+  separated by Sentry's `environment` tag rather than a project each. The
+  DSN reaches the frontend through `env.js` like every other runtime value,
+  never a `VITE_*` var, and with no DSN configured (local dev, tests) the
+  whole thing degrades to plain console logging with no network calls.
+  Frontend source maps are uploaded from CI's `build` job and resolved by
+  debug ID, which is what lets one unparameterized bundle symbolicate in
+  both environments. See docs/decisions.md "Error tracking: Sentry behind a
+  `reportError` wrapper".
 
 ## Game rules — the parts that affect protocol design
 
@@ -422,6 +435,18 @@ mechanic without touching anything else.
   `docs/archive/user-stories.md` — a historical record of what shipped
   pre-cutover, not a living doc. New stories are filed as GitHub issues
   directly, no separate mirroring step.
+- **Report bugs, not rejections.** When adding an error path, decide which
+  side of that line it's on before wiring it up. A domain rejection —
+  anything that ends in `sendError` with a code the player is meant to see
+  (`NotAWord`, `NoDecomposition`, `NotYourTurn`, `RateLimited`, ...) — is
+  the state machine working, gets no `reportError`, and would otherwise put
+  dozens of events per game into the error tracker and bury the real ones.
+  Report unexpected throws, infra faults (Redis, Postgres, Clerk
+  verification _throwing_ rather than returning null), and states that
+  shouldn't be reachable; use `reportWarning` for the in-between cases that
+  aren't thrown errors but shouldn't be happening. Anything that can fire on
+  a loop needs a `dedupeKey`. See docs/decisions.md "Error tracking: Sentry
+  behind a `reportError` wrapper".
 - **Test-driven development.** When picking up a user-story GitHub issue, or
   any task involving non-trivial logic (not glue code or config), write a
   failing test first, make it pass with the minimum code, then refactor

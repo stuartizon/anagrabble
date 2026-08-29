@@ -82,8 +82,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # SENTRY_AUTH_TOKEN is what switches on source-map upload (see
+      # apps/web/vite.config.ts) — absent on forks and unset repos, where the
+      # build simply skips it and emits no maps at all. Uploaded here rather
+      # than from either deploy job so the one artifact both Dev and
+      # Production ship stays byte-identical; frames resolve by debug ID, not
+      # by release.
       - name: Build
         run: pnpm build
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT_WEB }}
 
       - name: Upload frontend build artifact
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -170,11 +180,17 @@ jobs:
               API_URL: "https://api-dev.anagrabble.com",
               WS_URL: "wss://api-dev.anagrabble.com",
               CLERK_PUBLISHABLE_KEY: process.env.CLERK_PUBLISHABLE_KEY,
+              SENTRY_DSN: process.env.SENTRY_DSN,
+              SENTRY_ENVIRONMENT: "development",
+              RELEASE: process.env.GITHUB_SHA,
             };
             fs.writeFileSync("dist/env.js", `window.__ENV__ = ${JSON.stringify(env, null, 2)};\n`);
           '
         env:
           CLERK_PUBLISHABLE_KEY: ${{ vars.CLERK_PUBLISHABLE_KEY_DEV }}
+          # A DSN is a write-only, publicly-embeddable key — a repo variable,
+          # not a secret, since it ends up in env.js on the CDN either way.
+          SENTRY_DSN: ${{ vars.SENTRY_DSN_WEB_DEV }}
 
       - name: Install Wrangler
         run: npm install -g wrangler@latest

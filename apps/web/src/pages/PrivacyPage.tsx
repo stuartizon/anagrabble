@@ -7,8 +7,8 @@ import styles from "./PrivacyPage.module.css";
 //
 // Adapted from a generated boilerplate draft, trimmed to what's actually
 // true of Anagrabble: no ad tracking/analytics, no third-party data sales,
-// no sensitive-category collection, and Clerk as the one real data
-// processor. Kept the parts of the boilerplate structure that add genuine
+// no sensitive-category collection, and Clerk and Sentry (error diagnostics
+// only — see anagrabble#46) as the only real data processors. Kept the parts of the boilerplate structure that add genuine
 // legal coverage (GDPR/UK/Canada legal bases, US state rights, a real ICO
 // complaint route) and cut what didn't apply to a two-data-category hobby
 // game (location/GPS, non-Google social logins, business-transaction/
@@ -23,6 +23,7 @@ const SECTIONS: { title: string; body: BodyItem[] }[] = [
       "Account information, via Clerk (our sign-in provider): your name, email address, and password. If you sign in with Google instead, we receive the name, email, and profile photo Google shares as part of that sign-in.",
       "Gameplay data, which we generate and store ourselves in our own database: the games you've played, words you've claimed or stolen, scores, and timestamps.",
       "Basic technical logs — IP address, browser type, and request timestamps — that our infrastructure records automatically for security and to diagnose problems. We don't turn this into a profile of you, and we don't run analytics or advertising trackers.",
+      "Error diagnostics, when something in the game breaks: what went wrong, the page you were on, your browser, and your account identifier, so we can tell whether one person hit a bug repeatedly or many people hit it once. These reports are sent to Sentry, our error-tracking provider, and deleted after 90 days. They don't include your name or email address, and nothing about them tracks what you do when the game is working.",
       "We don't collect sensitive information (health, race, religion, biometric data, and the like), and we don't collect anything about you from third parties beyond what Google passes along if you choose to sign in that way.",
     ],
   },
@@ -34,6 +35,7 @@ const SECTIONS: { title: string; body: BodyItem[] }[] = [
           "Create and maintain your account, and let you sign in.",
           "Run gameplay: resolve turns and word claims, keep score, and maintain your stats history.",
           "Detect abuse and prevent fraud.",
+          "Diagnose and fix errors when part of the game stops working.",
           "Comply with the law, where we're legally required to.",
         ],
       },
@@ -52,6 +54,7 @@ const SECTIONS: { title: string; body: BodyItem[] }[] = [
       {
         list: [
           "Clerk, our authentication provider, which holds your account credentials on our behalf and is bound by its own privacy policy as our data processor.",
+          "Sentry, our error-tracking provider, which receives the error diagnostics described above so we find out when the game breaks. It's bound by its own privacy policy as our data processor, and receives nothing when nothing has gone wrong.",
           "If legally compelled — a court order, subpoena, or similar legal process.",
           "If Anagrabble is ever sold or transferred, account and gameplay data would transfer as part of that, under the same commitments as this notice.",
         ],

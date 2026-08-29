@@ -16,6 +16,7 @@ import { createBroadcaster } from "./broadcast.js";
 import { registerRestRoutes } from "./restRoutes.js";
 import { createConnectionHandler } from "./wsConnection.js";
 import { startTurnTimerSweep } from "./turnTimerSweep.js";
+import { reportError } from "./observability.js";
 
 export interface ServerDeps {
   /** Already connected — createServer duplicates it for the pub/sub
@@ -50,6 +51,22 @@ export async function createServer(deps: ServerDeps): Promise<AnagrabbleServer> 
   // client — which would make the REST rate limiter (restRoutes.ts) either
   // useless or collapse every caller into one shared bucket.
   const fastify = Fastify({ logger: false, trustProxy: true });
+
+  // Nothing recorded a route throw before this: `logger: false` means
+  // Fastify's default handler answers 500 and drops the error on the floor.
+  // An onError hook rather than setErrorHandler deliberately — this only
+  // observes, so every existing response shape (including
+  // @fastify/rate-limit's custom 429 body) is left exactly as it was. Only
+  // 5xx is reported: a 4xx is the client being told no, which is the API
+  // working. See anagrabble#46.
+  fastify.addHook("onError", async (request, _reply, error) => {
+    const status = error.statusCode ?? 500;
+    if (status < 500) return;
+    reportError(error, {
+      tags: { op: "http.unhandled", method: request.method, route: request.routeOptions?.url },
+    });
+  });
+
   await registerRestRoutes(fastify, {
     redis,
     db,

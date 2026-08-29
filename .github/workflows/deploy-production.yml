@@ -100,10 +100,11 @@ jobs:
           '
         env:
           CLERK_PUBLISHABLE_KEY: ${{ vars.CLERK_PUBLISHABLE_KEY_PROD }}
-          # Same project as Dev, separated by the environment tag above
-          # rather than by a second project — see docs/decisions.md "Error
+          # Deliberately the same variable ci.yml uses for Dev: one project,
+          # one DSN, separated by the environment tag above rather than by a
+          # second project or a second key — see docs/decisions.md "Error
           # tracking: Sentry behind a reportError wrapper".
-          SENTRY_DSN: ${{ vars.SENTRY_DSN_WEB_PROD }}
+          SENTRY_DSN: ${{ vars.SENTRY_DSN_WEB }}
           RELEASE: ${{ steps.resolve.outputs.head_sha }}
 
       - name: Install Wrangler

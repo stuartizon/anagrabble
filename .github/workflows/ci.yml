@@ -190,7 +190,11 @@ jobs:
           CLERK_PUBLISHABLE_KEY: ${{ vars.CLERK_PUBLISHABLE_KEY_DEV }}
           # A DSN is a write-only, publicly-embeddable key — a repo variable,
           # not a secret, since it ends up in env.js on the CDN either way.
-          SENTRY_DSN: ${{ vars.SENTRY_DSN_WEB_DEV }}
+          # One variable for both environments, unlike CLERK_PUBLISHABLE_KEY
+          # above: Clerk has genuinely separate dev/prod instances with
+          # different keys, whereas this is one Sentry project whose
+          # environments are separated by SENTRY_ENVIRONMENT alone.
+          SENTRY_DSN: ${{ vars.SENTRY_DSN_WEB }}
 
       - name: Install Wrangler
         run: npm install -g wrangler@latest

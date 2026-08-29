@@ -3747,7 +3747,14 @@ alert rules would have to be duplicated per project, and the same bug seen
 in Dev and then in Production would appear as two unrelated issues instead
 of one with two environments on it. Environment is a first-class filter in
 Sentry's UI and alert conditions, so nothing is lost by tagging rather than
-splitting.
+splitting. One consequence worth stating explicitly, since it
+differs from the Clerk keys sitting next to it in the same workflow step:
+there is a single `SENTRY_DSN_WEB` repo variable used by both the Dev and
+Production deploys, not a `_DEV`/`_PROD` pair. Clerk genuinely has separate
+dev and prod instances with different publishable keys; one Sentry project
+has one DSN, so splitting it into two variables would only create two
+chances to typo the same string and a way for them to drift apart and
+silently split the issue stream.
 
 **The actual work is classification, not installation.** Most "error" paths
 in this codebase are not bugs: `NoDecomposition`, `DerivationBlocked`,

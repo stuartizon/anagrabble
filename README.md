@@ -134,9 +134,9 @@ cd apps/web && pnpm test:e2e
 
 Runs the Playwright end-to-end suite against the real backend + Redis +
 browser (create a game, join via the invite link, see it live) — not part
-of `pnpm test`, and not currently run in CI either (`.github/workflows/
-ci.yml` only runs `pnpm test`, which doesn't include this). Playwright's
-own `webServer` config starts the backend and frontend itself
+of `pnpm test`, though it does run in CI as its own `e2e` job
+(`.github/workflows/ci.yml`), gating deploys alongside the other five.
+Playwright's own `webServer` config starts the backend and frontend itself
 (`pnpm --filter @anagrabble/server dev` / `... @anagrabble/web dev`,
 reusing them if already running), independent of the `server` container in
 `docker-compose.yml` — so this needs:

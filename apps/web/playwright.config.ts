@@ -13,9 +13,21 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../
 
 export default defineConfig({
   testDir: "./e2e",
+  // One retry in CI (anagrabble#52's gating job) — a real-browser/real-WS
+  // suite is inherently more timing-sensitive than a unit test, and this is
+  // a hard deploy gate now, so a genuine one-off flake shouldn't block a
+  // good commit the way it would with zero retries. Local runs stay at 0:
+  // a failure while iterating should be investigated, not silently retried.
+  retries: process.env.CI ? 1 : 0,
+  reporter: process.env.CI ? [["html", { open: "never" }], ["github"]] : "html",
   use: {
     baseURL: "http://localhost:5173",
-    trace: "on-first-retry",
+    // "retain-on-failure" rather than "on-first-retry": guarantees a trace
+    // on every failed run (including the final, non-retried attempt)
+    // instead of only ones that got retried, and works the same locally
+    // with 0 retries — "on-first-retry" was previously a no-op here since
+    // retries defaulted to 0, so no trace was ever actually captured.
+    trace: "retain-on-failure",
   },
   webServer: [
     {

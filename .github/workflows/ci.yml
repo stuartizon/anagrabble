@@ -121,9 +121,92 @@ jobs:
       - name: Test
         run: pnpm test
 
+  # Real backend + real Redis + real Postgres + real browser — see CLAUDE.md
+  # "Testing strategy". Deliberately depends on the five faster jobs above
+  # rather than running in parallel with them: this is by far the most
+  # expensive job (service containers, browser install, two dev servers,
+  # real timed browser interactions), so a commit that's already broken by a
+  # fast check (lint/typecheck/...) fails there in seconds instead of also
+  # burning several minutes here first.
+  e2e:
+    needs: [lint, format, typecheck, build, test]
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: anagrabble
+          POSTGRES_PASSWORD: anagrabble
+          POSTGRES_DB: anagrabble
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U anagrabble"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+    env:
+      # apps/server throws on startup without REDIS_URL/DATABASE_URL/
+      # WEB_ORIGIN (see .env.example) — no file needed, dotenv/config is a
+      # no-op when apps/server/.env doesn't exist, same as in production.
+      # AUTH_MODE=mock is apps/web's VITE_AUTH_MODE=mock counterpart (see
+      # docs/decisions.md "Local dev auth: mock provider, not a Clerk
+      # sandbox") so the whole flow runs with no real Clerk credentials.
+      REDIS_URL: redis://localhost:6379
+      DATABASE_URL: postgres://anagrabble:anagrabble@localhost:5432/anagrabble
+      WEB_ORIGIN: http://localhost:5173
+      AUTH_MODE: mock
+      VITE_AUTH_MODE: mock
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # apps/web/public/env.js is gitignored (every deployed/local
+      # environment provides its own — see docs/decisions.md
+      # "Runtime-injected frontend config, not build-time VITE_* vars").
+      # env.example.js's blank CLERK_PUBLISHABLE_KEY/SENTRY_DSN are fine
+      # as-is: mock auth needs no Clerk key, and no DSN just means no
+      # reporting.
+      - name: Write frontend runtime env
+        run: cp apps/web/public/env.example.js apps/web/public/env.js
+
+      - name: Install Playwright browsers
+        working-directory: apps/web
+        run: npx playwright install --with-deps chromium
+
+      - name: Run e2e tests
+        working-directory: apps/web
+        run: pnpm test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          retention-days: 14
+
   deploy-backend:
     name: Deploy backend (Railway, development)
-    needs: [lint, format, typecheck, build, test]
+    needs: [lint, format, typecheck, build, test, e2e]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     concurrency:
@@ -154,7 +237,7 @@ jobs:
 
   deploy-frontend:
     name: Deploy frontend (Cloudflare Pages, development)
-    needs: [lint, format, typecheck, build, test]
+    needs: [lint, format, typecheck, build, test, e2e]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     concurrency:

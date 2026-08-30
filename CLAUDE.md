@@ -103,8 +103,12 @@ load-bearing for any piece of state.
   Railway-vs-AWS-vs-Fly-vs-self-hosted comparison).
 - **Both platforms deploy only after CI passes.** `.github/workflows/ci.yml`'s
   `deploy-backend`/`deploy-frontend` jobs (`needs: [lint, format, typecheck,
-build, test]`, `main`-push only — those five run as separate parallel jobs,
-  not one combined job)
+build, test, e2e]`, `main`-push only — lint/format/typecheck/build/test run
+  as separate parallel jobs, not one combined job; `e2e` deliberately depends
+  on those five finishing first rather than also running in parallel, since
+  it's by far the most expensive job and a commit already broken by a fast
+  check shouldn't also burn several minutes of browser/service-container
+  time)
   call the Railway CLI / `wrangler pages deploy` directly rather than relying on
   either platform's push-triggered auto-deploy, targeting Dev (Railway's
   `development` environment; Cloudflare Pages' `dev` branch alias, with
@@ -365,7 +369,12 @@ exists — marked below.
   not a place to re-test business logic already covered elsewhere. Runs via
   `pnpm test:e2e` in `apps/web`, separate from `pnpm test` — needs Redis
   already running and downloaded browser binaries, neither of which the
-  default test run should require.
+  default test run should require. Also runs in CI as its own `e2e` job
+  (`.github/workflows/ci.yml`), gating `deploy-backend`/`deploy-frontend`
+  alongside the other five — real Redis/Postgres service containers, mock
+  auth (no live Clerk credentials needed), one retry (a real-browser/real-WS
+  suite is inherently more flake-prone than a unit test, and this is a hard
+  deploy gate now).
 
 Vitest is the default runner across every layer (native ESM/TS, already
 Vite-native for `apps/web`), so most packages share one tool; testcontainers and

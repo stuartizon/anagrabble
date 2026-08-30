@@ -3855,3 +3855,79 @@ secrets, Railway env vars, and alert rules are dashboard work, not code —
 without them the code is inert but harmless (no DSN, no reports, no source
 map upload, everything still logs to console). Fixing `StaleState` to
 actually retry is also out of scope; this only instruments it.
+
+---
+
+## Client-side `seq` monotonicity: a stale `Pong` can roll back game state
+
+**Status: fixed 2026-08-29** — found while root-causing anagrabble#52 (the
+`word-claim.spec.ts` e2e stall), which turned out to have two independent
+causes; this entry covers the real client-state bug, not the test flakiness
+half (that was the server's genuine `GAMEPLAY_RATE_LIMIT` correctly
+rejecting a test loop clicking faster than a human would — no product bug,
+just the test needing pacing, see the spec's own comments).
+
+**The bug** (caught live via instrumented Playwright runs and raw WS frame
+logging, not by inspection): partway through a real two-browser game,
+`hostTurnButton.isVisible()` and `guestTurnButton.isVisible()` were
+observed both `true` at once — only one player can legitimately hold the
+turn, so one page's rendered `game.turnPlayerId` was stale. The stale
+side's next click was silently rejected by the server (a domain rejection,
+no UI treatment by design — CLAUDE.md "Report bugs, not rejections"), which
+from the player's perspective looks like "my turn button appeared, but
+nothing happens when I press it."
+
+**Root cause**: `useGameSocket.ts`'s reducer (`applyGameSocketMessage`)
+applied every event's `game` snapshot unconditionally, including `Pong`'s —
+see CLAUDE.md "Player presence" for why `Pong` piggybacks a full snapshot
+in the first place (a deliberately cheap way to keep everyone's presence
+view eventually-consistent without an O(players²) broadcast on every
+heartbeat tick, still the right tradeoff, not reopened by this fix). The
+`Ping` handler's `applyPresence` read and a concurrent mutation's broadcast
+(e.g. `TileTurned`, from the other player's `TurnTile`) are two
+independently-triggered async chains that both end in a `send()`/`publish()`
+call to the _same_ socket, with nothing serializing their relative order.
+Redis's own `EVAL` atomicity guarantees each individual mutation is
+consistent, but says nothing about which of two unrelated response paths
+reaches a given connection's outbound buffer first — that's pure Node
+event-loop scheduling, decoupled from which Redis write actually committed
+first. So a `Pong` whose snapshot was captured _before_ a `TileTurned` this
+same client already processed could still be delivered _after_ it,
+overwriting the fresher state with the older one. This is exactly the class
+of problem CLAUDE.md's own "Sequencing" already names `seq` as the fix
+for ("detect dropped WebSocket messages and trigger a full state resync
+rather than silently drifting") — the gap was that the invariant had never
+actually been enforced against _regression_, only used for gap detection
+elsewhere.
+
+**Fix**: the reducer now refuses to apply any incoming `game` snapshot
+whose `seq` is behind the snapshot already held — a one-line guard ahead of
+the `switch`, applying uniformly to every event type that carries a `game`
+field, not just `Pong` (the general invariant is "state.game.seq only ever
+moves forward," not "distrust Pong specifically"). Regression test added to
+`useGameSocket.test.ts` reproducing the exact scenario: a `TileTurned` at
+`seq: 5` followed by a `Pong` at `seq: 4`, asserting the newer state wins.
+
+**Alternatives considered**:
+
+- **Drop the snapshot from `Pong` entirely**, making heartbeats pure
+  keepalive and syncing presence some other way. Rejected: this is the
+  reason the piggyback exists in the first place (see above); removing it
+  reopens the broadcast-storm problem it was chosen to avoid, for a
+  narrower fix than the one below.
+- **Server-side per-connection ordering guard** (track the last `seq` sent
+  to each socket; suppress/omit a `Pong`'s snapshot if it wouldn't be an
+  advance). Would reduce how often a client ever sees the race, but doesn't
+  remove the need for a client-side guard — a reconnect, a future event
+  type, or a rolling deploy running mixed server versions could still
+  deliver an out-of-order snapshot, and the client should never trust
+  wire order over its own `seq` regardless. Worth revisiting as
+  defense-in-depth if this class of bug recurs, but the client-side fix
+  alone closes the observed bug.
+
+**Testing**: pure-reducer logic, `useGameSocket.test.ts`'s existing lane
+(no real WebSocket needed — see that file's own framing). The live
+reproduction that found it (instrumented `turnTilesUntilPoolHas` logging
+per-page button visibility, then raw `ws.on("framereceived")` logging) was
+throwaway, not committed — the unit test above is what actually pins the
+fix.

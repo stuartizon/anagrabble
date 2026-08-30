@@ -287,7 +287,13 @@ presence deadline)` — see "Disconnected-player fast-skip" below) every
   Lua layer dedups against a short-lived per-game set so retries/reconnects never
   double-apply a move.
 - **Sequencing**: every accepted event carries a monotonic `seq` for gap detection
-  and resync.
+  and resync. Enforced on the client too, not just used for gap detection: the
+  `useGameSocket.ts` reducer refuses to apply any incoming snapshot whose `seq`
+  is behind what it already holds, since two independently-triggered server
+  paths writing to the same socket (e.g. a `Ping`'s `Pong` reply vs. a
+  concurrent mutation's broadcast) aren't guaranteed to arrive in commit order
+  — see docs/decisions.md "Client-side `seq` monotonicity: a stale `Pong` can
+  roll back game state".
 - **Schema evolution — expand/contract, enforced on every PR touching
   `packages/protocol`**:
   - Changes must be additive-only within a single PR (new optional fields, new

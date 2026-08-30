@@ -387,6 +387,52 @@ describe("useGameSocket heartbeat", () => {
     expect(result.current.game).toEqual(game);
   });
 
+  // A Ping's applyPresence read and a concurrent mutation's broadcast (e.g.
+  // TileTurned) can reach Redis in one order but reach this same
+  // connection's socket in the other, so a Pong can carry a snapshot
+  // captured *before* a mutation this client already applied. Regression
+  // test for anagrabble#52: a stale Pong rolling turnPlayerId back caused a
+  // player's own page to falsely re-show "Turn a tile" after the turn had
+  // already moved on, and the resulting click was silently rejected.
+  it("ignores a Pong snapshot older than the currently held state", async () => {
+    const { result } = renderHook(() => useGameSocket("game-1"));
+    await flush();
+    const socket = MockWebSocket.instances[0]!;
+    await act(async () => socket.emitOpen());
+
+    const newerGame = {
+      gameId: "game-1",
+      hostId: "host-1",
+      status: "playing",
+      seq: 5,
+      config: { turnTimerSec: 30, minWordLength: 3, language: "en" },
+      turnPlayerId: "host-1",
+      turnDeadline: null,
+      endGameDeadline: null,
+      bankCount: 10,
+      pool: [],
+      players: [],
+    };
+    const staleGame = { ...newerGame, seq: 4, turnPlayerId: "guest-1", bankCount: 11 };
+
+    await act(async () => {
+      for (const cb of socket.listeners.message ?? []) {
+        cb({
+          data: JSON.stringify({ type: "TileTurned", seq: 5, gameId: "game-1", game: newerGame }),
+        });
+      }
+    });
+    expect(result.current.game).toEqual(newerGame);
+
+    await act(async () => {
+      for (const cb of socket.listeners.message ?? []) {
+        cb({ data: JSON.stringify({ type: "Pong", seq: 0, gameId: "game-1", game: staleGame }) });
+      }
+    });
+
+    expect(result.current.game).toEqual(newerGame);
+  });
+
   it("ignores a Pong with no snapshot (an unjoined/anonymous connection)", async () => {
     const { result } = renderHook(() => useGameSocket("game-1"));
     await flush();

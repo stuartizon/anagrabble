@@ -39,19 +39,33 @@ function poolHasLetters(poolText: string, letters: string): boolean {
   return true;
 }
 
+// Minimum gap between one tile-turn click and the next. Host and guest
+// strictly alternate turns, so a given player's own clicks land 2x this
+// value apart — kept above 500ms so that stays under the server's
+// per-connection sustained rate limit (apps/server/src/rateLimiter.ts's
+// GAMEPLAY_RATE_LIMIT: 5 burst / 1 per sec refill). Clicking with no pacing
+// at all outruns that limit once several turns land within the same second,
+// and a rejected TurnTile is silent by design (same as NotYourTurn —
+// CLAUDE.md "Report bugs, not rejections"), so it'd otherwise surface only
+// as the bank mysteriously not moving (anagrabble#52). The rate limiter's
+// own behavior already has real end-to-end coverage in
+// apps/server/src/server.test.ts's "rate limiting" suite — this pacing just
+// keeps this spec from tripping it as a side effect of an unrelated flow.
+const TURN_PACE_MS = 600;
+
 /** Alternates clicking "Turn a tile" on whichever page currently has the
  * turn until the upturned pool contains every letter in `letters`, then
  * returns. Bails loudly rather than hanging forever if the bag runs dry
  * first. */
 async function turnTilesUntilPoolHas(hostPage: Page, guestPage: Page, letters: string) {
   const hostBank = hostPage.getByText("tiles left");
+  const hostTurnButton = hostPage.getByRole("button", { name: /Turn a tile/ });
+  const guestTurnButton = guestPage.getByRole("button", { name: /Turn a tile/ });
   for (let turns = 0; turns < MAX_TILE_TURNS; turns++) {
     const poolText = await hostPage.getByTestId("pool-tiles").innerText();
     if (poolHasLetters(poolText, letters)) return;
 
     const bankBefore = await hostBank.innerText();
-    const hostTurnButton = hostPage.getByRole("button", { name: /Turn a tile/ });
-    const guestTurnButton = guestPage.getByRole("button", { name: /Turn a tile/ });
     if (await hostTurnButton.isVisible()) {
       await hostTurnButton.click();
     } else {
@@ -59,6 +73,7 @@ async function turnTilesUntilPoolHas(hostPage: Page, guestPage: Page, letters: s
       await guestTurnButton.click();
     }
     await expect(hostBank).not.toHaveText(bankBefore);
+    await hostPage.waitForTimeout(TURN_PACE_MS);
   }
   throw new Error(`pool never contained "${letters}" after ${MAX_TILE_TURNS} tile turns`);
 }
@@ -67,8 +82,9 @@ test("a claimed word can be stolen into a new word by another player, live", asy
   browser,
 }) => {
   // The turn-tile loop needs real time to draw enough of a 144-tile bag to
-  // reliably surface C (only 3 copies) — well past Playwright's 30s default.
-  test.setTimeout(90_000);
+  // reliably surface C (only 3 copies), plus TURN_PACE_MS per turn in the
+  // worst case (MAX_TILE_TURNS) — well past Playwright's 30s default.
+  test.setTimeout(180_000);
 
   const hostContext = await browser.newContext();
   const hostPage = await hostContext.newPage();

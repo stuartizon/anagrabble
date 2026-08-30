@@ -90,8 +90,22 @@ function initialGameSocketState(): GameSocketState {
 /** Pure reducer over one incoming game event — testable with fixture events
  * alone, no real/mock WebSocket needed. Never sees `Handshake` — that's a
  * connection-level concern the socket client handles and swallows itself
- * (see gameSocketClient.ts), not a game event. */
+ * (see gameSocketClient.ts), not a game event.
+ *
+ * Guards against regressing `state.game` to a snapshot older than what's
+ * already applied: a `Ping`'s `applyPresence` read and a concurrent
+ * mutation's broadcast (e.g. TileTurned) can reach Redis in one order but
+ * reach this same connection's socket in the other, so a heartbeat's Pong
+ * can carry a snapshot captured *before* a mutation this client already saw.
+ * Applying it anyway would roll `turnPlayerId`/`bankCount`/etc. back to a
+ * stale value — observed as a player's own page falsely re-showing "Turn a
+ * tile" after the turn had already moved on (anagrabble#52). */
 function applyGameSocketMessage(state: GameSocketState, message: Event): GameSocketState {
+  const incomingGame = "game" in message ? message.game : undefined;
+  if (incomingGame && state.game && incomingGame.seq < state.game.seq) {
+    return state;
+  }
+
   switch (message.type) {
     // Pong is the heartbeat reply — see PING_INTERVAL_MS and PongEvent's doc
     // comment (packages/protocol/src/ws.ts). The snapshot is only present

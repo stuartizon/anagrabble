@@ -14,6 +14,31 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <title>Anagrabble</title>
+    <meta
+      name="description"
+      content="Spot a word, and it's yours — until someone else steals it."
+    />
+
+    <!-- Static site-wide fallback — see anagrabble#54. Not per-game; a
+         dynamic per-invite-link OG image is a later, separate piece of
+         work if it's ever worth the added infra. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Anagrabble" />
+    <meta property="og:title" content="Anagrabble — Turn a letter. Take a word." />
+    <meta
+      property="og:description"
+      content="Spot a word, and it's yours — until someone else steals it."
+    />
+    <meta property="og:image" content="https://anagrabble.com/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Anagrabble — Turn a letter. Take a word." />
+    <meta
+      name="twitter:description"
+      content="Spot a word, and it's yours — until someone else steals it."
+    />
+    <meta name="twitter:image" content="https://anagrabble.com/og-image.png" />
     <!-- Runtime config, not build-time: sets window.__ENV__, read by
          src/env.ts. A plain classic script (not type="module") so it's
          guaranteed to run before the deferred module script below,

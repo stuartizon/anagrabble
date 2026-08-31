@@ -1,0 +1,114 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@600;700&family=IBM+Plex+Sans:wght@400&display=swap");
+
+      :root {
+        --accent: #1f8a5c;
+        --tile-face: #fffdf8;
+        --ink: #1b1b18;
+        --font-display: "IBM Plex Mono", ui-monospace, monospace;
+        --font-body: "IBM Plex Sans", system-ui, sans-serif;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        width: 1200px;
+        height: 630px;
+        background: var(--accent);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 80px 96px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .wordmark {
+        font-family: var(--font-display);
+        font-weight: 600;
+        font-size: 28px;
+        letter-spacing: 0.02em;
+        color: #fff;
+        position: absolute;
+        top: 56px;
+        left: 96px;
+      }
+
+      h1 {
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 60px;
+        line-height: 1.1;
+        color: #fff;
+        margin-bottom: 40px;
+        max-width: 900px;
+      }
+
+      .tiles {
+        display: flex;
+        align-items: center;
+        gap: 28px;
+      }
+
+      .word {
+        display: flex;
+        gap: 8px;
+      }
+
+      .tile {
+        width: 64px;
+        height: 64px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        background: var(--tile-face);
+        box-shadow: 0 2px 0 rgba(0, 0, 0, 0.2);
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 30px;
+        color: var(--ink);
+      }
+
+      .arrow {
+        font-family: var(--font-body);
+        font-size: 32px;
+        color: #fff;
+      }
+
+      .tag {
+        margin-top: 44px;
+        font-family: var(--font-body);
+        font-size: 24px;
+        color: rgba(255, 255, 255, 0.85);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wordmark">anagrabble</div>
+    <h1>Turn a letter.<br />Take a word.</h1>
+    <div class="tiles">
+      <div class="word">
+        <span class="tile">C</span>
+        <span class="tile">A</span>
+        <span class="tile">T</span>
+      </div>
+      <span class="arrow">→</span>
+      <div class="word">
+        <span class="tile">C</span>
+        <span class="tile">A</span>
+        <span class="tile">S</span>
+        <span class="tile">T</span>
+      </div>
+    </div>
+    <p class="tag">Spot a word, and it's yours — until someone else steals it.</p>
+  </body>
+</html>

@@ -3931,3 +3931,43 @@ reproduction that found it (instrumented `turnTilesUntilPoolHas` logging
 per-page button visibility, then raw `ws.on("framereceived")` logging) was
 throwaway, not committed — the unit test above is what actually pins the
 fix.
+
+## Clerk transactional email branding: tried, blocked by Clerk's Pro plan, reverted
+
+**Decision** (2026-08-31, anagrabble#8): built `packages/clerk-config` —
+a small script against Clerk's Backend API (`GET`/`PUT
+/v1/templates/email/{slug}`; no Terraform provider covers this) that
+styled every email template this app enables (`verification_code`,
+`reset_password_code`, `account_locked`, `password_changed`,
+`invitation`), content as one real `.html` file per template (`<title>`
+as subject, a wrapping `<div>` just inside `<body>` for container
+styling — Clerk's API only reads what's _between_ the `<body>` tags and
+silently drops the tag's own `style` attribute, which cost a full
+apply-and-diagnose cycle to catch), plus a local preview script.
+Verified working end to end against the _development_ Clerk instance —
+dry-run diffs matched, applied content rendered correctly.
+
+**Reverted after production returned `402
+unsupported_subscription_plan_features`
+(`unsupported_features: ["app:custom_email_template"]`).** Custom email
+template editing is a Clerk Pro-plan feature ($25/mo, $20/mo annual) for
+_production_ applications specifically — Clerk lets every Pro feature be
+freely tried in a development instance regardless of billing plan, which
+is exactly why the dev apply run gave no warning this was coming. Decided
+not to subscribe for this. `packages/clerk-config` (the scripts and all
+five themed templates) has been removed; production keeps showing
+Clerk's own default, unbranded template copy and styling until/unless
+the plan changes — not broken, just generic. If revisited, the removed
+package's approach above (especially the `<body>`-vs-wrapping-`<div>`
+gotcha) is worth resurrecting rather than rediscovering the same bugs.
+
+**Kept: the wordmark logo**, at `apps/web/public/anagrabble-wordmark.png`
+(alongside the favicon files — not `design-system/`, which is the
+historical Claude Design export treated as read-only reference input,
+not a place for assets this repo generates itself). Clerk's Dashboard →
+Settings → Branding logo upload isn't gated the same way — it's
+available on the free tier, and Clerk's own default templates do render
+it (small, at a size not under our control without Pro). Generated from
+the actual IBM Plex Mono SemiBold font file rather than approximated,
+matching `Wordmark.module.css`'s weight 600 exactly, so it survives as
+something to re-upload without regenerating it from scratch.

@@ -506,14 +506,16 @@ format:check && pnpm typecheck && pnpm test` before every push** — the
 
 Tracked as GitHub issues, not maintained as prose here (see "Working
 conventions" above) — check the repo's open issues rather than assuming
-this list is current. As of 2026-08-25:
+this list is current. As of 2026-08-31:
 
 - Redis HA approach and timing — anagrabble#3
 - Dictionary prefix-derivation gap (UNHAPPY vs. HAPPY) — anagrabble#4
 - Reconnect/mid-game-join history panel backfill — anagrabble#5
 - Post-bank-empty idle timeout not wired to `GameConfig` — anagrabble#6
 - Account avatar: Clerk `UserButton`/`UserAvatar` vs. initial-only — anagrabble#7
-- Clerk transactional email branding — anagrabble#8
+- Clerk transactional email branding — anagrabble#8 (blocked on the Clerk
+  Pro plan for production; see docs/decisions.md "Clerk transactional
+  email branding: tried, blocked by Clerk's Pro plan, reverted")
 - Presence timing (`PRESENCE_STALE_MS`/`PING_INTERVAL_MS`) ops-tunability — anagrabble#9
 - Migrate off `@clerk/react/legacy` hooks to the Future API — anagrabble#1
 

@@ -133,7 +133,14 @@ export function createGameSocketClient(options: GameSocketClientOptions): GameSo
 
   return {
     send: (command) => {
-      socket?.send(JSON.stringify(command));
+      // A tap fast enough to land while the socket is still CONNECTING (or
+      // mid-reconnect) throws InvalidStateError otherwise — see
+      // anagrabble ANAGRABBLE-WEB-3. Dropping it here is the same tradeoff
+      // the ping() heartbeat above already makes implicitly (it never fires
+      // before `open`).
+      if (socket?.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify(command));
+      }
     },
     close: () => {
       cancelled = true;

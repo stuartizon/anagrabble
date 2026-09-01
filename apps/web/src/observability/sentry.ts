@@ -45,6 +45,12 @@ export function initObservability(): boolean {
     sendDefaultPii: false,
     beforeSend: scrubEvent,
     beforeBreadcrumb: scrubBreadcrumb,
+    // Native bridge scripts injected by in-app browsers (Facebook/Instagram's
+    // iabjs, similar bridges from other apps) throw on their own teardown —
+    // not our code, nothing we can fix. Suppressed at the source instead of
+    // re-ignoring a new Sentry issue every time its grouping fingerprint
+    // shifts. See anagrabble ANAGRABBLE-WEB-2.
+    denyUrls: [/^iabjs:/],
   });
   enabled = true;
   return true;

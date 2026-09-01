@@ -117,43 +117,28 @@ If you use the docker compose setup described above, all of this is pre-configur
 
 ## Testing
 
+All development work in this repo was undertaken using a TDD with red-green refactoring strategy.
+
+To test locally, make sure you have `pnpm` installed and run:
+
 ```bash
 pnpm test
 ```
 
-Runs each package's unit/component/integration test suite: Vitest unit and
-property-based (fast-check) tests for the tile bag and word-decomposition
-search in `packages/game`, real-Redis integration tests for the
-`apply_turn_tile`/`apply_submit_word` Lua scripts in `packages/redis` and for
-the gameSession/game modules in `apps/server` (spins up a container via
-testcontainers — needs Docker), and mocked component tests for `apps/web`.
+Each package has unit tests written in Vitest, including:
+
+- Component tests with React testing library for the frontend
+- Tests against Redis and Postgres test containers for the server
+- Property-based tests for the tile bag and word-decomposition in `packages/game`
+- Redis integration tests for the Lua scripts in `packages/redis`
+
+There is also a full end-to-end suite of tests run with Playwright spinning up a real backend, Redis, Postgres and frontend. Make sure to have the Redis and Postgres containers up, `AUTH_MODE=mock` set in `apps/server/.env`, and the Playwright browser installed. As these are slower to run, they aren't part of the command above, but can be run via:
 
 ```bash
 cd apps/web && pnpm test:e2e
 ```
 
-Runs the Playwright end-to-end suite against the real backend + Redis +
-browser (create a game, join via the invite link, see it live) — not part
-of `pnpm test`, though it does run in CI as its own `e2e` job
-(`.github/workflows/ci.yml`), gating deploys alongside the other five.
-Playwright's own `webServer` config starts the backend and frontend itself
-(`pnpm --filter @anagrabble/server dev` / `... @anagrabble/web dev`,
-reusing them if already running), independent of the `server` container in
-`docker-compose.yml` — so this needs:
-
-- Just `docker compose up redis postgres -d` (the dockerized `server`,
-  `seed-mock-stats`, and the `tools`-profile containers aren't used by this
-  path, no need to bring them up).
-- `apps/server/.env` set up (`cp apps/server/.env.example apps/server/.env`,
-  then set `AUTH_MODE=mock` in it — blank by default in the template),
-  since Playwright's spawned server reads its config from that file, not
-  from `docker-compose.yml`.
-- Downloaded browser binaries: `pnpm --filter @anagrabble/web exec
-playwright install chromium`.
-
-See `CLAUDE.md` "Testing strategy" for the framework chosen per layer, and
-"Test-driven development" for the red-green-refactor convention this repo
-follows when picking up new work.
+All of these tests are used in the CI to gate deploys.
 
 ## Contributing / working on this repo
 

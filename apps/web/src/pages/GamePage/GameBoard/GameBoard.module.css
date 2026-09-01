@@ -3,9 +3,14 @@
    — never scrolls out of view, matching design-system/In Game.dc.html's
    structure (its word bar sits outside the scrollable content div). */
 .page {
-  /* dvh, not vh — vh on mobile is computed against the viewport with the
-     address bar hidden, taller than what's actually visible. */
-  height: 100dvh;
+  /* --visual-vh (useVisualViewportHeight.ts) takes priority where
+     supported — it tracks the actual visible height including keyboard
+     coverage, which dvh does not. dvh remains the fallback for browsers
+     without window.visualViewport, and is what's briefly in effect before
+     the hook's first effect runs. Not vh alone — vh on mobile is computed
+     against the viewport with the address bar hidden, taller than what's
+     actually visible. */
+  height: var(--visual-vh, 100dvh);
   display: flex;
   flex-direction: column;
 }

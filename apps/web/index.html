@@ -4,7 +4,11 @@
     <meta charset="UTF-8" />
     <!-- interactive-widget=resizes-content: on the on-screen keyboard,
          makes Chromium browsers genuinely shrink the layout viewport (and
-         dvh) instead of panning over it. Not honored by Safari/iOS. -->
+         dvh) instead of panning over it. Not honored by Safari/iOS — that
+         gap is covered instead by GameBoard/useVisualViewportHeight.ts,
+         which tracks window.visualViewport directly and works with or
+         without this flag (verified against Android Chrome with the flag
+         removed, the closest proxy available without a real iPhone). -->
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content"

@@ -21,6 +21,7 @@ import { WordFormDock } from "./WordFormDock";
 import { MobileMenu } from "./MobileMenu";
 import { SettingsModal } from "./SettingsModal";
 import { useTurnTimer } from "./useTurnTimer";
+import { useVisualViewportHeight } from "./useVisualViewportHeight";
 import { useEndGameTimer } from "./useEndGameTimer";
 import { useLeaveGuard } from "./useLeaveGuard";
 import { useWordFeedback } from "./useWordFeedback";
@@ -89,6 +90,8 @@ export function GameBoard({
   const currentPlayer = game.players.find((p) => p.id === game.turnPlayerId);
   const isCurrentPlayer = currentPlayer?.id === playerId;
   const gameId = game.gameId;
+
+  useVisualViewportHeight();
 
   const secondsLeft = useTurnTimer({ turnDeadline: game.turnDeadline });
 

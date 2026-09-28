@@ -400,7 +400,7 @@ describe("server (WS round trip)", () => {
       expect(afterCurrentPing).toBeGreaterThan(before!);
     });
 
-    it("updates the tracked due time to 'now' when the current player's socket closes, not when someone else's does", async () => {
+    it("re-syncs tracking when the current player's socket closes, not when someone else's does", async () => {
       const baseUrl = await startServer();
       const game = await createGameViaRest(baseUrl, "host-1");
 
@@ -433,16 +433,65 @@ describe("server (WS round trip)", () => {
       const afterNonCurrentClose = await redis.zScore(TURN_DEADLINES_KEY, game.gameId);
       expect(afterNonCurrentClose).toBe(before);
 
-      // host-1 (current) disconnecting should pull the due time down to
-      // effectively "now" — this is the actual fast-skip fix: the sweep
-      // will pick this game up on its very next tick instead of waiting out
-      // the rest of turnTimerSec.
+      // host-1 (current) disconnecting does re-sync tracking — and with
+      // player-2 already gone too, nobody is left to hand the turn to, so
+      // the game drops out of tracking entirely rather than sitting due
+      // forever (anagrabble#55). The "due now" fast-skip half, with someone
+      // still reachable, is covered by turnTimerSweep.test.ts — asserting it
+      // here would race the real sweep this server runs.
       hostSocket.socket.close();
       sockets.splice(sockets.indexOf(hostSocket), 1);
       await new Promise((resolve) => setTimeout(resolve, 100));
       const afterCurrentClose = await redis.zScore(TURN_DEADLINES_KEY, game.gameId);
-      expect(afterCurrentClose).toBeLessThan(before!);
-      expect(afterCurrentClose).toBeLessThanOrEqual(Date.now());
+      expect(afterCurrentClose).toBeNull();
+    });
+
+    it("re-tracks an all-away game when a non-current player reconnects, so the sweep hands them the turn (anagrabble#55)", async () => {
+      const baseUrl = await startServer();
+      const game = await createGameViaRest(baseUrl, "host-1");
+
+      const hostSocket = await connectAndTrack(baseUrl, game.gameId, "host-1");
+      await waitForMessage(hostSocket, (m) => m.type === "Handshake");
+      await waitForMessage(hostSocket, (m) => m.type === "GameSnapshot");
+
+      const playerSocket = await connectAndTrack(baseUrl, game.gameId, "player-2");
+      await waitForMessage(playerSocket, (m) => m.type === "Handshake");
+      await waitForMessage(playerSocket, (m) => m.type === "GameSnapshot");
+      send(playerSocket, {
+        type: "JoinGame",
+        commandId: crypto.randomUUID(),
+        gameId: game.gameId,
+        playerName: "Player Two",
+      });
+      await waitForMessage(hostSocket, (m) => m.type === "PlayerJoined");
+
+      const hostSeesStart = waitForMessage(hostSocket, (m) => m.type === "GameStarted");
+      send(hostSocket, { type: "StartGame", commandId: crypto.randomUUID(), gameId: game.gameId });
+      const started = await hostSeesStart;
+      expect(started.type === "GameStarted" && started.game.turnPlayerId).toBe("host-1");
+
+      // Everyone leaves: non-current first, then current — the game drops
+      // out of tracking (see the test above).
+      playerSocket.socket.close();
+      sockets.splice(sockets.indexOf(playerSocket), 1);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      hostSocket.socket.close();
+      sockets.splice(sockets.indexOf(hostSocket), 1);
+      await vi.waitFor(
+        async () => expect(await redis.zScore(TURN_DEADLINES_KEY, game.gameId)).toBeNull(),
+        { timeout: 1000, interval: 20 },
+      );
+
+      // player-2 (not the current player) comes back. The current player is
+      // still away, so the sweep should notice and hand player-2 the turn —
+      // which it can only do if this reconnect put the game back in
+      // tracking.
+      const rejoined = await connectAndTrack(baseUrl, game.gameId, "player-2");
+      await waitForMessage(rejoined, (m) => m.type === "Handshake");
+      await waitForMessage(
+        rejoined,
+        (m) => m.type === "TileTurned" && m.game.turnPlayerId === "player-2",
+      );
     });
   });
 

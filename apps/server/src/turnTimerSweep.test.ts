@@ -140,6 +140,35 @@ describe("turnTimerSweep", () => {
     );
   });
 
+  it("stops tracking a game once nobody in it is reachable, so it isn't re-swept forever (anagrabble#55)", async () => {
+    // apply_turn_tile.lua no-ops when there's nobody reachable to hand the
+    // turn to, which used to leave the game's tracked due time sitting in
+    // the past — so the sweep retried it every second, indefinitely, each
+    // retry SADDing a fresh commandId into the game's cmds set.
+    const stale = Date.now() - PRESENCE_STALE_MS - 1;
+    await seed(
+      makeState({
+        players: [
+          { id: "p1", name: "One", words: [], score: 0, lastSeenAt: stale },
+          { id: "p2", name: "Two", words: [], score: 0, lastSeenAt: stale },
+        ],
+      }),
+    );
+    const broadcaster = fakeBroadcaster();
+
+    sweep = startTurnTimerSweep(redis, broadcaster);
+
+    await vi.waitFor(
+      async () => {
+        const score = await redis.zScore(TURN_DEADLINES_KEY, GAME_ID);
+        expect(score).toBeNull();
+      },
+      { timeout: 3000, interval: 50 },
+    );
+    const state = await readState();
+    expect(state.bankCount).toBe(5);
+  });
+
   it("draws exactly once for a two-player game even though it polls repeatedly past the same expired deadline", async () => {
     // The sweep ticks every second and doesn't remove a game from
     // TURN_DEADLINES_KEY until the *result* of advancing it is applied, so

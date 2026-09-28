@@ -27,6 +27,7 @@ import {
 import {
   joinGame,
   loadGameSnapshot,
+  presenceStampAffectsSweep,
   stateKey,
   syncTurnDeadlineTracking,
   toGameSnapshot,
@@ -164,12 +165,12 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
               lastSeenAt: Date.now(),
             });
             if (!("error" in presenceResult)) {
-              // Only matters for the turn-timer sweep if this reconnect just
-              // refreshed the *current* player's presence — see
-              // gameSession.ts's syncTurnDeadlineTracking doc comment. Fire-
-              // and-forget: the reconnect broadcast below has nothing to
-              // gain from waiting on this.
-              if (presenceResult.state.turnPlayerId === reconnectingPlayerId) {
+              // Only matters for the turn-timer sweep if this reconnect can
+              // have changed when the game next needs sweeping — see
+              // gameSession.ts's presenceStampAffectsSweep. Fire-and-forget:
+              // the reconnect broadcast below has nothing to gain from
+              // waiting on this.
+              if (presenceStampAffectsSweep(presenceResult.state, reconnectingPlayerId)) {
                 syncTurnDeadlineTracking(redis, gameId, presenceResult.state);
               }
               // Broadcast, not a direct send — this socket already joined
@@ -418,11 +419,11 @@ export function createConnectionHandler(deps: WsConnectionDeps) {
               });
               if (!("error" in result)) {
                 // Only matters for the turn-timer sweep if this heartbeat
-                // just refreshed the *current* player's presence — see
-                // gameSession.ts's syncTurnDeadlineTracking doc comment.
-                // Fire-and-forget: the Pong below has nothing to gain from
-                // waiting on this.
-                if (result.state.turnPlayerId === meta.playerId) {
+                // can have changed when the game next needs sweeping — see
+                // gameSession.ts's presenceStampAffectsSweep. Fire-and-
+                // forget: the Pong below has nothing to gain from waiting
+                // on this.
+                if (presenceStampAffectsSweep(result.state, meta.playerId)) {
                   syncTurnDeadlineTracking(redis, meta.gameId, result.state);
                 }
                 send(socket, {

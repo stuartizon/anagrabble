@@ -630,6 +630,33 @@ this fix. Regression tests: `applyTurnTile.test.ts`'s "is a no-op in a solo
 game once the only player has gone stale" and "...when every player is
 unreachable, the fully pathological multiplayer case."
 
+### Abandoned games: untrack while nobody is reachable
+
+**Bug (2026-09, anagrabble#55)**: the solo-game fix above made "nobody
+reachable" a no-op in `apply_turn_tile.lua`, but the tracked due time
+stayed in the past. `turnTile`'s `syncTurnDeadlineTracking` re-added the
+same past score, so an abandoned game (everyone gone, bank not empty)
+was swept every second, on every instance, indefinitely. Each call wrote
+a fresh `commandId` into the game's `cmds` set, and because `EXPIRE` was
+refreshed on every call, the set never expired (anagrabble#56). In
+production, 27 such games grew to ~111 MB of `cmds` sets, triggered an
+RDB save every minute with nobody playing, and during a disk-full
+`MISCONF` window reported ~11k Sentry errors (anagrabble#57).
+
+**Fix**: `computeSweepDueAt` returns `null` (untrack) while nobody in the
+game is reachable. Something has to put the game back once someone
+returns, and until now only the _current_ player's presence stamps
+re-synced tracking. `presenceStampAffectsSweep` widens that to "current
+player, or now the only reachable player": exactly the stamps that can
+move a game out of the nobody-reachable state, while an ordinary
+heartbeat in a game with other players online still skips the write.
+`markDisconnected` keeps the plain current-player check, since a player
+going away can't bring an untracked game back; if a non-current player's
+departure leaves the game all-away, the next sweep pass no-ops and
+untracks it. Regression tests: `turnTimerSweep.test.ts`'s "stops tracking
+a game once nobody in it is reachable" and `server.test.ts`'s "re-tracks
+an all-away game when a non-current player reconnects".
+
 ### Sweep-tracking writes are fire-and-forget, not on the gameplay critical path
 
 **Bug**: caught by Stuart noticing normal gameplay (clicking "turn a tile",

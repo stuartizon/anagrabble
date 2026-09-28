@@ -72,27 +72,53 @@ export const TURN_DEADLINES_KEY = "games:turnDeadlines";
  * ordinary `ZRANGEBYSCORE` poll picks the game up on its own, exactly like
  * an ordinary expired turn. The returned value is only ever a "when to
  * bother checking" hint, never the authority — `apply_turn_tile.lua`
- * re-derives both conditions fresh from live state at call time. */
-export function computeSweepDueAt(state: GameState): number | null {
+ * re-derives both conditions fresh from live state at call time.
+ *
+ * Also `null` while nobody in the game is reachable: apply_turn_tile.lua
+ * no-ops when there's no one to hand the turn to, so a tracked due time
+ * would just sit in the past and get retried every sweep tick, forever
+ * (anagrabble#55). A presence stamp that makes the game reachable again
+ * re-tracks it — see presenceStampAffectsSweep below. */
+export function computeSweepDueAt(state: GameState, now: number = Date.now()): number | null {
   if (
     state.status !== "playing" ||
     state.bankCount <= 0 ||
-    typeof state.turnDeadline !== "number"
+    typeof state.turnDeadline !== "number" ||
+    !state.players.some((p) => isReachable(p, now))
   ) {
     return null;
   }
   const currentPlayer = state.players.find((p) => p.id === state.turnPlayerId);
-  const presenceDeadline = (currentPlayer?.lastSeenAt ?? Date.now()) + PRESENCE_STALE_MS;
+  const presenceDeadline = (currentPlayer?.lastSeenAt ?? now) + PRESENCE_STALE_MS;
   return Math.min(state.turnDeadline, presenceDeadline);
+}
+
+/** Whether a presence stamp for `playerId` (already applied, giving
+ * `state`) can have changed computeSweepDueAt's answer, so the caller
+ * needs to re-sync tracking. True for the current player, whose presence
+ * deadline is part of the due time; and for anyone who is now the *only*
+ * reachable player, since that stamp may have just taken the game out of
+ * computeSweepDueAt's nobody-reachable case, and nothing else would put it
+ * back in tracking. Any other stamp leaves the due time unchanged, so it
+ * skips the write. */
+export function presenceStampAffectsSweep(
+  state: GameState,
+  playerId: string,
+  now: number = Date.now(),
+): boolean {
+  return (
+    state.turnPlayerId === playerId ||
+    !state.players.some((p) => p.id !== playerId && isReachable(p, now))
+  );
 }
 
 /** Keeps `TURN_DEADLINES_KEY` in sync with `computeSweepDueAt(state)` —
  * call after every mutation that can change `turnDeadline` or
  * `turnPlayerId` (StartGame/TurnTile/SubmitWord), and after every presence
- * update that touches the *current* player specifically (see
- * wsConnection.ts's Ping handler/reconnect stamp and broadcast.ts's
- * markDisconnected — a non-current player's presence can't change when
- * this game next needs sweeping, so those skip this call).
+ * update that can change the due time (see presenceStampAffectsSweep,
+ * used by wsConnection.ts's Ping handler/reconnect stamp; broadcast.ts's
+ * markDisconnected only needs the current-player check, since a player
+ * going *away* can't bring an untracked game back).
  *
  * Fire-and-forget, deliberately: nothing in this codebase ever needs to
  * wait for this write to land before doing something else — the tracked
@@ -105,7 +131,8 @@ export function computeSweepDueAt(state: GameState): number | null {
  * a `Promise`, so a call site can't accidentally end up awaiting (and thus
  * blocking on) it by construction, not just by convention. Untracks once
  * there's nothing left for the sweep to do (computeSweepDueAt returns
- * `null`): the game isn't playing, or the bank is empty (TurnTile is a
+ * `null`): the game isn't playing, nobody in it is reachable, or the bank
+ * is empty (TurnTile is a
  * permanent no-op past that point — see apply_turn_tile.lua's
  * bankCount<=0 branch — so there's no expired-turn work to sweep for, even
  * though SubmitWord keeps resetting turnDeadline for scoring/steal

@@ -5,7 +5,7 @@ import type { Pool } from "pg";
 import type { GameConfig } from "@anagrabble/protocol";
 import { createDb, createPostgresClient } from "./client.js";
 import { runMigrations } from "./migrate.js";
-import { endGame, insertGame } from "./games.js";
+import { endGame, gameIdExists, insertGame } from "./games.js";
 import type { Database } from "./schema.js";
 
 const CONFIG: GameConfig = { turnTimerSec: 30, minWordLength: 3, language: "en" };
@@ -52,6 +52,18 @@ describe("games", () => {
 
       const { rows } = await pool.query("select count(*) from games");
       expect(rows[0].count).toBe("1");
+    });
+  });
+
+  describe("gameIdExists", () => {
+    it("is false for an id no started game has used", async () => {
+      expect(await gameIdExists(db, "game-1")).toBe(false);
+    });
+
+    it("is true once a game with that id has started", async () => {
+      await insertGame(db, { id: "game-1", config: CONFIG, startedAt: new Date("2026-01-01") });
+
+      expect(await gameIdExists(db, "game-1")).toBe(true);
     });
   });
 

@@ -1,4 +1,5 @@
 import type { Redis } from "@anagrabble/redis";
+import { gameIdExists, type Database, type Kysely } from "@anagrabble/postgres";
 import type { CreateGameRequest, GameSnapshot } from "@anagrabble/protocol";
 import { createGame, leaveGame, loadGameState, toGameSnapshot } from "./gameSession.js";
 import { verifyMockSessionToken, verifySessionToken } from "./auth.js";
@@ -60,6 +61,20 @@ function makeGameId(): string {
 // forever, not because 5 is a carefully tuned number.
 const MAX_GAME_ID_ATTEMPTS = 5;
 
+/** Redis only knows about games whose keys haven't expired, so a fresh id
+ * must also be new to Postgres: reusing one there would silently drop the
+ * new game's history (see gameIdExists, anagrabble#58). Fails open, since a
+ * Postgres outage shouldn't block starting a game, and that game's history
+ * couldn't be written during one anyway. */
+async function isUsedInHistory(db: Kysely<Database>, gameId: string): Promise<boolean> {
+  try {
+    return await gameIdExists(db, gameId);
+  } catch (err) {
+    reportError(err, { tags: { op: "http.createGame.checkId", gameId } });
+    return false;
+  }
+}
+
 /** POST /games. Same framework-agnostic shape as stats.ts/settings.ts —
  * see settings.ts's comment for why. Delegates the actual mutation to
  * gameSession.ts's createGame() (see docs/decisions.md "CreateGame as a
@@ -69,6 +84,7 @@ const MAX_GAME_ID_ATTEMPTS = 5;
  * before touching Redis (CLAUDE.md "never trusting client-shaped input"). */
 export async function handleCreateGameRequest(
   redis: Redis,
+  db: Kysely<Database>,
   clerkSecretKey: string,
   authorizationHeader: string | undefined,
   body: unknown,
@@ -94,6 +110,7 @@ export async function handleCreateGameRequest(
   try {
     for (let attempt = 0; attempt < MAX_GAME_ID_ATTEMPTS; attempt++) {
       const gameId = makeGameId();
+      if (await isUsedInHistory(db, gameId)) continue;
       const result = await createGame(redis, { ...request, gameId, commandId }, auth.userId);
       if (!("error" in result)) {
         return { status: 201, body: result.snapshot };

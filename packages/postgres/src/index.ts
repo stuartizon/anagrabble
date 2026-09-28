@@ -6,6 +6,7 @@ export { runMigrations } from "./migrate.js";
 export {
   insertGame,
   endGame,
+  gameIdExists,
   type InsertGameArgs,
   type EndGameArgs,
   type EndGamePlayer,

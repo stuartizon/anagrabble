@@ -9,6 +9,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Redis } from "@anagrabble/redis";
+import type { Database, Kysely } from "@anagrabble/postgres";
 import type { CreateGameRequest, GameSnapshot } from "@anagrabble/protocol";
 
 beforeEach(() => {
@@ -39,10 +40,16 @@ vi.mock("./gameSession.js", () => ({
   toGameSnapshot: (...args: unknown[]) => toGameSnapshot(...args),
 }));
 
+const gameIdExists = vi.fn<(db: unknown, gameId: string) => Promise<boolean>>(async () => false);
+vi.mock("@anagrabble/postgres", () => ({
+  gameIdExists: (db: unknown, gameId: string) => gameIdExists(db, gameId),
+}));
+
 const { handleCreateGameRequest, handleLeaveGameRequest } = await import("./games.js");
 
-// createGame is mocked above — the real Redis client is never touched.
+// createGame/gameIdExists are mocked above — neither real client is touched.
 const FAKE_REDIS = {} as Redis;
+const FAKE_DB = {} as Kysely<Database>;
 
 const VALID_BODY: CreateGameRequest = {
   hostName: "Alice",
@@ -67,7 +74,13 @@ function sampleSnapshot(gameId: string): GameSnapshot {
 
 describe("handleCreateGameRequest", () => {
   it("returns 401 when the Authorization header is missing", async () => {
-    const result = await handleCreateGameRequest(FAKE_REDIS, "sk_test", undefined, VALID_BODY);
+    const result = await handleCreateGameRequest(
+      FAKE_REDIS,
+      FAKE_DB,
+      "sk_test",
+      undefined,
+      VALID_BODY,
+    );
 
     expect(result).toEqual({ status: 401, body: { error: "Unauthorized" } });
     expect(createGame).not.toHaveBeenCalled();
@@ -76,6 +89,7 @@ describe("handleCreateGameRequest", () => {
   it("returns 401 when the Authorization header isn't a Bearer token", async () => {
     const result = await handleCreateGameRequest(
       FAKE_REDIS,
+      FAKE_DB,
       "sk_test",
       "not-a-bearer-token",
       VALID_BODY,
@@ -90,6 +104,7 @@ describe("handleCreateGameRequest", () => {
 
     const result = await handleCreateGameRequest(
       FAKE_REDIS,
+      FAKE_DB,
       "sk_test",
       "Bearer bad-token",
       VALID_BODY,
@@ -107,6 +122,7 @@ describe("handleCreateGameRequest", () => {
 
     const result = await handleCreateGameRequest(
       FAKE_REDIS,
+      FAKE_DB,
       "sk_test",
       "Bearer mock-user_1",
       VALID_BODY,
@@ -135,7 +151,13 @@ describe("handleCreateGameRequest", () => {
   ])("returns 400 without creating a game for %s", async (_label, body) => {
     verifySessionToken.mockResolvedValue({ userId: "user_1" });
 
-    const result = await handleCreateGameRequest(FAKE_REDIS, "sk_test", "Bearer good-token", body);
+    const result = await handleCreateGameRequest(
+      FAKE_REDIS,
+      FAKE_DB,
+      "sk_test",
+      "Bearer good-token",
+      body,
+    );
 
     expect(result).toEqual({ status: 400, body: { error: "Invalid request" } });
     expect(createGame).not.toHaveBeenCalled();
@@ -149,6 +171,7 @@ describe("handleCreateGameRequest", () => {
 
     const result = await handleCreateGameRequest(
       FAKE_REDIS,
+      FAKE_DB,
       "sk_test",
       "Bearer good-token",
       VALID_BODY,
@@ -179,6 +202,7 @@ describe("handleCreateGameRequest", () => {
 
     const result = await handleCreateGameRequest(
       FAKE_REDIS,
+      FAKE_DB,
       "sk_test",
       "Bearer good-token",
       VALID_BODY,
@@ -191,12 +215,59 @@ describe("handleCreateGameRequest", () => {
     expect(result).toEqual({ status: 201, body: sampleSnapshot(secondAttemptGameId) });
   });
 
+  it("skips a gameId a started game has already used in Postgres, even though Redis no longer has it (anagrabble#58)", async () => {
+    verifySessionToken.mockResolvedValue({ userId: "user_1" });
+    gameIdExists.mockResolvedValueOnce(true);
+    createGame.mockImplementation(async (_redis, cmd) => ({
+      snapshot: sampleSnapshot(cmd.gameId),
+    }));
+
+    const result = await handleCreateGameRequest(
+      FAKE_REDIS,
+      FAKE_DB,
+      "sk_test",
+      "Bearer good-token",
+      VALID_BODY,
+    );
+
+    expect(gameIdExists).toHaveBeenCalledTimes(2);
+    const usedGameId = gameIdExists.mock.calls[0]![1];
+    expect(createGame).toHaveBeenCalledTimes(1);
+    expect(createGame.mock.calls[0]![1].gameId).not.toBe(usedGameId);
+    expect(result.status).toBe(201);
+  });
+
+  it("still creates the game, and reports, when the Postgres check fails", async () => {
+    // Fail open: a Postgres outage shouldn't block starting a game, and the
+    // game's history couldn't be written during one anyway.
+    verifySessionToken.mockResolvedValue({ userId: "user_1" });
+    gameIdExists.mockRejectedValueOnce(new Error("postgres unreachable"));
+    createGame.mockImplementation(async (_redis, cmd) => ({
+      snapshot: sampleSnapshot(cmd.gameId),
+    }));
+
+    const result = await handleCreateGameRequest(
+      FAKE_REDIS,
+      FAKE_DB,
+      "sk_test",
+      "Bearer good-token",
+      VALID_BODY,
+    );
+
+    expect(result.status).toBe(201);
+    expect(observability.reportError).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ tags: expect.objectContaining({ op: "http.createGame.checkId" }) }),
+    );
+  });
+
   it("gives up, returns 500, and reports after repeated gameId collisions", async () => {
     verifySessionToken.mockResolvedValue({ userId: "user_1" });
     createGame.mockResolvedValue({ error: "GameIdTaken" });
 
     const result = await handleCreateGameRequest(
       FAKE_REDIS,
+      FAKE_DB,
       "sk_test",
       "Bearer good-token",
       VALID_BODY,
@@ -216,6 +287,7 @@ describe("handleCreateGameRequest", () => {
 
     const result = await handleCreateGameRequest(
       FAKE_REDIS,
+      FAKE_DB,
       "sk_test",
       "Bearer good-token",
       VALID_BODY,

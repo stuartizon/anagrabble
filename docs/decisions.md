@@ -2883,6 +2883,22 @@ exists at all; REST simply never had a use for it. Verified live:
 `POST /games`'s request body now omits both `gameId` and `commandId`
 entirely.
 
+**A fresh `gameId` must be new to Postgres too** (2026-09, anagrabble#58).
+The collision check above only asked Redis, which was enough while game
+keys never expired. With a TTL on them, an expired game's id could be
+issued again. Postgres keys `games` by the same id, and its writes treat a
+conflict as a harmless retry (`insertGame`'s `ON CONFLICT DO NOTHING`,
+`endGame`'s `where ended_at is null`), so the new game's history would be
+silently dropped. The birthday bound makes this a real risk over the
+game's lifetime, not just among concurrent games: ~1% by 1,000 total games
+and likely by ~10,000. So the create loop also skips any id
+`gameIdExists` finds in Postgres. It fails open: if the check throws, the
+game is still created and the failure reported, since a Postgres outage
+shouldn't block play and that game's history couldn't be written anyway.
+Rejected: longer ids alone (only makes a collision less likely) and a
+permanent Redis set of used ids (fast, but the unbounded growth the TTL
+exists to remove).
+
 ---
 
 ## Planned work (2026-08-12): task breakdown and dependencies

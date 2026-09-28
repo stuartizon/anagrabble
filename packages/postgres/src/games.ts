@@ -26,6 +26,15 @@ export async function insertGame(db: Kysely<Database>, args: InsertGameArgs): Pr
     .execute();
 }
 
+/** Whether a started game has ever used `id`. Redis alone can't answer
+ * this once a game's keys expire, and reusing an id would silently drop
+ * the new game's history: insertGame's and endGame's conflict handling
+ * would treat it as a retry of the old one (anagrabble#58). */
+export async function gameIdExists(db: Kysely<Database>, id: string): Promise<boolean> {
+  const row = await db.selectFrom("games").select("id").where("id", "=", id).executeTakeFirst();
+  return row !== undefined;
+}
+
 export interface EndGamePlayer {
   clerkUserId: string;
   name: string;

@@ -103,6 +103,7 @@ export async function registerRestRoutes(
     async (request, reply) => {
       const result = await handleCreateGameRequest(
         redis,
+        db,
         clerkSecretKey,
         request.headers.authorization,
         request.body,

@@ -657,6 +657,33 @@ untracks it. Regression tests: `turnTimerSweep.test.ts`'s "stops tracking
 a game once nobody in it is reachable" and `server.test.ts`'s "re-tracks
 an all-away game when a non-current player reconnects".
 
+### Command dedup: a per-entry window, not a whole-set TTL
+
+**Decision (2026-09, anagrabble#56)**: the per-game command dedup key is a
+sorted set, `game:{<gameId>}:recentCmds`, scoring each `commandId` by when
+it was seen. Every write trims entries older than `CMDS_TTL_SEC`, then
+`ZADD NX`es the new one. The same block sits at the top of each
+`apply_*.lua` script and in `gameSession.ts`'s `markCommandSeen`.
+
+**Why**: the old `:cmds` was a plain set with an `EXPIRE` refreshed on
+every add. The TTL covered the whole set, so any game receiving commands
+more often than once an hour never forgot a single `commandId`. Combined
+with the abandoned-game sweep loop above, that grew to ~111 MB in
+production.
+
+**Alternatives**: keep the set and set its TTL only on creation
+(`EXPIRE ... NX`). A one-word change per call site, but the whole set is
+then dropped at once an hour after the game's first command, forgetting
+ids seen a second earlier, so a retry landing just after that moment would
+double-apply. It also needs Redis 7. The sorted set remembers every id for
+exactly the window, with no such gap.
+
+**Migration**: renamed from `:cmds` to `:recentCmds` rather than reusing
+the key, since `ZADD` against an existing set-type key fails with
+`WRONGTYPE`. Nothing touches the old keys after deploy, so they expire
+within an hour. Deduplication of a command sent just before the deploy and
+retried just after is lost, which is an accepted one-off.
+
 ### Sweep-tracking writes are fire-and-forget, not on the gameplay critical path
 
 **Bug**: caught by Stuart noticing normal gameplay (clicking "turn a tile",
@@ -1196,7 +1223,8 @@ get redirected away from.
 **Decision**: Redis schema is one JSON blob per game
 (`game:{<gameId>}:state`), hash-tagged for future cluster-mode compatibility,
 plus a dedicated `:seq` key (atomic `INCR`) and a `:cmds` set for commandId
-dedup. Full convention and the `GameState` shape in `docs/redis-schema.md`.
+dedup (now a `:recentCmds` sorted set — see "Command dedup: a per-entry
+window, not a whole-set TTL"). Full convention and the `GameState` shape in `docs/redis-schema.md`.
 The shape is the _full_ eventual game state (`status`, `turnPlayerIndex`,
 `turnDeadline`, `endGameDeadline`, `bankCount`, `pool`, `players[].words`/
 `.score`) from the start, not a lobby-only shape — the lobby slice just

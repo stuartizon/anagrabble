@@ -28,8 +28,17 @@ if not stateRaw then
   return cjson.encode({ error = 'GameNotFound' })
 end
 
-local alreadySeen = redis.call('SADD', KEYS[3], ARGV[1]) == 0
-redis.call('EXPIRE', KEYS[3], ARGV[4])
+-- Command dedup: a sorted set of commandId -> when it was seen, trimmed to
+-- the last ARGV[4] seconds on every write, so each id is remembered for that
+-- window however busy the game is. Not a plain set with one EXPIRE on the
+-- whole key: every command refreshed that, so an active game's set never
+-- expired and never shrank (anagrabble#56). Same block in every script that
+-- takes a commandId, plus gameSession.ts's markCommandSeen.
+local now = tonumber(ARGV[3])
+local dedupWindowMs = tonumber(ARGV[4]) * 1000
+redis.call('ZREMRANGEBYSCORE', KEYS[3], '-inf', now - dedupWindowMs)
+local alreadySeen = redis.call('ZADD', KEYS[3], 'NX', now, ARGV[1]) == 0
+redis.call('PEXPIRE', KEYS[3], dedupWindowMs)
 if alreadySeen then
   return stateRaw
 end
@@ -91,7 +100,6 @@ for _, letter in ipairs(usedPoolLetters) do
 end
 
 -- All checks passed — apply the mutation.
-local now = tonumber(ARGV[3])
 local seq = redis.call('INCR', KEYS[2])
 
 -- Consume usedPoolLetters from the pool (one occurrence per listed letter).

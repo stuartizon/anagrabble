@@ -14,8 +14,17 @@ if not stateRaw then
   return cjson.encode({ error = 'GameNotFound' })
 end
 
-local alreadySeen = redis.call('SADD', KEYS[3], ARGV[1]) == 0
-redis.call('EXPIRE', KEYS[3], ARGV[3])
+-- Command dedup: a sorted set of commandId -> when it was seen, trimmed to
+-- the last ARGV[3] seconds on every write, so each id is remembered for that
+-- window however busy the game is. Not a plain set with one EXPIRE on the
+-- whole key: every command refreshed that, so an active game's set never
+-- expired and never shrank (anagrabble#56). Same block in every script that
+-- takes a commandId, plus gameSession.ts's markCommandSeen.
+local now = tonumber(ARGV[2])
+local dedupWindowMs = tonumber(ARGV[3]) * 1000
+redis.call('ZREMRANGEBYSCORE', KEYS[3], '-inf', now - dedupWindowMs)
+local alreadySeen = redis.call('ZADD', KEYS[3], 'NX', now, ARGV[1]) == 0
+redis.call('PEXPIRE', KEYS[3], dedupWindowMs)
 if alreadySeen then
   return stateRaw
 end
@@ -34,7 +43,6 @@ if state.status ~= 'playing' then
   return cjson.encode({ error = 'GameNotStarted' })
 end
 
-local now = tonumber(ARGV[2])
 -- type() check, not truthy: lua-cjson decodes JSON null as the (truthy)
 -- cjson.null sentinel, not Lua nil.
 local deadlinePassed = type(state.endGameDeadline) == 'number' and now >= state.endGameDeadline

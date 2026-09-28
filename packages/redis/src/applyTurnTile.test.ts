@@ -14,7 +14,7 @@ const GAME_ID = "game-1";
 const KEYS: ApplyTurnTileKeys = {
   stateKey: `game:{${GAME_ID}}:state`,
   seqKey: `game:{${GAME_ID}}:seq`,
-  cmdsKey: `game:{${GAME_ID}}:cmds`,
+  cmdsKey: `game:{${GAME_ID}}:recentCmds`,
   bagKey: `game:{${GAME_ID}}:bag`,
 };
 
@@ -334,6 +334,31 @@ describe("applyTurnTile", () => {
     expect(result).toMatchObject({
       state: { pool: ["A"], bankCount: 4, turnPlayerId: "p4" },
     });
+  });
+
+  it("forgets a commandId once it's older than the dedup window, even while the game stays busy (anagrabble#56)", async () => {
+    // The window used to be one EXPIRE on the whole set, refreshed by every
+    // command, so a game that kept receiving commands never forgot any.
+    const now = Date.now();
+    await seed(makeState());
+    const call = (commandId: string, at: number) =>
+      applyTurnTile(redis, {
+        ...KEYS,
+        commandId,
+        playerId: "p2",
+        now: at,
+        cmdsTtlSec: 1,
+        presenceStaleMs: 10_000,
+      });
+    const oldest = crypto.randomUUID();
+
+    await call(oldest, now);
+    await call(crypto.randomUUID(), now + 800);
+    expect(await redis.zScore(KEYS.cmdsKey, oldest)).toBe(now);
+
+    await call(crypto.randomUUID(), now + 1500);
+    expect(await redis.zScore(KEYS.cmdsKey, oldest)).toBeNull();
+    expect(await redis.zCard(KEYS.cmdsKey)).toBe(2);
   });
 
   it("is idempotent when retried with the same commandId", async () => {

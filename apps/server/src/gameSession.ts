@@ -19,7 +19,11 @@ export type CreateGameParams = CreateGameRequest & { gameId: string; commandId: 
 // game.ts (StartGame/TurnTile) can address the same keys.
 export const stateKey = (gameId: string) => `game:{${gameId}}:state`;
 export const seqKey = (gameId: string) => `game:{${gameId}}:seq`;
-export const cmdsKey = (gameId: string) => `game:{${gameId}}:cmds`;
+/** Recently-seen commandIds, scored by when each was seen — see
+ * markCommandSeen. Renamed from `:cmds` when it changed from a set to a
+ * sorted set (anagrabble#56), so no command ever hits a key of the old
+ * type; the old keys expire by themselves. */
+export const cmdsKey = (gameId: string) => `game:{${gameId}}:recentCmds`;
 /** Shuffled draw order for one game's tile bag — never sent to clients (see
  * packages/game/src/bag.ts and docs/redis-schema.md "Tile bag key"). */
 export const bagKey = (gameId: string) => `game:{${gameId}}:bag`;
@@ -224,15 +228,34 @@ export async function loadGameSnapshot(redis: Redis, gameId: string): Promise<Ga
  * dropped ack) don't double-apply. Returns whether it was already seen.
  * Exported so game.ts's StartGame (plain read-modify-write, like the rest of
  * the lobby slice) can reuse the same dedup convention TurnTile's Lua script
- * implements atomically. */
+ * implements atomically.
+ *
+ * Each commandId is remembered for CMDS_TTL_SEC from when it was seen, not
+ * from the game's latest command: entries older than the window are trimmed
+ * on every write (anagrabble#56). Mirrors the dedup block at the top of each
+ * apply_*.lua script. */
 export async function markCommandSeen(
   redis: Redis,
   gameId: string,
   commandId: string,
+  now: number = Date.now(),
 ): Promise<boolean> {
-  const added = await redis.sAdd(cmdsKey(gameId), commandId);
-  await redis.expire(cmdsKey(gameId), CMDS_TTL_SEC);
-  return added === 0;
+  const multi = redis.multi();
+  addCommandSeen(multi, gameId, commandId, now);
+  const replies = await multi.exec();
+  return Number(replies[1]) === 0;
+}
+
+function addCommandSeen(
+  multi: ReturnType<Redis["multi"]>,
+  gameId: string,
+  commandId: string,
+  now: number,
+): void {
+  const windowMs = CMDS_TTL_SEC * 1000;
+  multi.zRemRangeByScore(cmdsKey(gameId), "-inf", now - windowMs);
+  multi.zAdd(cmdsKey(gameId), { score: now, value: commandId }, { condition: "NX" });
+  multi.pExpire(cmdsKey(gameId), windowMs);
 }
 
 /** Bumps the dedicated seq counter (single atomic INCR — safe under
@@ -288,8 +311,7 @@ export async function createGame(
   const multi = redis.multi();
   multi.set(seqKey(cmd.gameId), "0");
   multi.set(stateKey(cmd.gameId), JSON.stringify(state));
-  multi.sAdd(cmdsKey(cmd.gameId), cmd.commandId);
-  multi.expire(cmdsKey(cmd.gameId), CMDS_TTL_SEC);
+  addCommandSeen(multi, cmd.gameId, cmd.commandId, Date.now());
   await multi.exec();
 
   return { snapshot: toGameSnapshot(cmd.gameId, state) };

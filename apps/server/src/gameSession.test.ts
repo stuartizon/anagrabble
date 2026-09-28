@@ -9,10 +9,13 @@ import { createRedisClient, type Redis } from "@anagrabble/redis";
 import type { GameSnapshot, GameState, JoinGameCommand } from "@anagrabble/protocol";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
+  CMDS_TTL_SEC,
+  cmdsKey,
   createGame,
   joinGame,
   leaveGame,
   loadGameSnapshot,
+  markCommandSeen,
   type CreateGameParams,
 } from "./gameSession.js";
 
@@ -216,6 +219,29 @@ describe("gameSession", () => {
       const snapshot = await loadGameSnapshot(redis, "game-1");
 
       expect(snapshot?.hostId).toBe(HOST_ID);
+    });
+  });
+
+  describe("markCommandSeen", () => {
+    it("dedupes a retry inside the window", async () => {
+      const now = Date.now();
+      const commandId = crypto.randomUUID();
+
+      expect(await markCommandSeen(redis, "game-1", commandId, now)).toBe(false);
+      expect(await markCommandSeen(redis, "game-1", commandId, now + 5_000)).toBe(true);
+    });
+
+    it("forgets a commandId once it's older than the window, even while the game stays busy (anagrabble#56)", async () => {
+      const now = Date.now();
+      const windowMs = CMDS_TTL_SEC * 1000;
+      const oldest = crypto.randomUUID();
+
+      await markCommandSeen(redis, "game-1", oldest, now);
+      await markCommandSeen(redis, "game-1", crypto.randomUUID(), now + windowMs / 2);
+      await markCommandSeen(redis, "game-1", crypto.randomUUID(), now + windowMs + 1);
+
+      expect(await redis.zScore(cmdsKey("game-1"), oldest)).toBeNull();
+      expect(await redis.zCard(cmdsKey("game-1"))).toBe(2);
     });
   });
 });

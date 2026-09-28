@@ -13,16 +13,24 @@ required for multi-key Lua scripts (`EVAL`) to work under cluster mode. Only
 the part inside `{...}` is hashed for slot placement; the rest of the key
 name is just for readability.
 
-| Key                     | Type   | Purpose                                             |
-| ----------------------- | ------ | --------------------------------------------------- |
-| `game:{<gameId>}:state` | string | JSON blob, the full `GameState` (shape below)       |
-| `game:{<gameId>}:seq`   | string | Monotonic move counter, bumped via `INCR`           |
-| `game:{<gameId>}:cmds`  | set    | Recently-seen `commandId`s, for idempotency dedup   |
-| `game:{<gameId>}:bag`   | list   | Shuffled tile draw order — see "Tile bag key" below |
+| Key                          | Type       | Purpose                                             |
+| ---------------------------- | ---------- | --------------------------------------------------- |
+| `game:{<gameId>}:state`      | string     | JSON blob, the full `GameState` (shape below)       |
+| `game:{<gameId>}:seq`        | string     | Monotonic move counter, bumped via `INCR`           |
+| `game:{<gameId>}:recentCmds` | sorted set | Recently-seen `commandId`s, for idempotency dedup   |
+| `game:{<gameId>}:bag`        | list       | Shuffled tile draw order — see "Tile bag key" below |
 
-`game:{<gameId>}:cmds` gets an `EXPIRE` (1 hour) refreshed on every add —
-it's a dedup window, not permanent storage; `commandId`s don't need to be
-remembered forever, just long enough to catch retries/reconnects.
+`game:{<gameId>}:recentCmds` scores each `commandId` by when it was seen
+(ms epoch). Every write first trims entries older than the 1-hour window
+(`ZREMRANGEBYSCORE`), then adds with `ZADD NX` (a 0 reply means "already
+seen"), then `PEXPIRE`s the key by the same window so an idle game's key
+goes away too. It's a dedup window, not permanent storage: `commandId`s
+only need remembering long enough to catch retries/reconnects. Each id is
+remembered for the window from when it was seen, however busy the game is.
+It was a plain `:cmds` set with one `EXPIRE` refreshed on every add until
+anagrabble#56, which meant an active game's set never expired or shrank;
+see docs/decisions.md "Command dedup: a per-entry window, not a
+whole-set TTL".
 
 There's also one cross-game key, deliberately not hash-tagged since it's an
 index over every game rather than one game's own state:

@@ -288,7 +288,8 @@ presence deadline)` — see "Disconnected-player fast-skip" below) every
 ## Protocol conventions
 
 - **Command idempotency**: every client command carries a `commandId` (UUID). The
-  Lua layer dedups against a short-lived per-game set so retries/reconnects never
+  Lua layer dedups against a short-lived per-game sorted set (each id kept for
+  a fixed window — see docs/redis-schema.md) so retries/reconnects never
   double-apply a move.
 - **Sequencing**: every accepted event carries a monotonic `seq` for gap detection
   and resync. Enforced on the client too, not just used for gap detection: the

@@ -7,6 +7,13 @@ import { RedisContainer, type StartedRedisContainer } from "@testcontainers/redi
 import { createRedisClient, type Redis } from "@anagrabble/redis";
 import type { GameState } from "@anagrabble/protocol";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
+const observability = vi.hoisted(() => ({
+  reportError: vi.fn(),
+  reportWarning: vi.fn(),
+}));
+vi.mock("./observability.js", () => observability);
+
 import {
   bagKey,
   computeSweepDueAt,
@@ -73,6 +80,7 @@ describe("turnTimerSweep", () => {
 
   beforeEach(async () => {
     await redis.flushAll();
+    observability.reportError.mockClear();
   });
 
   afterEach(() => {
@@ -167,6 +175,55 @@ describe("turnTimerSweep", () => {
     );
     const state = await readState();
     expect(state.bankCount).toBe(5);
+  });
+
+  describe("error reporting (anagrabble#57)", () => {
+    async function trackDue(gameId: string) {
+      await redis.zAdd(TURN_DEADLINES_KEY, { score: Date.now() - 1, value: gameId });
+    }
+
+    async function firstTickReports() {
+      await vi.waitFor(() => expect(observability.reportError).toHaveBeenCalled(), {
+        timeout: 3000,
+        interval: 20,
+      });
+      // Well inside the next 1s tick, so only the first tick's reports count.
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      return observability.reportError.mock.calls;
+    }
+
+    it("reports a failure shared by every due game once per tick, not once per game", async () => {
+      // Stands in for a Redis-wide fault (in production, MISCONF during a
+      // failed RDB save): every due game fails with the same error, which
+      // used to mean one report per game per minute.
+      const gameIds = ["game-a", "game-b", "game-c"];
+      for (const gameId of gameIds) {
+        await redis.set(stateKey(gameId), "not json");
+        await trackDue(gameId);
+      }
+
+      sweep = startTurnTimerSweep(redis, fakeBroadcaster());
+      const calls = await firstTickReports();
+
+      expect(calls).toHaveLength(1);
+      expect(calls[0][1]).toMatchObject({
+        tags: { op: "turnTimerSweep.advance" },
+        extra: { gameIds: expect.arrayContaining(gameIds) },
+      });
+    });
+
+    it("still reports games failing for different reasons separately", async () => {
+      await redis.set(stateKey("game-a"), "not json");
+      await trackDue("game-a");
+      await redis.rPush(stateKey("game-b"), "wrong type"); // GET fails with WRONGTYPE
+      await trackDue("game-b");
+
+      sweep = startTurnTimerSweep(redis, fakeBroadcaster());
+      const calls = await firstTickReports();
+
+      expect(calls).toHaveLength(2);
+      expect(calls.map(([, context]) => context.tags.gameId).sort()).toEqual(["game-a", "game-b"]);
+    });
   });
 
   it("draws exactly once for a two-player game even though it polls repeatedly past the same expired deadline", async () => {

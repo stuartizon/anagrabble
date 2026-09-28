@@ -3843,6 +3843,17 @@ thousands of events against a 5k/month free tier. `ReportThrottle`
 only the _send_: every occurrence is still `console.error`'d, so Railway's
 log stream is exactly as complete as it was before this existed.
 
+**Choose the `dedupeKey` by what the fault is, not by where it landed**
+(2026-09, anagrabble#57). The sweep's per-game failures were originally
+keyed by `gameId`, so a Redis-wide fault (a `MISCONF` window during failed
+RDB saves) still produced one event per due game per minute: ~11k events
+from 28 games, enough to exhaust the Sentry quota and blind it to
+everything else. The sweep now groups a tick's failures by error message
+and reports each distinct failure once, keyed by the message, listing
+every affected game in `extra.gameIds`. A shared fault is one event per
+minute however many games it hits, and a game failing for a different
+reason is still reported separately.
+
 **Why an `onError` hook rather than `setErrorHandler`** on Fastify: the hook
 observes without owning the response, so `@fastify/rate-limit`'s custom 429
 body and every route's existing `{ error: string }` shape are untouched.

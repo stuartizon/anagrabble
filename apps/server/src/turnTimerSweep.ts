@@ -44,6 +44,12 @@ export function startTurnTimerSweep(redis: Redis, broadcaster: Broadcaster): Tur
     // same Redis connection.
     if (ticking) return;
     ticking = true;
+    // Grouped by error message, so a fault shared by every due game (a
+    // Redis-wide one like MISCONF) is one report per tick listing the games
+    // it hit, not one per game — which, once dozens of games were due, was
+    // enough to exhaust the Sentry quota (anagrabble#57). Games failing for
+    // different reasons still get a report each.
+    const failures = new Map<string, { err: unknown; gameIds: string[] }>();
     try {
       const dueGameIds = await redis.zRangeByScore(TURN_DEADLINES_KEY, "-inf", Date.now());
       for (const gameId of dueGameIds) {
@@ -62,19 +68,31 @@ export function startTurnTimerSweep(redis: Redis, broadcaster: Broadcaster): Tur
             game: result.snapshot,
           });
         } catch (err) {
-          // dedupeKey is per-game: one broken game shouldn't mute reports
-          // for every other game, but it also shouldn't emit an event a
-          // second for as long as it stays broken.
-          reportError(err, {
-            tags: { op: "turnTimerSweep.advance", gameId },
-            dedupeKey: `sweep-advance:${gameId}`,
-          });
+          const message = err instanceof Error ? err.message : String(err);
+          const failure = failures.get(message) ?? { err, gameIds: [] };
+          failure.gameIds.push(gameId);
+          failures.set(message, failure);
         }
       }
     } catch (err) {
       reportError(err, { tags: { op: "turnTimerSweep.scan" }, dedupeKey: "sweep-scan" });
     } finally {
       ticking = false;
+      for (const [message, { err, gameIds }] of failures) {
+        // dedupeKey is the message, not the game: a failure that persists
+        // shouldn't emit an event a second, but a *different* failure
+        // shouldn't be muted by it either.
+        reportError(err, {
+          // Tagged only when the failure is one game's own; a shared one
+          // lists every game it hit in extra instead.
+          tags: {
+            op: "turnTimerSweep.advance",
+            gameId: gameIds.length === 1 ? gameIds[0] : undefined,
+          },
+          extra: { gameIds, failedGameCount: gameIds.length },
+          dedupeKey: `sweep-advance:${message}`,
+        });
+      }
     }
   }
 

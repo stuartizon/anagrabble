@@ -32,6 +32,19 @@ anagrabble#56, which meant an active game's set never expired or shrank;
 see docs/decisions.md "Command dedup: a per-entry window, not a
 whole-set TTL".
 
+`state`, `seq` and `bag` share a 7-day TTL (`GAME_TTL_SEC`), reset on all
+three together by every real mutation: create/join/leave/start in
+`gameSession.ts`/`game.ts`, and inline in `apply_turn_tile.lua`,
+`apply_submit_word.lua` and `apply_end_game.lua` (which take the bag key
+only to keep its TTL in step). So an active game never expires, an ended
+game's results page works for a week after its last move, and an
+abandoned game is cleaned up a week after anyone last touched it. A plain
+`SET` drops a key's TTL, so every write of `state` either resets it or, in
+`apply_presence.lua` (a heartbeat isn't a move), puts the previous TTL
+back. Postgres keeps the permanent record, and `POST /games` checks
+Postgres as well as Redis for a free `gameId`, so an expired game's id is
+never reissued (anagrabble#58).
+
 There's also one cross-game key, deliberately not hash-tagged since it's an
 index over every game rather than one game's own state:
 

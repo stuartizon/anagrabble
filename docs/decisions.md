@@ -684,6 +684,32 @@ the key, since `ZADD` against an existing set-type key fails with
 within an hour. Deduplication of a command sent just before the deploy and
 retried just after is lost, which is an accepted one-off.
 
+### Game keys expire 7 days after the last move
+
+**Decision (2026-09, anagrabble#58)**: a game's `state`, `seq` and `bag`
+keys share a sliding 7-day TTL (`GAME_TTL_SEC`), reset on all three
+together by every real mutation. Presence heartbeats rewrite `state` but
+keep its existing TTL rather than extending it.
+
+**Why**: nothing ever removed a game from Redis, finished or not. Postgres
+already holds the durable history, so Redis only needs a game while
+someone might still use it: an active game (never expires, since it keeps
+being written), an ended game's results page (a week is plenty), or a game
+players might come back to (a week after anyone last touched it). At a few
+KB per game, a shorter TTL would save nothing that matters.
+
+**Why sliding, when #56 rejected a sliding TTL for command dedup**: dedup
+entries each needed their own expiry; a game lives or expires as a unit,
+so resetting the whole thing on each write is exactly the intended
+behavior. The keys must stay in step: a `seq` expiring under a live
+`state` would restart the counter and break clients' `seq` ordering. So
+the TTL is applied in the same atomic step as each write (MULTI or the
+Lua script), and heartbeats restore rather than reset it.
+
+**Prerequisite**: `POST /games` also checks Postgres for a free `gameId`
+(see "CreateGame as a REST endpoint"), since an expired id could
+otherwise be reissued and silently lose the new game's history.
+
 ### Sweep-tracking writes are fire-and-forget, not on the gameplay critical path
 
 **Bug**: caught by Stuart noticing normal gameplay (clicking "turn a tile",

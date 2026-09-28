@@ -44,5 +44,12 @@ local encoded = cjson.encode(state)
 encoded = string.gsub(encoded, '"words":{}', '"words":[]')
 encoded = string.gsub(encoded, '"pool":{}', '"pool":[]')
 
+-- A plain SET would drop the game's TTL. A heartbeat isn't a move, so it
+-- keeps whatever TTL the last real mutation set rather than extending it,
+-- staying in step with the game's seq and bag keys (anagrabble#58).
+local ttl = redis.call('PTTL', KEYS[1])
 redis.call('SET', KEYS[1], encoded)
+if ttl > 0 then
+  redis.call('PEXPIRE', KEYS[1], ttl)
+end
 return encoded

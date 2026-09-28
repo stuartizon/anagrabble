@@ -10,6 +10,9 @@ export interface ApplySubmitWordKeys {
   stateKey: string;
   seqKey: string;
   cmdsKey: string;
+  /** Not read or written by the script, only kept in step with the rest of
+   * the game's TTL. */
+  bagKey: string;
 }
 
 export interface UsedWord {
@@ -22,6 +25,9 @@ export interface ApplySubmitWordArgs extends ApplySubmitWordKeys {
   submitterId: string;
   now: number;
   cmdsTtlSec: number;
+  /** How long the game's keys live after this mutation — apps/server's
+   * GAME_TTL_SEC (anagrabble#58). */
+  gameTtlSec: number;
   /** Exact string to store in the submitter's `words` — same casing that
    * was validated against the dictionary. */
   word: string;
@@ -53,7 +59,7 @@ export async function applySubmitWord(
   args: ApplySubmitWordArgs,
 ): Promise<ApplySubmitWordResult> {
   const raw = (await redis.eval(SCRIPT, {
-    keys: [args.stateKey, args.seqKey, args.cmdsKey],
+    keys: [args.stateKey, args.seqKey, args.cmdsKey, args.bagKey],
     arguments: [
       args.commandId,
       args.submitterId,
@@ -62,6 +68,7 @@ export async function applySubmitWord(
       args.word,
       JSON.stringify(args.usedWords),
       JSON.stringify(args.usedPoolLetters),
+      String(args.gameTtlSec),
     ],
   })) as string;
 

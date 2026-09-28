@@ -10,12 +10,17 @@ export interface ApplyEndGameKeys {
   stateKey: string;
   seqKey: string;
   cmdsKey: string;
+  /** Only kept in step with the rest of the game's TTL. */
+  bagKey: string;
 }
 
 export interface ApplyEndGameArgs extends ApplyEndGameKeys {
   commandId: string;
   now: number;
   cmdsTtlSec: number;
+  /** How long the game's keys live after this mutation — apps/server's
+   * GAME_TTL_SEC (anagrabble#58). */
+  gameTtlSec: number;
 }
 
 export type ApplyEndGameError = "GameNotFound" | "GameNotStarted" | "GameNotIdle";
@@ -30,8 +35,8 @@ export async function applyEndGame(
   args: ApplyEndGameArgs,
 ): Promise<ApplyEndGameResult> {
   const raw = (await redis.eval(SCRIPT, {
-    keys: [args.stateKey, args.seqKey, args.cmdsKey],
-    arguments: [args.commandId, String(args.now), String(args.cmdsTtlSec)],
+    keys: [args.stateKey, args.seqKey, args.cmdsKey, args.bagKey],
+    arguments: [args.commandId, String(args.now), String(args.cmdsTtlSec), String(args.gameTtlSec)],
   })) as string;
 
   const parsed = JSON.parse(raw) as GameState | { error: ApplyEndGameError };

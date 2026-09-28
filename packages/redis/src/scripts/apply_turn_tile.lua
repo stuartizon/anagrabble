@@ -7,7 +7,7 @@
 -- builders — bagKey is the one addition, a Redis list of the shuffled draw
 -- order, never sent to clients).
 -- ARGV[1] commandId, ARGV[2] playerId, ARGV[3] now (ms), ARGV[4] cmds TTL (s),
--- ARGV[5] presenceStaleMs
+-- ARGV[5] presenceStaleMs, ARGV[6] game TTL (s)
 --
 -- Returns either the resulting GameState JSON, or {"error": "<code>"}.
 
@@ -43,7 +43,7 @@ if state.bankCount <= 0 then
 end
 
 -- "Unreachable" mirrors apps/server/src/gameSession.ts's isReachable() exactly.
--- PRESENCE_STALE_MS arrives as ARGV[6] rather than a Lua literal — Redis's
+-- PRESENCE_STALE_MS arrives as ARGV[5] rather than a Lua literal — Redis's
 -- sandboxed Lua has no io/os libraries, so it can't read a config file or
 -- env var itself; apps/server/src/gameSession.ts's exported constant is the sole
 -- source of truth, passed in on every call. See docs/decisions.md "Player
@@ -138,4 +138,10 @@ local encoded = cjson.encode(state)
 encoded = string.gsub(encoded, '"words":{}', '"words":[]')
 
 redis.call('SET', KEYS[1], encoded)
+-- Every real mutation resets the game's TTL on all its keys together, so a
+-- game lives until ARGV[6] seconds after its last move (anagrabble#58) and its
+-- keys never drift apart. EXPIRE on the bag is a no-op once it has emptied.
+for _, key in ipairs({ KEYS[1], KEYS[2], KEYS[4] }) do
+  redis.call('EXPIRE', key, ARGV[6])
+end
 return encoded

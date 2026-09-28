@@ -19,6 +19,7 @@ import type {
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   createGame,
+  GAME_TTL_SEC,
   joinGame,
   PRESENCE_STALE_MS,
   stateKey,
@@ -201,6 +202,18 @@ describe("game", () => {
 
       const bagLength = await redis.lLen("game:{game-1}:bag");
       expect(bagLength).toBe(144);
+    });
+
+    it("gives every one of the game's keys the game TTL, including the new bag (anagrabble#58)", async () => {
+      await seedTwoPlayerLobby();
+
+      await startGame(redis, startGameCommand(), HOST_ID);
+
+      for (const suffix of ["state", "seq", "bag"]) {
+        const ttl = await redis.ttl(`game:{game-1}:${suffix}`);
+        expect(ttl).toBeGreaterThan(GAME_TTL_SEC - 5);
+        expect(ttl).toBeLessThanOrEqual(GAME_TTL_SEC);
+      }
     });
 
     it("is idempotent when retried with the same commandId", async () => {

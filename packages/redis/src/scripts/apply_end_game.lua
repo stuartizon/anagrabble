@@ -4,8 +4,8 @@
 -- running) already set/reset endGameDeadline; this script is what actually
 -- flips status to 'ended' once a client observes that deadline has passed.
 --
--- KEYS[1] state, KEYS[2] seq, KEYS[3] cmds
--- ARGV[1] commandId, ARGV[2] now (ms), ARGV[3] cmds TTL (s)
+-- KEYS[1] state, KEYS[2] seq, KEYS[3] cmds, KEYS[4] bag (only for its TTL)
+-- ARGV[1] commandId, ARGV[2] now (ms), ARGV[3] cmds TTL (s), ARGV[4] game TTL (s)
 --
 -- Returns either the resulting GameState JSON, or {"error": "<code>"}.
 
@@ -60,4 +60,10 @@ local encoded = cjson.encode(state)
 encoded = string.gsub(encoded, '"words":{}', '"words":[]')
 
 redis.call('SET', KEYS[1], encoded)
+-- Every real mutation resets the game's TTL on all its keys together, so a
+-- game lives until ARGV[4] seconds after its last move (anagrabble#58) and its
+-- keys never drift apart. EXPIRE on the bag is a no-op once it has emptied.
+for _, key in ipairs({ KEYS[1], KEYS[2], KEYS[4] }) do
+  redis.call('EXPIRE', key, ARGV[4])
+end
 return encoded

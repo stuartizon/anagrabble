@@ -22,10 +22,12 @@ import type {
 } from "@anagrabble/protocol";
 import {
   CMDS_TTL_SEC,
+  GAME_TTL_SEC,
   PRESENCE_STALE_MS,
   bagKey,
   cmdsKey,
   deriveHostId,
+  expireGameKeys,
   loadGameSnapshot,
   loadGameState,
   markCommandSeen,
@@ -80,6 +82,7 @@ export async function startGame(
   const multi = redis.multi();
   multi.set(stateKey(cmd.gameId), JSON.stringify(nextState));
   if (bag.length > 0) multi.rPush(bagKey(cmd.gameId), bag);
+  expireGameKeys(multi, cmd.gameId);
   await multi.exec();
   syncTurnDeadlineTracking(redis, cmd.gameId, nextState);
 
@@ -104,6 +107,7 @@ export async function turnTile(
     playerId,
     now: Date.now(),
     cmdsTtlSec: CMDS_TTL_SEC,
+    gameTtlSec: GAME_TTL_SEC,
     presenceStaleMs: PRESENCE_STALE_MS,
   });
 
@@ -136,9 +140,11 @@ export async function endGame(
     stateKey: stateKey(cmd.gameId),
     seqKey: seqKey(cmd.gameId),
     cmdsKey: cmdsKey(cmd.gameId),
+    bagKey: bagKey(cmd.gameId),
     commandId: cmd.commandId,
     now: Date.now(),
     cmdsTtlSec: CMDS_TTL_SEC,
+    gameTtlSec: GAME_TTL_SEC,
   });
 
   if ("error" in result) return { error: result.error };
@@ -197,10 +203,12 @@ export async function submitWord(
     stateKey: stateKey(cmd.gameId),
     seqKey: seqKey(cmd.gameId),
     cmdsKey: cmdsKey(cmd.gameId),
+    bagKey: bagKey(cmd.gameId),
     commandId: cmd.commandId,
     submitterId: playerId,
     now: Date.now(),
     cmdsTtlSec: CMDS_TTL_SEC,
+    gameTtlSec: GAME_TTL_SEC,
     word,
     usedWords: resolved.plan.usedWords,
     usedPoolLetters: resolved.plan.usedPoolLetters,

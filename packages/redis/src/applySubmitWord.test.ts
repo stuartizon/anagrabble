@@ -15,6 +15,7 @@ const KEYS: ApplySubmitWordKeys = {
   stateKey: `game:{${GAME_ID}}:state`,
   seqKey: `game:{${GAME_ID}}:seq`,
   cmdsKey: `game:{${GAME_ID}}:recentCmds`,
+  bagKey: `game:{${GAME_ID}}:bag`,
 };
 
 function makeState(overrides: Partial<GameState> = {}): GameState {
@@ -66,6 +67,7 @@ describe("applySubmitWord", () => {
       submitterId: "p1",
       now: Date.now(),
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
       word: "cast",
       usedWords: [],
       usedPoolLetters: [],
@@ -81,6 +83,7 @@ describe("applySubmitWord", () => {
       submitterId: "p1",
       now: Date.now(),
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
       word: "cast",
       usedWords: [],
       usedPoolLetters: [],
@@ -96,6 +99,7 @@ describe("applySubmitWord", () => {
       submitterId: "ghost",
       now: Date.now(),
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
       word: "cast",
       usedWords: [],
       usedPoolLetters: [],
@@ -115,6 +119,7 @@ describe("applySubmitWord", () => {
       submitterId: "p1",
       now: Date.now(),
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
       word: "cat",
       usedWords: [],
       usedPoolLetters: ["C", "A", "T"],
@@ -139,6 +144,7 @@ describe("applySubmitWord", () => {
       submitterId: "p1",
       now: Date.now(),
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
       word: "cat",
       usedWords: [],
       usedPoolLetters: ["C", "A", "T"],
@@ -175,6 +181,7 @@ describe("applySubmitWord", () => {
       submitterId: "p1",
       now,
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
       word: "cat",
       usedWords: [],
       usedPoolLetters: ["C", "A", "T"],
@@ -202,6 +209,7 @@ describe("applySubmitWord", () => {
       submitterId: "p1",
       now,
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
       word: "cast",
       usedWords: [{ word: "cat", ownerId: "p2" }],
       usedPoolLetters: ["S"],
@@ -233,6 +241,7 @@ describe("applySubmitWord", () => {
       submitterId: "p1",
       now: Date.now(),
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
       word: "cast",
       usedWords: [{ word: "cat", ownerId: "p2" }],
       usedPoolLetters: ["S"],
@@ -252,6 +261,7 @@ describe("applySubmitWord", () => {
       submitterId: "p1",
       now: Date.now(),
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
       word: "cast",
       usedWords: [{ word: "cat", ownerId: "p2" }],
       usedPoolLetters: ["S"],
@@ -272,6 +282,7 @@ describe("applySubmitWord", () => {
         submitterId: "p1",
         now: at,
         cmdsTtlSec: 1,
+        gameTtlSec: 3600,
         word: "zzz",
         usedWords: [],
         usedPoolLetters: [],
@@ -287,6 +298,29 @@ describe("applySubmitWord", () => {
     expect(await redis.zCard(KEYS.cmdsKey)).toBe(2);
   });
 
+  it("refreshes the game's TTL on its state, seq and bag keys together (anagrabble#58)", async () => {
+    await seed(makeState());
+    await redis.rPush(KEYS.bagKey, ["X"]);
+    const result = await applySubmitWord(redis, {
+      ...KEYS,
+      commandId: crypto.randomUUID(),
+      submitterId: "p1",
+      now: Date.now(),
+      cmdsTtlSec: 3600,
+      gameTtlSec: 600,
+      word: "cat",
+      usedWords: [],
+      usedPoolLetters: ["C", "A", "T"],
+    });
+
+    expect("state" in result).toBe(true);
+    for (const key of [KEYS.stateKey, KEYS.seqKey, KEYS.bagKey]) {
+      const ttl = await redis.pTTL(key);
+      expect(ttl).toBeGreaterThan(0);
+      expect(ttl).toBeLessThanOrEqual(600_000);
+    }
+  });
+
   it("is idempotent when retried with the same commandId", async () => {
     await seed(makeState());
     const commandId = crypto.randomUUID();
@@ -295,6 +329,7 @@ describe("applySubmitWord", () => {
       commandId,
       submitterId: "p1",
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
       word: "cast",
       usedWords: [{ word: "cat", ownerId: "p2" }],
       usedPoolLetters: ["S"],
@@ -317,6 +352,7 @@ describe("applySubmitWord", () => {
       submitterId: "p1",
       now,
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
       word: "cast",
       usedWords: [{ word: "cat", ownerId: "p2" }],
       usedPoolLetters: ["S"],
@@ -332,6 +368,7 @@ describe("applySubmitWord", () => {
       submitterId: "p1",
       now,
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
       word: "cast",
       usedWords: [{ word: "cat", ownerId: "p2" }],
       usedPoolLetters: ["S"],
@@ -357,6 +394,7 @@ describe("applySubmitWord", () => {
       submitterId: "p1",
       now,
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
       word: "cast",
       usedWords: [{ word: "cat", ownerId: "p2" }],
       usedPoolLetters: ["S"],
@@ -397,6 +435,7 @@ describe("applySubmitWord", () => {
         submitterId: "p1",
         now,
         cmdsTtlSec: 3600,
+        gameTtlSec: 3600,
         word: "cast",
         usedWords: [{ word: "cat", ownerId: "p2" }],
         usedPoolLetters: ["S"],
@@ -407,6 +446,7 @@ describe("applySubmitWord", () => {
         submitterId: "p3",
         now,
         cmdsTtlSec: 3600,
+        gameTtlSec: 3600,
         word: "rats",
         usedWords: [{ word: "tar", ownerId: "p4" }],
         usedPoolLetters: ["S"],

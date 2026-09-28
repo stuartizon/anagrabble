@@ -162,6 +162,25 @@ export function untrackTurnDeadline(redis: Redis, gameId: string): void {
 
 export const CMDS_TTL_SEC = 3600;
 
+/** How long a game's keys (state, seq, bag) live after its last real
+ * mutation (anagrabble#58). Every mutation resets it on all of them
+ * together, so an active game never expires, an ended game's results page
+ * keeps working for a week, and an abandoned game is cleaned up a week
+ * after anyone last touched it. Postgres holds the permanent history. A
+ * presence heartbeat isn't a mutation: apply_presence.lua keeps the
+ * existing TTL rather than resetting it. */
+export const GAME_TTL_SEC = 7 * 24 * 60 * 60;
+
+/** Queues a reset of the game's TTL on all its keys together, so they never
+ * drift apart (a `seq` expiring under a live `state` would restart the
+ * counter). Needed after every plain `SET` of the state key too, since a
+ * `SET` drops the key's TTL. The apply_*.lua scripts do the same inline. */
+export function expireGameKeys(multi: ReturnType<Redis["multi"]>, gameId: string): void {
+  for (const key of [stateKey(gameId), seqKey(gameId), bagKey(gameId)]) {
+    multi.expire(key, GAME_TTL_SEC);
+  }
+}
+
 export type GameSessionError =
   "GameNotFound" | "GameIdTaken" | "GameAlreadyStarted" | "GameAlreadyEnded";
 
@@ -258,6 +277,15 @@ function addCommandSeen(
   multi.pExpire(cmdsKey(gameId), windowMs);
 }
 
+/** Writes the state blob and resets the game's TTL in one step — see
+ * expireGameKeys. */
+async function writeGameState(redis: Redis, gameId: string, state: GameState): Promise<void> {
+  const multi = redis.multi();
+  multi.set(stateKey(gameId), JSON.stringify(state));
+  expireGameKeys(multi, gameId);
+  await multi.exec();
+}
+
 /** Bumps the dedicated seq counter (single atomic INCR — safe under
  * concurrency on its own) and returns the new value to embed in the state
  * blob being written. */
@@ -311,6 +339,7 @@ export async function createGame(
   const multi = redis.multi();
   multi.set(seqKey(cmd.gameId), "0");
   multi.set(stateKey(cmd.gameId), JSON.stringify(state));
+  expireGameKeys(multi, cmd.gameId);
   addCommandSeen(multi, cmd.gameId, cmd.commandId, Date.now());
   await multi.exec();
 
@@ -350,7 +379,7 @@ export async function joinGame(
 
   const seq = await nextSeq(redis, cmd.gameId);
   const nextState: GameState = { ...state, seq, players: [...state.players, player] };
-  await redis.set(stateKey(cmd.gameId), JSON.stringify(nextState));
+  await writeGameState(redis, cmd.gameId, nextState);
 
   return { snapshot: toGameSnapshot(cmd.gameId, nextState), player, isNew: true };
 }
@@ -382,7 +411,7 @@ export async function leaveGame(
     seq,
     players: state.players.filter((p) => p.id !== playerId),
   };
-  await redis.set(stateKey(gameId), JSON.stringify(nextState));
+  await writeGameState(redis, gameId, nextState);
 
   return toGameSnapshot(gameId, nextState);
 }

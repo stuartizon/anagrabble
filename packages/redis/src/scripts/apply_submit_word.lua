@@ -15,11 +15,12 @@
 -- out correctly: it already tolerates the same word string appearing more
 -- than once in a player's `words`.
 --
--- KEYS[1] state, KEYS[2] seq, KEYS[3] cmds (see gameSession.ts key builders).
+-- KEYS[1] state, KEYS[2] seq, KEYS[3] cmds, KEYS[4] bag (see gameSession.ts
+-- key builders; the bag is only here so its TTL stays in step).
 -- ARGV[1] commandId, ARGV[2] submitterId, ARGV[3] now (ms), ARGV[4] cmds TTL
 -- (s), ARGV[5] word (exact string to store), ARGV[6] usedWords JSON
 -- (`[{"word":..,"ownerId":..}]`, as read from state at search time), ARGV[7]
--- usedPoolLetters JSON (`[".."]`, ditto).
+-- usedPoolLetters JSON (`[".."]`, ditto), ARGV[8] game TTL (s).
 --
 -- Returns either the resulting GameState JSON, or {"error": "<code>"}.
 
@@ -186,4 +187,10 @@ encoded = string.gsub(encoded, '"words":{}', '"words":[]')
 encoded = string.gsub(encoded, '"pool":{}', '"pool":[]')
 
 redis.call('SET', KEYS[1], encoded)
+-- Every real mutation resets the game's TTL on all its keys together, so a
+-- game lives until ARGV[8] seconds after its last move (anagrabble#58) and its
+-- keys never drift apart. EXPIRE on the bag is a no-op once it has emptied.
+for _, key in ipairs({ KEYS[1], KEYS[2], KEYS[4] }) do
+  redis.call('EXPIRE', key, ARGV[8])
+end
 return encoded

@@ -12,6 +12,7 @@ import {
   CMDS_TTL_SEC,
   cmdsKey,
   createGame,
+  GAME_TTL_SEC,
   joinGame,
   leaveGame,
   loadGameSnapshot,
@@ -219,6 +220,46 @@ describe("gameSession", () => {
       const snapshot = await loadGameSnapshot(redis, "game-1");
 
       expect(snapshot?.hostId).toBe(HOST_ID);
+    });
+  });
+
+  describe("game key TTL (anagrabble#58)", () => {
+    async function expectFreshGameTtl() {
+      for (const suffix of ["state", "seq"]) {
+        const ttl = await redis.ttl(`game:{game-1}:${suffix}`);
+        expect(ttl).toBeGreaterThan(GAME_TTL_SEC - 5);
+        expect(ttl).toBeLessThanOrEqual(GAME_TTL_SEC);
+      }
+    }
+
+    async function shortenGameTtl() {
+      await redis.expire("game:{game-1}:state", 60);
+      await redis.expire("game:{game-1}:seq", 60);
+    }
+
+    it("createGame gives the new game's keys the game TTL", async () => {
+      await createGame(redis, createGameCommand(), HOST_ID);
+
+      await expectFreshGameTtl();
+    });
+
+    it("joinGame resets the game's TTL", async () => {
+      await createGame(redis, createGameCommand(), HOST_ID);
+      await shortenGameTtl();
+
+      await joinGame(redis, joinGameCommand(), PLAYER_ID);
+
+      await expectFreshGameTtl();
+    });
+
+    it("leaveGame resets the game's TTL", async () => {
+      await createGame(redis, createGameCommand(), HOST_ID);
+      await joinGame(redis, joinGameCommand(), PLAYER_ID);
+      await shortenGameTtl();
+
+      await leaveGame(redis, "game-1", PLAYER_ID);
+
+      await expectFreshGameTtl();
     });
   });
 

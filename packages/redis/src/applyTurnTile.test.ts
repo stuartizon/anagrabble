@@ -68,6 +68,7 @@ describe("applyTurnTile", () => {
       playerId: "p1",
       now: Date.now(),
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
       presenceStaleMs: 10_000,
     });
 
@@ -83,6 +84,7 @@ describe("applyTurnTile", () => {
       playerId: "p1",
       now: Date.now(),
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
       presenceStaleMs: 10_000,
     });
 
@@ -99,6 +101,7 @@ describe("applyTurnTile", () => {
       playerId: "p1",
       now,
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
       presenceStaleMs: 10_000,
     });
 
@@ -123,6 +126,7 @@ describe("applyTurnTile", () => {
       playerId: "p2",
       now,
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
       presenceStaleMs: 10_000,
     });
 
@@ -141,6 +145,7 @@ describe("applyTurnTile", () => {
       playerId: "p2",
       now,
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
       presenceStaleMs: 10_000,
     });
 
@@ -167,6 +172,7 @@ describe("applyTurnTile", () => {
       playerId: "p2",
       now,
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
       presenceStaleMs: 10_000,
     });
 
@@ -193,6 +199,7 @@ describe("applyTurnTile", () => {
       playerId: "p2",
       now,
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
       presenceStaleMs: 10_000,
     });
 
@@ -225,6 +232,7 @@ describe("applyTurnTile", () => {
       playerId: "turn-timer-sweep",
       now,
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
       presenceStaleMs: 10_000,
     });
 
@@ -256,6 +264,7 @@ describe("applyTurnTile", () => {
       playerId: "turn-timer-sweep",
       now,
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
       presenceStaleMs: 10_000,
     });
 
@@ -294,6 +303,7 @@ describe("applyTurnTile", () => {
       playerId: "p1",
       now,
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
       presenceStaleMs: 10_000,
     });
 
@@ -326,6 +336,7 @@ describe("applyTurnTile", () => {
       playerId: "p1",
       now,
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
       presenceStaleMs: 10_000,
     });
 
@@ -348,6 +359,7 @@ describe("applyTurnTile", () => {
         playerId: "p2",
         now: at,
         cmdsTtlSec: 1,
+        gameTtlSec: 3600,
         presenceStaleMs: 10_000,
       });
     const oldest = crypto.randomUUID();
@@ -361,6 +373,26 @@ describe("applyTurnTile", () => {
     expect(await redis.zCard(KEYS.cmdsKey)).toBe(2);
   });
 
+  it("refreshes the game's TTL on its state, seq and bag keys together (anagrabble#58)", async () => {
+    await seed(makeState());
+    const result = await applyTurnTile(redis, {
+      ...KEYS,
+      commandId: crypto.randomUUID(),
+      playerId: "p1",
+      now: Date.now(),
+      cmdsTtlSec: 3600,
+      presenceStaleMs: 10_000,
+      gameTtlSec: 600,
+    });
+
+    expect("state" in result).toBe(true);
+    for (const key of [KEYS.stateKey, KEYS.seqKey, KEYS.bagKey]) {
+      const ttl = await redis.pTTL(key);
+      expect(ttl).toBeGreaterThan(0);
+      expect(ttl).toBeLessThanOrEqual(600_000);
+    }
+  });
+
   it("is idempotent when retried with the same commandId", async () => {
     const now = Date.now();
     await seed(makeState({ turnPlayerId: "p1", turnDeadline: now + 30_000 }));
@@ -372,6 +404,7 @@ describe("applyTurnTile", () => {
       playerId: "p1",
       now,
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
       presenceStaleMs: 10_000,
     });
     const second = await applyTurnTile(redis, {
@@ -380,6 +413,7 @@ describe("applyTurnTile", () => {
       playerId: "p1",
       now: now + 5000,
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
       presenceStaleMs: 10_000,
     });
 
@@ -396,6 +430,7 @@ describe("applyTurnTile", () => {
       playerId: "p1",
       now,
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
       presenceStaleMs: 10_000,
     });
 
@@ -412,6 +447,7 @@ describe("applyTurnTile", () => {
       playerId: "p1",
       now,
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
       presenceStaleMs: 10_000,
     });
 
@@ -428,6 +464,7 @@ describe("applyTurnTile", () => {
       playerId: "p1",
       now,
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
       presenceStaleMs: 10_000,
     });
 
@@ -457,6 +494,7 @@ describe("applyTurnTile", () => {
         playerId: "p2",
         now,
         cmdsTtlSec: 3600,
+        gameTtlSec: 3600,
         presenceStaleMs: 10_000,
       }),
       applyTurnTile(redis, {
@@ -465,6 +503,7 @@ describe("applyTurnTile", () => {
         playerId: "p3",
         now,
         cmdsTtlSec: 3600,
+        gameTtlSec: 3600,
         presenceStaleMs: 10_000,
       }),
     ]);
@@ -505,6 +544,7 @@ describe("applyTurnTile", () => {
         playerId: "turn-timer-sweep",
         now,
         cmdsTtlSec: 3600,
+        gameTtlSec: 3600,
         presenceStaleMs: 10_000,
       }),
       applyTurnTile(redis, {
@@ -513,6 +553,7 @@ describe("applyTurnTile", () => {
         playerId: "turn-timer-sweep",
         now,
         cmdsTtlSec: 3600,
+        gameTtlSec: 3600,
         presenceStaleMs: 10_000,
       }),
     ]);

@@ -15,6 +15,7 @@ const KEYS: ApplyEndGameKeys = {
   stateKey: `game:{${GAME_ID}}:state`,
   seqKey: `game:{${GAME_ID}}:seq`,
   cmdsKey: `game:{${GAME_ID}}:recentCmds`,
+  bagKey: `game:{${GAME_ID}}:bag`,
 };
 
 function makeState(overrides: Partial<GameState> = {}): GameState {
@@ -64,6 +65,7 @@ describe("applyEndGame", () => {
       commandId: crypto.randomUUID(),
       now: Date.now(),
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
     });
 
     expect(result).toEqual({ error: "GameNotFound" });
@@ -77,6 +79,7 @@ describe("applyEndGame", () => {
       commandId: crypto.randomUUID(),
       now: Date.now(),
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
     });
 
     expect(result).toEqual({ error: "GameNotStarted" });
@@ -90,6 +93,7 @@ describe("applyEndGame", () => {
       commandId: crypto.randomUUID(),
       now: Date.now(),
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
     });
 
     expect(result).toEqual({ error: "GameNotIdle" });
@@ -104,6 +108,7 @@ describe("applyEndGame", () => {
       commandId: crypto.randomUUID(),
       now,
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
     });
 
     expect(result).toEqual({ error: "GameNotIdle" });
@@ -118,6 +123,7 @@ describe("applyEndGame", () => {
       commandId: crypto.randomUUID(),
       now,
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
     });
 
     expect(result).toMatchObject({ state: { status: "ended", seq: 1 } });
@@ -132,6 +138,7 @@ describe("applyEndGame", () => {
       commandId: crypto.randomUUID(),
       now,
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
     });
 
     expect(result).toMatchObject({ state: { status: "ended", seq: 3 } });
@@ -143,7 +150,7 @@ describe("applyEndGame", () => {
     const now = Date.now();
     await seed(makeState());
     const call = (commandId: string, at: number) =>
-      applyEndGame(redis, { ...KEYS, commandId, now: at, cmdsTtlSec: 1 });
+      applyEndGame(redis, { ...KEYS, commandId, now: at, cmdsTtlSec: 1, gameTtlSec: 3600 });
     const oldest = crypto.randomUUID();
 
     await call(oldest, now);
@@ -155,17 +162,43 @@ describe("applyEndGame", () => {
     expect(await redis.zCard(KEYS.cmdsKey)).toBe(2);
   });
 
+  it("refreshes the game's TTL on its state, seq and bag keys together (anagrabble#58)", async () => {
+    await seed(makeState({ endGameDeadline: Date.now() - 1 }));
+    await redis.rPush(KEYS.bagKey, ["X"]);
+    const result = await applyEndGame(redis, {
+      ...KEYS,
+      commandId: crypto.randomUUID(),
+      now: Date.now(),
+      cmdsTtlSec: 3600,
+      gameTtlSec: 600,
+    });
+
+    expect("state" in result).toBe(true);
+    for (const key of [KEYS.stateKey, KEYS.seqKey, KEYS.bagKey]) {
+      const ttl = await redis.pTTL(key);
+      expect(ttl).toBeGreaterThan(0);
+      expect(ttl).toBeLessThanOrEqual(600_000);
+    }
+  });
+
   it("is idempotent when retried with the same commandId", async () => {
     const now = Date.now();
     await seed(makeState({ endGameDeadline: now - 1 }));
     const commandId = crypto.randomUUID();
 
-    const first = await applyEndGame(redis, { ...KEYS, commandId, now, cmdsTtlSec: 3600 });
+    const first = await applyEndGame(redis, {
+      ...KEYS,
+      commandId,
+      now,
+      cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
+    });
     const second = await applyEndGame(redis, {
       ...KEYS,
       commandId,
       now: now + 5000,
       cmdsTtlSec: 3600,
+      gameTtlSec: 3600,
     });
 
     expect(second).toEqual(first);
@@ -181,8 +214,20 @@ describe("applyEndGame", () => {
     await seed(makeState({ endGameDeadline: now - 1 }));
 
     const [a, b] = await Promise.all([
-      applyEndGame(redis, { ...KEYS, commandId: crypto.randomUUID(), now, cmdsTtlSec: 3600 }),
-      applyEndGame(redis, { ...KEYS, commandId: crypto.randomUUID(), now, cmdsTtlSec: 3600 }),
+      applyEndGame(redis, {
+        ...KEYS,
+        commandId: crypto.randomUUID(),
+        now,
+        cmdsTtlSec: 3600,
+        gameTtlSec: 3600,
+      }),
+      applyEndGame(redis, {
+        ...KEYS,
+        commandId: crypto.randomUUID(),
+        now,
+        cmdsTtlSec: 3600,
+        gameTtlSec: 3600,
+      }),
     ]);
 
     expect("error" in a).toBe(false);

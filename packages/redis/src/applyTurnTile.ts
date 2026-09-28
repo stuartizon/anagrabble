@@ -22,6 +22,9 @@ export interface ApplyTurnTileArgs extends ApplyTurnTileKeys {
    * duplicated as a Lua literal, since Redis's sandboxed Lua can't read a
    * config file or env var itself. */
   presenceStaleMs: number;
+  /** How long the game's keys live after this mutation — apps/server's
+   * GAME_TTL_SEC (anagrabble#58). */
+  gameTtlSec: number;
 }
 
 export type ApplyTurnTileError = "GameNotFound" | "GameNotStarted" | "NotYourTurn";
@@ -42,6 +45,7 @@ export async function applyTurnTile(
       String(args.now),
       String(args.cmdsTtlSec),
       String(args.presenceStaleMs),
+      String(args.gameTtlSec),
     ],
   })) as string;
 

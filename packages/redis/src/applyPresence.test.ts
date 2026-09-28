@@ -83,6 +83,20 @@ describe("applyPresence", () => {
     });
   });
 
+  it("keeps the state key's existing TTL rather than clearing it (anagrabble#58)", async () => {
+    // A plain SET drops a key's TTL. A heartbeat isn't a move, so it
+    // shouldn't extend the game's life either: it keeps whatever TTL the
+    // last real mutation set, in step with the game's seq and bag keys.
+    await seed(makeState());
+    await redis.expire(STATE_KEY, 600);
+
+    await applyPresence(redis, { stateKey: STATE_KEY, playerId: "p1", lastSeenAt: Date.now() });
+
+    const ttl = await redis.pTTL(STATE_KEY);
+    expect(ttl).toBeGreaterThan(0);
+    expect(ttl).toBeLessThanOrEqual(600_000);
+  });
+
   it("can mark a player stale immediately (the on-close path)", async () => {
     await seed(
       makeState({

@@ -639,9 +639,14 @@ same past score, so an abandoned game (everyone gone, bank not empty)
 was swept every second, on every instance, indefinitely. Each call wrote
 a fresh `commandId` into the game's `cmds` set, and because `EXPIRE` was
 refreshed on every call, the set never expired (anagrabble#56). In
-production, 27 such games grew to ~111 MB of `cmds` sets, triggered an
-RDB save every minute with nobody playing, and during a disk-full
-`MISCONF` window reported ~11k Sentry errors (anagrabble#57).
+production, 27 such games grew these sets by ~100 MB a day, triggering an
+RDB save every minute with nobody playing. Every 2–3 days the dump grew
+too large to save on the 500 MB volume (a save briefly needs room for two
+copies), and Redis went `MISCONF`, rejecting all writes. That also blocked
+the sweep's `EXPIRE` refresh, so exactly an hour later every set expired
+at once, memory dropped to nearly zero, saves succeeded again, and the
+cycle restarted. Each of those hour-long windows reported errors for
+every stuck game, ~11k Sentry events in all (anagrabble#57).
 
 **Fix**: `computeSweepDueAt` returns `null` (untrack) while nobody in the
 game is reachable. Something has to put the game back once someone
